@@ -1,0 +1,111 @@
+import { useEffect, useMemo, useState } from 'react';
+import { FlatList, StyleSheet, Text, View } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
+import type { NativeStackScreenProps } from '@react-navigation/native-stack';
+import { supabase } from '../lib/supabase';
+import type { Notice, RootStackParamList } from '../lib/types';
+import { CHIP_TOPICS, COLORS, FONT, SPACING } from '../lib/constants';
+import { isPostedToday, metaOf, sortNotices } from '../lib/format';
+import { CategoryChips } from '../components/CategoryChips';
+import { NoticeCard } from '../components/NoticeCard';
+
+type Props = NativeStackScreenProps<RootStackParamList, 'Inbox'>;
+
+export default function InboxScreen({ navigation }: Props) {
+  const [notices, setNotices] = useState<Notice[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+  const [selected, setSelected] = useState<string>('전체');
+
+  useEffect(() => {
+    let active = true;
+    (async () => {
+      const { data, error } = await supabase
+        .from('notices')
+        .select('*, notice_meta(*), sources(parser_key, name)')
+        .order('posted_at', { ascending: false })
+        .limit(100);
+      if (!active) return;
+      if (error) {
+        setError(error.message);
+        setLoading(false);
+        return;
+      }
+      setNotices(sortNotices((data ?? []) as Notice[]));
+      setLoading(false);
+    })();
+    return () => {
+      active = false;
+    };
+  }, []);
+
+  const newTodayCount = useMemo(
+    () => notices.filter((n) => isPostedToday(n.posted_at)).length,
+    [notices]
+  );
+
+  const filtered = useMemo(
+    () =>
+      selected === '전체'
+        ? notices
+        : notices.filter((n) => metaOf(n)?.topic === selected),
+    [notices, selected]
+  );
+
+  if (loading) return <Centered>Loading...</Centered>;
+  if (error) return <Centered>Error: {error}</Centered>;
+
+  return (
+    <SafeAreaView style={styles.container} edges={['top']}>
+      <View style={styles.header}>
+        <Text style={styles.title}>전체 공지</Text>
+        {newTodayCount > 0 ? (
+          <Text style={styles.subtitle}>새로운 공지 {newTodayCount}건</Text>
+        ) : null}
+      </View>
+
+      <FlatList
+        data={filtered}
+        keyExtractor={(item) => item.id}
+        ListHeaderComponent={
+          <CategoryChips topics={CHIP_TOPICS} selected={selected} onSelect={setSelected} />
+        }
+        stickyHeaderIndices={[0]}
+        renderItem={({ item }) => (
+          <NoticeCard notice={item} onPress={() => navigation.navigate('Detail', { notice: item })} />
+        )}
+        ListEmptyComponent={
+          <Text style={styles.empty}>해당 카테고리 공지가 없습니다</Text>
+        }
+        contentContainerStyle={styles.listContent}
+      />
+    </SafeAreaView>
+  );
+}
+
+function Centered({ children }: { children: React.ReactNode }) {
+  return (
+    <SafeAreaView style={[styles.container, styles.centered]}>
+      <Text style={{ color: COLORS.textDim }}>{children}</Text>
+    </SafeAreaView>
+  );
+}
+
+const styles = StyleSheet.create({
+  container: { flex: 1, backgroundColor: COLORS.bg },
+  centered: { alignItems: 'center', justifyContent: 'center' },
+  header: {
+    paddingHorizontal: SPACING.lg,
+    paddingTop: SPACING.sm,
+    paddingBottom: SPACING.sm,
+  },
+  title: { fontSize: FONT.header, fontWeight: '700', color: COLORS.text },
+  subtitle: { fontSize: FONT.meta, color: COLORS.textDim, marginTop: SPACING.xs },
+  listContent: { paddingBottom: SPACING.xl },
+  empty: {
+    textAlign: 'center',
+    color: COLORS.textDim,
+    fontSize: FONT.body,
+    marginTop: SPACING.xl,
+  },
+});
