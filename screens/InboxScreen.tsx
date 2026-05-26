@@ -1,10 +1,11 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useState, type ReactNode } from 'react';
 import { FlatList, StyleSheet, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import type { NativeStackScreenProps } from '@react-navigation/native-stack';
 import { supabase } from '../lib/supabase';
 import type { Notice, RootStackParamList } from '../lib/types';
-import { CHIP_TOPICS, COLORS, FONT, SPACING } from '../lib/constants';
+import { CHIP_TOPICS } from '../lib/constants';
+import { COLORS, FONT, SPACING, WEIGHT } from '../lib/theme';
 import { isPostedToday, metaOf, sortNotices } from '../lib/format';
 import { CategoryChips } from '../components/CategoryChips';
 import { NoticeCard } from '../components/NoticeCard';
@@ -45,10 +46,7 @@ export default function InboxScreen({ navigation }: Props) {
   );
 
   const filtered = useMemo(
-    () =>
-      selected === '전체'
-        ? notices
-        : notices.filter((n) => metaOf(n)?.topic === selected),
+    () => (selected === '전체' ? notices : notices.filter((n) => metaOf(n)?.topic === selected)),
     [notices, selected]
   );
 
@@ -72,21 +70,22 @@ export default function InboxScreen({ navigation }: Props) {
         }
         stickyHeaderIndices={[0]}
         renderItem={({ item }) => (
-          <NoticeCard notice={item} onPress={() => navigation.navigate('Detail', { notice: item })} />
+          <NoticeCard
+            notice={item}
+            onPress={() => navigation.navigate('Detail', { notice: item })}
+          />
         )}
-        ListEmptyComponent={
-          <Text style={styles.empty}>해당 카테고리 공지가 없습니다</Text>
-        }
+        ListEmptyComponent={<Text style={styles.empty}>해당 카테고리 공지가 없습니다</Text>}
         contentContainerStyle={styles.listContent}
       />
     </SafeAreaView>
   );
 }
 
-function Centered({ children }: { children: React.ReactNode }) {
+function Centered({ children }: { children: ReactNode }) {
   return (
     <SafeAreaView style={[styles.container, styles.centered]}>
-      <Text style={{ color: COLORS.textDim }}>{children}</Text>
+      <Text style={{ color: COLORS.textSecondary }}>{children}</Text>
     </SafeAreaView>
   );
 }
@@ -99,12 +98,12 @@ const styles = StyleSheet.create({
     paddingTop: SPACING.sm,
     paddingBottom: SPACING.sm,
   },
-  title: { fontSize: FONT.header, fontWeight: '700', color: COLORS.text },
-  subtitle: { fontSize: FONT.meta, color: COLORS.textDim, marginTop: SPACING.xs },
+  title: { fontSize: FONT.display, fontWeight: WEIGHT.bold, color: COLORS.text },
+  subtitle: { fontSize: FONT.caption, color: COLORS.textSecondary, marginTop: SPACING.xs },
   listContent: { paddingBottom: SPACING.xl },
   empty: {
     textAlign: 'center',
-    color: COLORS.textDim,
+    color: COLORS.textSecondary,
     fontSize: FONT.body,
     marginTop: SPACING.xl,
   },

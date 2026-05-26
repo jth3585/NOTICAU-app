@@ -1,8 +1,8 @@
 import { ScrollView, StyleSheet, Text, TouchableOpacity } from 'react-native';
-import { COLORS, FONT, RADIUS, SPACING } from '../lib/constants';
+import { COLORS, FONT, RADIUS, SPACING, WEIGHT } from '../lib/theme';
 
-// 가로 스크롤 단일선택 칩. 선택=filled, 비선택=outlined.
-// InboxScreen에서 FlatList의 sticky ListHeaderComponent로 사용 → 배경 불투명 필요.
+// 가로 스크롤 단일선택 칩 (pill). 선택=filled, 비선택=outlined.
+// InboxScreen에서 FlatList sticky ListHeaderComponent → 배경 불투명 필요.
 export function CategoryChips({
   topics,
   selected,
@@ -39,35 +39,21 @@ export function CategoryChips({
 }
 
 const styles = StyleSheet.create({
-  row: {
-    backgroundColor: COLORS.bg, // sticky 시 뒤 콘텐츠 비침 방지
-  },
+  row: { backgroundColor: COLORS.bg },
   content: {
     paddingHorizontal: SPACING.lg,
     paddingVertical: SPACING.sm,
     gap: SPACING.sm,
   },
   chip: {
-    borderRadius: RADIUS.badge,
+    borderRadius: RADIUS.pill,
     paddingHorizontal: SPACING.md,
     paddingVertical: SPACING.xs + 2,
     borderWidth: 1,
   },
-  chipActive: {
-    backgroundColor: COLORS.text,
-    borderColor: COLORS.text,
-  },
-  chipInactive: {
-    backgroundColor: 'transparent',
-    borderColor: COLORS.badgeBg,
-  },
-  label: {
-    fontSize: FONT.meta,
-  },
-  labelActive: {
-    color: COLORS.bg,
-  },
-  labelInactive: {
-    color: COLORS.textDim,
-  },
+  chipActive: { backgroundColor: COLORS.text, borderColor: COLORS.text },
+  chipInactive: { backgroundColor: 'transparent', borderColor: COLORS.border },
+  label: { fontSize: FONT.caption, fontWeight: WEIGHT.semibold },
+  labelActive: { color: COLORS.bg },
+  labelInactive: { color: COLORS.textSecondary },
 });

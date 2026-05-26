@@ -1,8 +1,9 @@
 import { StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import type { Notice } from '../lib/types';
-import { COLORS, FONT, RADIUS, SPACING, sourceLabel } from '../lib/constants';
+import { COLORS, FONT, RADIUS, SPACING, WEIGHT } from '../lib/theme';
 import { formatDateShort, formatDday, metaOf, sourceOf } from '../lib/format';
-import { Badge } from './Badge';
+import { CategoryBadge } from './ui/CategoryBadge';
+import { SourceBadge } from './ui/SourceBadge';
 
 export function NoticeCard({ notice, onPress }: { notice: Notice; onPress: () => void }) {
   const meta = metaOf(notice);
@@ -11,18 +12,17 @@ export function NoticeCard({ notice, onPress }: { notice: Notice; onPress: () =>
   const dday = formatDday(meta?.deadline_at ?? null);
   const postedMD = formatDateShort(notice.posted_at);
 
-  // 하단 줄 색: 마감 임박/지남 표시
   const ddayColor = dday?.overdue
-    ? COLORS.accentDim
+    ? COLORS.textTertiary
     : dday?.urgent
-      ? COLORS.accent
-      : COLORS.textDim;
+      ? COLORS.danger
+      : COLORS.textSecondary;
 
   return (
     <TouchableOpacity onPress={onPress} activeOpacity={0.6} style={styles.card}>
       <View style={styles.topRow}>
-        {topic ? <Badge label={topic} /> : <View />}
-        {src?.parser_key ? <Badge label={sourceLabel(src.parser_key)} variant="source" /> : null}
+        {topic ? <CategoryBadge topic={topic} /> : <View />}
+        <SourceBadge parserKey={src?.parser_key ?? null} />
       </View>
 
       <Text style={styles.title} numberOfLines={2}>
@@ -45,7 +45,7 @@ export function NoticeCard({ notice, onPress }: { notice: Notice; onPress: () =>
 
 const styles = StyleSheet.create({
   card: {
-    backgroundColor: COLORS.card,
+    backgroundColor: COLORS.surface,
     borderRadius: RADIUS.card,
     padding: SPACING.lg,
     marginHorizontal: SPACING.lg,
@@ -58,20 +58,12 @@ const styles = StyleSheet.create({
     marginBottom: SPACING.sm,
   },
   title: {
-    fontSize: FONT.cardTitle,
+    fontSize: FONT.subtitle,
     color: COLORS.text,
-    fontWeight: '600',
+    fontWeight: WEIGHT.semibold,
     marginBottom: SPACING.sm,
   },
-  bottom: {
-    fontSize: FONT.meta,
-  },
-  dday: {
-    fontSize: FONT.meta,
-    fontWeight: '600',
-  },
-  dim: {
-    fontSize: FONT.meta,
-    color: COLORS.textDim,
-  },
+  bottom: { fontSize: FONT.caption },
+  dday: { fontSize: FONT.caption, fontWeight: WEIGHT.semibold },
+  dim: { fontSize: FONT.caption, color: COLORS.textSecondary },
 });
