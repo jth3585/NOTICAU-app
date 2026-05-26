@@ -16,6 +16,8 @@ export type NoticeMeta = {
   // 2026-05 추가 (이 화면에선 미사용, 다음 세션 마이페이지에서 사용)
   target_enrollment_status: EnrollmentStatus[] | null;
   targets_freshmen: boolean;
+  // LLM이 재구성한 모바일용 마크다운. null이면 body_text 폴백.
+  body_markdown: string | null;
 };
 
 export type Source = {

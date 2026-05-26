@@ -10,6 +10,7 @@ import {
   View,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
+import Markdown from 'react-native-markdown-display';
 import type { NativeStackScreenProps } from '@react-navigation/native-stack';
 import type { RootStackParamList } from '../lib/types';
 import { COLORS, FONT, RADIUS, SPACING, sourceLabel } from '../lib/constants';
@@ -29,6 +30,7 @@ export default function NoticeDetailScreen({ route, navigation }: Props) {
   const dl = formatDeadlineDetail(meta?.deadline_at ?? null);
   const imgWidth = width - SPACING.lg * 2;
 
+  const md = meta?.body_markdown ?? null;
   const body = notice.body_text ?? '';
   const hasBody = body.trim().length >= BODY_MIN;
   const images = notice.body_image_urls ?? [];
@@ -76,7 +78,11 @@ export default function NoticeDetailScreen({ route, navigation }: Props) {
           </View>
         ) : null}
 
-        {hasBody ? (
+        {md ? (
+          <View style={styles.mdWrap}>
+            <Markdown style={mdStyles}>{md}</Markdown>
+          </View>
+        ) : hasBody ? (
           <Text style={styles.body}>{body}</Text>
         ) : (
           <TouchableOpacity onPress={() => open(notice.source_url)} style={styles.linkBtn}>
@@ -156,6 +162,7 @@ const styles = StyleSheet.create({
     lineHeight: 22,
     marginTop: SPACING.lg,
   },
+  mdWrap: { marginTop: SPACING.lg },
   linkBtn: { marginTop: SPACING.lg, paddingVertical: SPACING.sm },
   linkBtnText: { fontSize: FONT.body, color: COLORS.text, fontWeight: '600' },
   attachWrap: { marginTop: SPACING.xl },
@@ -174,4 +181,19 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   sourceBtnText: { fontSize: FONT.body, color: COLORS.text, fontWeight: '600' },
+});
+
+// react-native-markdown-display 룰 스타일 (디자인 토큰 적용)
+const mdStyles = StyleSheet.create({
+  body: { color: COLORS.text, fontSize: FONT.body, lineHeight: 22 },
+  heading1: { fontSize: 18, fontWeight: '700', color: COLORS.text, marginTop: SPACING.lg, marginBottom: SPACING.sm },
+  heading2: { fontSize: 16, fontWeight: '700', color: COLORS.text, marginTop: SPACING.lg, marginBottom: SPACING.xs },
+  heading3: { fontSize: FONT.body, fontWeight: '700', color: COLORS.text, marginTop: SPACING.md, marginBottom: SPACING.xs },
+  strong: { fontWeight: '700' },
+  bullet_list: { marginLeft: SPACING.lg }, // 들여쓰기 16
+  ordered_list: { marginLeft: SPACING.lg },
+  link: { color: COLORS.accent }, // #FF3B30
+  table: { borderWidth: 1, borderColor: COLORS.badgeBg, borderRadius: 6, marginVertical: SPACING.sm },
+  th: { padding: 6, borderColor: COLORS.badgeBg, borderWidth: StyleSheet.hairlineWidth, fontWeight: '700' },
+  td: { padding: 6, borderColor: COLORS.badgeBg, borderWidth: StyleSheet.hairlineWidth },
 });
