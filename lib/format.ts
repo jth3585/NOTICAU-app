@@ -93,8 +93,14 @@ export function formatDeadlineDetail(deadlineAt: string | null): DeadlineDetail 
   };
 }
 
-// 정렬: deadline_at(asc, NULLS LAST) → posted_at(desc). 안정 정렬.
-export function sortNotices(rows: Notice[]): Notice[] {
+export type SortMode = 'deadline' | 'posted';
+
+// 정렬. 'deadline': deadline_at(asc, NULLS LAST) → posted_at(desc).
+//      'posted': posted_at(desc)만. 둘 다 안정 정렬.
+export function sortNotices(rows: Notice[], mode: SortMode = 'deadline'): Notice[] {
+  if (mode === 'posted') {
+    return [...rows].sort((a, b) => (b.posted_at ?? '').localeCompare(a.posted_at ?? ''));
+  }
   return [...rows].sort((a, b) => {
     const da = metaOf(a)?.deadline_at ?? null;
     const db = metaOf(b)?.deadline_at ?? null;

@@ -6,8 +6,9 @@ import { supabase } from '../lib/supabase';
 import type { Notice, RootStackParamList } from '../lib/types';
 import { CHIP_TOPICS } from '../lib/constants';
 import { COLORS, FONT, SPACING, WEIGHT } from '../lib/theme';
-import { isPostedToday, metaOf, sortNotices } from '../lib/format';
+import { isPostedToday, metaOf, sortNotices, type SortMode } from '../lib/format';
 import { CategoryChips } from '../components/CategoryChips';
+import { SortToggle } from '../components/ui/SortToggle';
 import { NoticeCard } from '../components/NoticeCard';
 
 type Props = NativeStackScreenProps<RootStackParamList, 'Inbox'>;
@@ -17,6 +18,7 @@ export default function InboxScreen({ navigation }: Props) {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [selected, setSelected] = useState<string>('전체');
+  const [sortMode, setSortMode] = useState<SortMode>('deadline');
 
   useEffect(() => {
     let active = true;
@@ -32,7 +34,7 @@ export default function InboxScreen({ navigation }: Props) {
         setLoading(false);
         return;
       }
-      setNotices(sortNotices((data ?? []) as Notice[]));
+      setNotices((data ?? []) as Notice[]);
       setLoading(false);
     })();
     return () => {
@@ -45,10 +47,10 @@ export default function InboxScreen({ navigation }: Props) {
     [notices]
   );
 
-  const filtered = useMemo(
-    () => (selected === '전체' ? notices : notices.filter((n) => metaOf(n)?.topic === selected)),
-    [notices, selected]
-  );
+  const visible = useMemo(() => {
+    const f = selected === '전체' ? notices : notices.filter((n) => metaOf(n)?.topic === selected);
+    return sortNotices(f, sortMode);
+  }, [notices, selected, sortMode]);
 
   if (loading) return <Centered>Loading...</Centered>;
   if (error) return <Centered>Error: {error}</Centered>;
@@ -63,10 +65,13 @@ export default function InboxScreen({ navigation }: Props) {
       </View>
 
       <FlatList
-        data={filtered}
+        data={visible}
         keyExtractor={(item) => item.id}
         ListHeaderComponent={
-          <CategoryChips topics={CHIP_TOPICS} selected={selected} onSelect={setSelected} />
+          <View style={styles.listHeader}>
+            <SortToggle mode={sortMode} onChange={setSortMode} />
+            <CategoryChips topics={CHIP_TOPICS} selected={selected} onSelect={setSelected} />
+          </View>
         }
         stickyHeaderIndices={[0]}
         renderItem={({ item }) => (
@@ -100,6 +105,7 @@ const styles = StyleSheet.create({
   },
   title: { fontSize: FONT.display, fontWeight: WEIGHT.bold, color: COLORS.text },
   subtitle: { fontSize: FONT.caption, color: COLORS.textSecondary, marginTop: SPACING.xs },
+  listHeader: { backgroundColor: COLORS.bg },
   listContent: { paddingBottom: SPACING.xl },
   empty: {
     textAlign: 'center',

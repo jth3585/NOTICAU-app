@@ -126,11 +126,17 @@ function BodyBlock({
     return (
       <View style={styles.bodyWrap}>
         {summary ? (
-          <InfoBox tone="accent">
-            <Markdown style={mdStyles}>{summary}</Markdown>
+          <InfoBox tone="gradient">
+            <Markdown style={mdStyles} rules={mdRules}>
+              {summary}
+            </Markdown>
           </InfoBox>
         ) : null}
-        {rest ? <Markdown style={mdStyles}>{rest}</Markdown> : null}
+        {rest ? (
+          <Markdown style={mdStyles} rules={mdRules}>
+            {rest}
+          </Markdown>
+        ) : null}
       </View>
     );
   }
@@ -194,57 +200,36 @@ const styles = StyleSheet.create({
   sourceBtnText: { fontSize: FONT.body, color: COLORS.accentText, fontWeight: WEIGHT.semibold },
 });
 
+// 본문 텍스트 노드를 selectable로 (복사 가능).
+// heading/paragraph 크기 보존 위해 라이브러리가 넘겨주는 styles.text만 사용.
+const mdRules = {
+  text: (node: any, _children: any, _parent: any, styles: any) => (
+    <Text key={node.key} selectable style={styles.text}>
+      {node.content}
+    </Text>
+  ),
+};
+
 // react-native-markdown-display 룰 스타일 (디자인 토큰)
 // 마크다운 ## = heading2, ### = heading3.
 const mdStyles = StyleSheet.create({
   body: { color: COLORS.text, fontSize: FONT.body, lineHeight: 22 },
-  heading1: {
-    fontSize: FONT.title,
-    fontWeight: WEIGHT.bold,
-    color: COLORS.text,
-    marginTop: SPACING.xl,
-    marginBottom: SPACING.sm,
-  },
-  heading2: {
-    // 그 외 ## → SectionHeader level 1
-    fontSize: FONT.title,
-    fontWeight: WEIGHT.bold,
-    color: COLORS.text,
-    marginTop: SPACING.xxl,
-    marginBottom: SPACING.md,
-  },
-  heading3: {
-    // ### → SectionHeader level 2
-    fontSize: FONT.subtitle,
-    fontWeight: WEIGHT.bold,
-    color: COLORS.text,
-    marginTop: SPACING.lg,
-    marginBottom: SPACING.sm,
-  },
-  paragraph: {
-    marginTop: 0,
-    marginBottom: SPACING.md,
-    fontSize: FONT.body,
-    lineHeight: 22,
-    color: COLORS.text,
-  },
+  heading1: { fontSize: FONT.title, fontWeight: WEIGHT.bold, color: COLORS.text, marginTop: SPACING.xl, marginBottom: SPACING.sm },
+  // 그 외 ## → SectionHeader level 1
+  heading2: { fontSize: FONT.title, fontWeight: WEIGHT.bold, color: COLORS.text, marginTop: SPACING.xxl, marginBottom: SPACING.md },
+  // ### → SectionHeader level 2
+  heading3: { fontSize: FONT.subtitle, fontWeight: WEIGHT.bold, color: COLORS.text, marginTop: SPACING.lg, marginBottom: SPACING.sm },
+  paragraph: { marginTop: 0, marginBottom: SPACING.md, fontSize: FONT.body, lineHeight: 22, color: COLORS.text },
   strong: { fontWeight: WEIGHT.bold, color: COLORS.text },
-  bullet_list: { marginLeft: SPACING.lg },
-  ordered_list: { marginLeft: SPACING.lg },
-  bullet_list_icon: { color: COLORS.textSecondary },
-  ordered_list_icon: { color: COLORS.textSecondary },
+  // 들여쓰기 축소 (한국어 가독성)
+  bullet_list: { marginLeft: SPACING.sm },
+  ordered_list: { marginLeft: SPACING.sm },
+  bullet_list_icon: { color: COLORS.textSecondary, marginRight: 6 },
+  ordered_list_icon: { color: COLORS.textSecondary, marginRight: 6 },
   link: { color: COLORS.accentText },
-  table: {
-    borderWidth: 1,
-    borderColor: COLORS.border,
-    borderRadius: RADIUS.box,
-    marginVertical: SPACING.sm,
-  },
-  th: {
-    padding: 6,
-    borderColor: COLORS.border,
-    borderWidth: StyleSheet.hairlineWidth,
-    fontWeight: WEIGHT.bold,
-  },
-  td: { padding: 6, borderColor: COLORS.border, borderWidth: StyleSheet.hairlineWidth },
+  // 표: overflow hidden으로 외곽 radius 안에 셀 클리핑 → 마지막 행 테두리 중복 해소
+  table: { borderWidth: 1, borderColor: COLORS.border, borderRadius: RADIUS.box, marginVertical: SPACING.sm, overflow: 'hidden' },
+  thead: { backgroundColor: COLORS.surface },
+  th: { padding: 8, fontWeight: WEIGHT.bold, borderRightWidth: StyleSheet.hairlineWidth, borderRightColor: COLORS.border, borderBottomWidth: StyleSheet.hairlineWidth, borderBottomColor: COLORS.border },
+  td: { padding: 8, borderRightWidth: StyleSheet.hairlineWidth, borderRightColor: COLORS.border, borderBottomWidth: StyleSheet.hairlineWidth, borderBottomColor: COLORS.border },
 });
