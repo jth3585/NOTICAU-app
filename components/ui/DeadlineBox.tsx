@@ -1,24 +1,35 @@
 import { StyleSheet, Text } from 'react-native';
-import { COLORS, FONT, WEIGHT } from '../../lib/theme';
-import { formatDeadlineDetail } from '../../lib/format';
-import { InfoBox } from './InfoBox';
+import { COLORS, FONT, SPACING, WEIGHT } from '../../lib/theme';
+import { formatDateShort, formatDeadlineDetail } from '../../lib/format';
 
-// deadlineAt(ISO) → "마감 D-N HH:MM까지" + "YYYY-MM-DD HH:MM". 없으면 null.
+// 한 줄 인라인. 색 위계:
+//   overdue → textTertiary "마감됨 · M/D"
+//   urgent(<=3d) → danger
+//   여유(4d+) → textSecondary (덜 강조 — 페이지 지배 안 함)
 export function DeadlineBox({ deadlineAt }: { deadlineAt: string | null }) {
   const dl = formatDeadlineDetail(deadlineAt);
   if (!dl) return null;
-  const main = dl.dday.overdue
-    ? '마감됨'
-    : `마감 ${dl.dday.label}${dl.time ? ` ${dl.time}까지` : ''}`;
-  return (
-    <InfoBox tone="danger">
-      <Text style={styles.main}>{main}</Text>
-      <Text style={styles.abs}>{dl.abs}</Text>
-    </InfoBox>
-  );
+
+  const mdShort = formatDateShort(deadlineAt);
+  const timeStr = dl.time ?? '';
+
+  let text: string;
+  let color: string;
+  if (dl.dday.overdue) {
+    text = `🕒 마감됨 · ${mdShort}${timeStr ? ` ${timeStr}` : ''}`;
+    color = COLORS.textTertiary;
+  } else {
+    text = `🕒 마감 ${dl.dday.label} · ${mdShort}${timeStr ? ` ${timeStr}까지` : ''}`;
+    color = dl.dday.urgent ? COLORS.danger : COLORS.textSecondary;
+  }
+
+  return <Text style={[styles.text, { color }]}>{text}</Text>;
 }
 
 const styles = StyleSheet.create({
-  main: { fontSize: FONT.subtitle, fontWeight: WEIGHT.bold, color: COLORS.danger },
-  abs: { fontSize: FONT.caption, color: COLORS.textSecondary, marginTop: 2 },
+  text: {
+    fontSize: FONT.body,
+    fontWeight: WEIGHT.semibold,
+    marginVertical: SPACING.sm,
+  },
 });

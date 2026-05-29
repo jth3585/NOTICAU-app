@@ -2,6 +2,7 @@ import { useState } from 'react';
 import {
   Image,
   Linking,
+  Platform,
   ScrollView,
   StyleSheet,
   Text,
@@ -55,7 +56,14 @@ export default function NoticeDetailScreen({ route, navigation }: Props) {
       </View>
 
       <ScrollView contentContainerStyle={styles.content}>
-        <Text style={styles.title}>{notice.title}</Text>
+        <Text
+          style={styles.title}
+          {...(Platform.OS === 'ios'
+            ? { lineBreakStrategyIOS: 'hangul-word' as const }
+            : { android_hyphenationFrequency: 'none' as const })}
+        >
+          {notice.title}
+        </Text>
 
         <Text style={styles.metaLine}>
           {formatDateFull(notice.posted_at)}
@@ -127,7 +135,8 @@ function BodyBlock({
       <View style={styles.bodyWrap}>
         {summary ? (
           <InfoBox tone="gradient">
-            <Markdown style={mdStyles} rules={mdRules}>
+            <Text style={styles.summaryLabel}>✨ AI 요약</Text>
+            <Markdown style={mdStylesSummary} rules={mdRules}>
               {summary}
             </Markdown>
           </InfoBox>
@@ -183,10 +192,16 @@ const styles = StyleSheet.create({
     fontWeight: WEIGHT.bold,
     color: COLORS.text,
     marginTop: SPACING.sm,
-    lineHeight: 34,
+    lineHeight: 32,
   },
   metaLine: { fontSize: FONT.caption, color: COLORS.textSecondary, marginTop: SPACING.sm },
   bodyWrap: { marginTop: SPACING.lg },
+  summaryLabel: {
+    fontSize: FONT.caption,
+    fontWeight: WEIGHT.semibold,
+    color: COLORS.accentText,
+    marginBottom: SPACING.sm,
+  },
   body: { fontSize: FONT.body, color: COLORS.text, lineHeight: 22, marginTop: SPACING.lg },
   linkBtn: { marginTop: SPACING.lg, paddingVertical: SPACING.sm },
   linkBtnText: { fontSize: FONT.body, color: COLORS.accentText, fontWeight: WEIGHT.semibold },
@@ -201,13 +216,35 @@ const styles = StyleSheet.create({
 });
 
 // 본문 텍스트 노드를 selectable로 (복사 가능).
-// heading/paragraph 크기 보존 위해 라이브러리가 넘겨주는 styles.text만 사용.
+// 마지막 행 borderBottom 생략 → 표 외곽선과 중복 방지 (헤더 행은 항상 구분선).
 const mdRules = {
   text: (node: any, _children: any, _parent: any, styles: any) => (
     <Text key={node.key} selectable style={styles.text}>
       {node.content}
     </Text>
   ),
+  tr: (node: any, children: any, parent: any, styles: any) => {
+    const direct = parent?.[parent.length - 1];
+    const inThead = direct?.type === 'thead' || direct?.type === 'table_head';
+    const siblings: any[] = direct?.children ?? [];
+    const last = siblings[siblings.length - 1];
+    const isLast = !!last && last.key === node.key;
+    const showBottom = inThead || !isLast;
+    return (
+      <View
+        key={node.key}
+        style={[
+          styles.tr,
+          showBottom && {
+            borderBottomWidth: StyleSheet.hairlineWidth,
+            borderBottomColor: COLORS.border,
+          },
+        ]}
+      >
+        {children}
+      </View>
+    );
+  },
 };
 
 // react-native-markdown-display 룰 스타일 (디자인 토큰)
@@ -230,6 +267,15 @@ const mdStyles = StyleSheet.create({
   // 표: overflow hidden으로 외곽 radius 안에 셀 클리핑 → 마지막 행 테두리 중복 해소
   table: { borderWidth: 1, borderColor: COLORS.border, borderRadius: RADIUS.box, marginVertical: SPACING.sm, overflow: 'hidden' },
   thead: { backgroundColor: COLORS.surface },
-  th: { padding: 8, fontWeight: WEIGHT.bold, borderRightWidth: StyleSheet.hairlineWidth, borderRightColor: COLORS.border, borderBottomWidth: StyleSheet.hairlineWidth, borderBottomColor: COLORS.border },
-  td: { padding: 8, borderRightWidth: StyleSheet.hairlineWidth, borderRightColor: COLORS.border, borderBottomWidth: StyleSheet.hairlineWidth, borderBottomColor: COLORS.border },
+  th: { padding: 8, fontWeight: WEIGHT.bold, borderRightWidth: StyleSheet.hairlineWidth, borderRightColor: COLORS.border },
+  td: { padding: 8, borderRightWidth: StyleSheet.hairlineWidth, borderRightColor: COLORS.border },
+  // 가로 구분선은 mdRules.tr에서 마지막 행 제외하고 hairline 적용 (외곽선 중복 방지)
+  tr: { flexDirection: 'row' },
 });
+
+// AI 요약용 변형: 본문/문단을 subtitle(17)/lineHeight 25로 키움 — AI요약 > 본문 위계.
+const mdStylesSummary = {
+  ...mdStyles,
+  body: { color: COLORS.text, fontSize: FONT.subtitle, lineHeight: 25 },
+  paragraph: { marginTop: 0, marginBottom: SPACING.md, fontSize: FONT.subtitle, lineHeight: 25, color: COLORS.text },
+};
