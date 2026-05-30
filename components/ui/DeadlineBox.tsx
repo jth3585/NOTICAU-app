@@ -30,6 +30,7 @@ const styles = StyleSheet.create({
   text: {
     fontSize: FONT.body,
     fontWeight: WEIGHT.semibold,
+    lineHeight: 24, // 🕒 이모지 잘림 방지
     marginVertical: SPACING.sm,
   },
 });

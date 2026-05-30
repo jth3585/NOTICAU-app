@@ -36,9 +36,9 @@ export const COLORS = {
 } as const;
 
 export const FONT = {
-  display: 24, // 화면 큰 제목 (한국어 줄바꿈 자연스러움 위해 28→24)
-  title: 20, // 섹션 헤더, 카드 큰 제목
-  subtitle: 17, // AI 요약 본문 (본문 15보다 크게 — AI요약>본문 위계)
+  display: 24, // 화면 큰 제목
+  title: 22, // 섹션 헤더 (## 헤더 — 본문과 7px 격차)
+  subtitle: 17, // AI 요약 본문
   body: 15, // 일반 본문
   caption: 13, // 메타 정보, 라벨
   micro: 11, // 배지, 마이크로

@@ -219,8 +219,29 @@ const styles = StyleSheet.create({
 // 마지막 행 borderBottom 생략 → 표 외곽선과 중복 방지 (헤더 행은 항상 구분선).
 const mdRules = {
   text: (node: any, _children: any, _parent: any, styles: any) => (
-    <Text key={node.key} selectable style={styles.text}>
+    <Text key={node.key} selectable selectionColor={COLORS.accentSoft} style={styles.text}>
       {node.content}
+    </Text>
+  ),
+  // 부모 paragraph/heading도 selectable로 만들어야 단락 단위 선택이 동작 (RN 중첩 Text 규칙)
+  paragraph: (node: any, children: any, _parent: any, styles: any) => (
+    <Text key={node.key} selectable selectionColor={COLORS.accentSoft} style={styles.paragraph}>
+      {children}
+    </Text>
+  ),
+  heading1: (node: any, children: any, _parent: any, styles: any) => (
+    <Text key={node.key} selectable selectionColor={COLORS.accentSoft} style={styles.heading1}>
+      {children}
+    </Text>
+  ),
+  heading2: (node: any, children: any, _parent: any, styles: any) => (
+    <Text key={node.key} selectable selectionColor={COLORS.accentSoft} style={styles.heading2}>
+      {children}
+    </Text>
+  ),
+  heading3: (node: any, children: any, _parent: any, styles: any) => (
+    <Text key={node.key} selectable selectionColor={COLORS.accentSoft} style={styles.heading3}>
+      {children}
     </Text>
   ),
   tr: (node: any, children: any, parent: any, styles: any) => {
@@ -250,26 +271,27 @@ const mdRules = {
 // react-native-markdown-display 룰 스타일 (디자인 토큰)
 // 마크다운 ## = heading2, ### = heading3.
 const mdStyles = StyleSheet.create({
-  body: { color: COLORS.text, fontSize: FONT.body, lineHeight: 22 },
+  body: { color: COLORS.text, fontSize: FONT.body, lineHeight: 24 },
   heading1: { fontSize: FONT.title, fontWeight: WEIGHT.bold, color: COLORS.text, marginTop: SPACING.xl, marginBottom: SPACING.sm },
-  // 그 외 ## → SectionHeader level 1
-  heading2: { fontSize: FONT.title, fontWeight: WEIGHT.bold, color: COLORS.text, marginTop: SPACING.xxl, marginBottom: SPACING.md },
+  // 그 외 ## → SectionHeader level 1. 섹션 분리 명확히: 위 40, 아래 16
+  heading2: { fontSize: FONT.title, fontWeight: WEIGHT.bold, color: COLORS.text, marginTop: 40, marginBottom: SPACING.lg },
   // ### → SectionHeader level 2
-  heading3: { fontSize: FONT.subtitle, fontWeight: WEIGHT.bold, color: COLORS.text, marginTop: SPACING.lg, marginBottom: SPACING.sm },
-  paragraph: { marginTop: 0, marginBottom: SPACING.md, fontSize: FONT.body, lineHeight: 22, color: COLORS.text },
-  strong: { fontWeight: WEIGHT.bold, color: COLORS.text },
-  // 들여쓰기 축소 (한국어 가독성)
-  bullet_list: { marginLeft: SPACING.sm },
-  ordered_list: { marginLeft: SPACING.sm },
-  bullet_list_icon: { color: COLORS.textSecondary, marginRight: 6 },
-  ordered_list_icon: { color: COLORS.textSecondary, marginRight: 6 },
+  heading3: { fontSize: FONT.subtitle, fontWeight: WEIGHT.bold, color: COLORS.text, marginTop: SPACING.xl, marginBottom: SPACING.sm },
+  paragraph: { marginTop: 0, marginBottom: SPACING.md, fontSize: FONT.body, lineHeight: 24, color: COLORS.text },
+  // 옅은 블루 형광펜 (한 섹션 ≤3개 — 프롬프트로 절제). 어색하면 backgroundColor만 제거.
+  strong: { fontWeight: WEIGHT.bold, color: COLORS.text, backgroundColor: COLORS.accentSoft, paddingHorizontal: 2 },
+  // 들여쓰기 최소화 (한국어 가독성)
+  bullet_list: { marginLeft: SPACING.xs },
+  ordered_list: { marginLeft: SPACING.xs },
+  bullet_list_icon: { color: COLORS.textSecondary, marginRight: SPACING.sm },
+  ordered_list_icon: { color: COLORS.textSecondary, marginRight: SPACING.sm },
+  list_item: { marginVertical: SPACING.xs }, // 항목 간 숨 쉴 공간
   link: { color: COLORS.accentText },
-  // 표: overflow hidden으로 외곽 radius 안에 셀 클리핑 → 마지막 행 테두리 중복 해소
+  // 표: overflow hidden + tr 후킹으로 외곽선 중복 방지
   table: { borderWidth: 1, borderColor: COLORS.border, borderRadius: RADIUS.box, marginVertical: SPACING.sm, overflow: 'hidden' },
   thead: { backgroundColor: COLORS.surface },
   th: { padding: 8, fontWeight: WEIGHT.bold, borderRightWidth: StyleSheet.hairlineWidth, borderRightColor: COLORS.border },
   td: { padding: 8, borderRightWidth: StyleSheet.hairlineWidth, borderRightColor: COLORS.border },
-  // 가로 구분선은 mdRules.tr에서 마지막 행 제외하고 hairline 적용 (외곽선 중복 방지)
   tr: { flexDirection: 'row' },
 });
 
