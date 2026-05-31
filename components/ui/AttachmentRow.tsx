@@ -1,5 +1,16 @@
 import { Linking, StyleSheet, Text, TouchableOpacity } from 'react-native';
+import * as WebBrowser from 'expo-web-browser';
 import { COLORS, FONT, RADIUS, SPACING, WEIGHT } from '../../lib/theme';
+
+// 학교 PHP 다운로드 핸들러는 InApp 브라우저(referrer 유지)에서 더 잘 열림.
+// 실패 시 외부 브라우저 폴백.
+async function openAttachment(url: string) {
+  try {
+    await WebBrowser.openBrowserAsync(url);
+  } catch {
+    Linking.openURL(url).catch(() => {});
+  }
+}
 
 // file_down.php?uploadFileOrgName=... 형태면 원본 파일명 추출, 아니면 URL 꼬리
 function fileNameOf(url: string, label?: string): string {
@@ -30,7 +41,7 @@ export function AttachmentRow({ url, label }: { url: string; label?: string }) {
   return (
     <TouchableOpacity
       style={styles.row}
-      onPress={() => Linking.openURL(url)}
+      onPress={() => openAttachment(url)}
       activeOpacity={0.6}
     >
       <Text style={styles.icon}>📎</Text>

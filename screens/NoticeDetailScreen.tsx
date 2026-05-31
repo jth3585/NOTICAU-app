@@ -12,6 +12,7 @@ import {
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import Markdown from 'react-native-markdown-display';
+import * as WebBrowser from 'expo-web-browser';
 import type { NativeStackScreenProps } from '@react-navigation/native-stack';
 import type { RootStackParamList } from '../lib/types';
 import { COLORS, FONT, RADIUS, SPACING, WEIGHT } from '../lib/theme';
@@ -22,6 +23,7 @@ import { DeadlineBox } from '../components/ui/DeadlineBox';
 import { SectionHeader } from '../components/ui/SectionHeader';
 import { AttachmentRow } from '../components/ui/AttachmentRow';
 import { InfoBox } from '../components/ui/InfoBox';
+import { SparkleIcon } from '../components/ui/SparkleIcon';
 
 type Props = NativeStackScreenProps<RootStackParamList, 'Detail'>;
 
@@ -39,8 +41,15 @@ export default function NoticeDetailScreen({ route, navigation }: Props) {
   const attachments = notice.attachment_urls ?? [];
   const imgWidth = width - SPACING.lg * 2;
 
-  const open = (url: string | null | undefined) => {
-    if (url) Linking.openURL(url);
+  // InApp 브라우저로 열기 (referrer/세션 유지 → 학교 PHP 다운로드 핸들러 호환).
+  // 실패 시 외부 브라우저 폴백.
+  const open = async (url: string | null | undefined) => {
+    if (!url) return;
+    try {
+      await WebBrowser.openBrowserAsync(url);
+    } catch {
+      Linking.openURL(url).catch(() => {});
+    }
   };
 
   return (
@@ -135,7 +144,10 @@ function BodyBlock({
       <View style={styles.bodyWrap}>
         {summary ? (
           <InfoBox tone="gradient">
-            <Text style={styles.summaryLabel}>✨ AI 요약</Text>
+            <View style={styles.summaryLabelRow}>
+              <SparkleIcon size={14} color={COLORS.accent} />
+              <Text style={styles.summaryLabelText}>AI 요약</Text>
+            </View>
             <Markdown style={mdStylesSummary} rules={mdRules}>
               {summary}
             </Markdown>
@@ -196,11 +208,16 @@ const styles = StyleSheet.create({
   },
   metaLine: { fontSize: FONT.caption, color: COLORS.textSecondary, marginTop: SPACING.sm },
   bodyWrap: { marginTop: SPACING.lg },
-  summaryLabel: {
+  summaryLabelRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: SPACING.xs,
+    marginBottom: SPACING.sm,
+  },
+  summaryLabelText: {
     fontSize: FONT.caption,
     fontWeight: WEIGHT.semibold,
     color: COLORS.accentText,
-    marginBottom: SPACING.sm,
   },
   body: { fontSize: FONT.body, color: COLORS.text, lineHeight: 22, marginTop: SPACING.lg },
   linkBtn: { marginTop: SPACING.lg, paddingVertical: SPACING.sm },
@@ -278,13 +295,14 @@ const mdStyles = StyleSheet.create({
   // ### → SectionHeader level 2
   heading3: { fontSize: FONT.subtitle, fontWeight: WEIGHT.bold, color: COLORS.text, marginTop: SPACING.xl, marginBottom: SPACING.sm },
   paragraph: { marginTop: 0, marginBottom: SPACING.md, fontSize: FONT.body, lineHeight: 24, color: COLORS.text },
-  // 옅은 블루 형광펜 (한 섹션 ≤3개 — 프롬프트로 절제). 어색하면 backgroundColor만 제거.
-  strong: { fontWeight: WEIGHT.bold, color: COLORS.text, backgroundColor: COLORS.accentSoft, paddingHorizontal: 2 },
+  // 옅은 블루 형광펜 (본문 ≤3개/섹션). paddingHorizontal 제거 → 좌우 점 어색함 해소.
+  strong: { fontWeight: WEIGHT.bold, color: COLORS.text, backgroundColor: COLORS.accentSoft },
   // 들여쓰기 최소화 (한국어 가독성)
   bullet_list: { marginLeft: SPACING.xs },
   ordered_list: { marginLeft: SPACING.xs },
-  bullet_list_icon: { color: COLORS.textSecondary, marginRight: SPACING.sm },
-  ordered_list_icon: { color: COLORS.textSecondary, marginRight: SPACING.sm },
+  // 마커 베이스라인 정렬 (마침표처럼 낮게 떨어지는 문제 해소)
+  bullet_list_icon: { color: COLORS.textSecondary, marginRight: SPACING.sm, fontSize: FONT.body, lineHeight: 24, alignSelf: 'flex-start' as const },
+  ordered_list_icon: { color: COLORS.textSecondary, marginRight: SPACING.sm, fontSize: FONT.body, lineHeight: 24, alignSelf: 'flex-start' as const },
   list_item: { marginVertical: SPACING.xs }, // 항목 간 숨 쉴 공간
   link: { color: COLORS.accentText },
   // 표: overflow hidden + tr 후킹으로 외곽선 중복 방지
@@ -300,4 +318,6 @@ const mdStylesSummary = {
   ...mdStyles,
   body: { color: COLORS.text, fontSize: FONT.subtitle, lineHeight: 25 },
   paragraph: { marginTop: 0, marginBottom: SPACING.md, fontSize: FONT.subtitle, lineHeight: 25, color: COLORS.text },
+  // 그라데이션 배경 위 형광펜은 색 충돌 → bold만
+  strong: { fontWeight: WEIGHT.bold, color: COLORS.text },
 };
