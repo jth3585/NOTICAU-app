@@ -268,6 +268,22 @@ class BodyRenderer extends Renderer {
     );
   }
 
+  // backgroundColor를 styles에서 빼고 여기서 직접 rgba()로 적용.
+  // iOS CoreText가 advance width 경계까지 background를 그리는 아티팩트를
+  // 반투명 배경으로 흰 배경에 묻히게 해 시각적으로 최소화.
+  strong(children: any, styles?: any): any {
+    const { backgroundColor: _bg, ...rest } = styles ?? {};
+    return (
+      <Text
+        key={this.getKey()}
+        selectable
+        style={{ ...rest, backgroundColor: 'rgba(74,144,226,0.13)', lineHeight: 20 }}
+      >
+        {children}
+      </Text>
+    );
+  }
+
   table(header: any, rows: any): any {
     const { width } = Dimensions.get('window');
     const available = width - SPACING.lg * 2;
@@ -302,38 +318,41 @@ class BodyRenderer extends Renderer {
 const _bodyRenderer = new BodyRenderer();
 const _summaryRenderer = new BodyRenderer();
 
-// 본문용 스타일. ## = h2 (22), ### = h3 (17). strong = 옅은 블루 형광펜.
+// 본문용 스타일. ## = h2 (22), ### = h3 (17).
+// strong backgroundColor는 BodyRenderer.strong()에서 rgba()로 직접 적용.
 const mdBodyStyles: MarkedStyles = {
   text: { fontSize: FONT.body, lineHeight: 26, color: COLORS.text },
-  paragraph: { paddingVertical: 0, marginBottom: SPACING.md },
-  // marginBottom 작게 → 헤더가 자기 하위 내용에 가깝게 (Law of Proximity)
+  // paragraph 간격 16 → 단락 사이 공기 확보
+  paragraph: { paddingVertical: 0, marginBottom: SPACING.lg },
+  // h2: 위 섹션과 40 떨어지고 자기 내용과는 12로 가깝게
   h2: {
     fontSize: FONT.title, fontWeight: WEIGHT.bold, color: COLORS.text,
-    marginTop: 40, marginBottom: SPACING.sm, lineHeight: 30,
+    marginTop: 40, marginBottom: SPACING.md, lineHeight: 30,
     borderBottomWidth: 0, paddingBottom: 0,
   },
+  // h3: 위 내용과 16, 자기 내용과는 6으로 가깝게
   h3: {
     fontSize: FONT.subtitle, fontWeight: WEIGHT.bold, color: COLORS.text,
-    marginTop: SPACING.md, marginBottom: SPACING.xs, lineHeight: 26,
+    marginTop: SPACING.lg, marginBottom: 6, lineHeight: 26,
     borderBottomWidth: 0, paddingBottom: 0,
   },
-  // lineHeight: 20 → inline Text 배경 박스 높이 압축 (외부 lineHeight 26보다 낮아 형광펜이 라인 안에 뜨는 효과)
-  // padding 제거 → 우측 배경 여백(점) 없음
-  strong: { fontWeight: WEIGHT.bold, fontSize: FONT.body, color: COLORS.text, backgroundColor: COLORS.accentSoft, lineHeight: 20 },
+  // backgroundColor는 Renderer.strong() override에서 rgba()로 — styles에선 제거
+  strong: { fontWeight: WEIGHT.bold, fontSize: FONT.body, color: COLORS.text },
   link: { fontSize: FONT.body, color: COLORS.accentText, fontStyle: 'normal' },
   list: { marginLeft: SPACING.sm },
+  // list item 간격: marginVertical로 항목 사이 숨 공간
   li: { fontSize: FONT.body, lineHeight: 26, color: COLORS.text },
   table: { borderWidth: 1, borderColor: COLORS.border },
   tableRow: { flexDirection: 'row' },
   tableCell: { padding: 8, borderRightWidth: StyleSheet.hairlineWidth, borderRightColor: COLORS.border },
 };
 
-// AI 요약용: 폰트 subtitle(17)/27, strong은 배경 없이 bold만 (그라데이션 배경 충돌 방지)
+// AI 요약용: subtitle(17)/lineHeight 26, strong은 Renderer override로 배경 없음
 const mdSummaryStyles: MarkedStyles = {
-  text: { fontSize: FONT.subtitle, lineHeight: 27, color: COLORS.text },
-  paragraph: { paddingVertical: 0, marginBottom: SPACING.md },
+  text: { fontSize: FONT.subtitle, lineHeight: 26, color: COLORS.text },
+  paragraph: { paddingVertical: 0, marginBottom: SPACING.lg },
   strong: { fontWeight: WEIGHT.bold, fontSize: FONT.subtitle, color: COLORS.text },
   link: { fontSize: FONT.subtitle, color: COLORS.accentText, fontStyle: 'normal' },
   list: { marginLeft: SPACING.sm },
-  li: { fontSize: FONT.subtitle, lineHeight: 27, color: COLORS.text },
+  li: { fontSize: FONT.subtitle, lineHeight: 26, color: COLORS.text },
 };
