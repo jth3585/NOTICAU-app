@@ -1,5 +1,6 @@
 import { useState, useMemo } from 'react';
 import {
+  Dimensions,
   Image,
   Linking,
   Platform,
@@ -255,14 +256,44 @@ const styles = StyleSheet.create({
   sourceBtnText: { fontSize: FONT.body, color: COLORS.accentText, fontWeight: WEIGHT.semibold },
 });
 
-// ~text~ 단일 틸드를 marked GFM이 del(취소선)로 파싱함 — 한국어 날짜 ~5월 14일~ 오파싱 방지.
-// del()을 override해 textDecorationLine 없애고 평문으로 렌더.
+// ~text~ 단일 틸드를 marked GFM이 del(취소선)로 파싱 → 한국어 날짜 오파싱 방지.
+// table()을 override → react-native-reanimated-table 가로 넘침/key 경고 회피,
+//   화면 폭 안에 맞는 커스텀 View 테이블로 대체.
 class BodyRenderer extends Renderer {
   del(children: any, styles?: any): any {
     return (
       <Text key={this.getKey()} selectable style={{ ...(styles ?? {}), textDecorationLine: 'none' as const }}>
         {children}
       </Text>
+    );
+  }
+
+  table(header: any, rows: any): any {
+    const { width } = Dimensions.get('window');
+    const available = width - SPACING.lg * 2;
+    const numCols = header.length || 1;
+    const colW = Math.floor(available / numCols);
+    return (
+      <View key={this.getKey()} style={{ borderWidth: 1, borderColor: COLORS.border, borderRadius: RADIUS.box, overflow: 'hidden', marginVertical: SPACING.sm }}>
+        {/* 헤더 행 */}
+        <View style={{ flexDirection: 'row', backgroundColor: COLORS.surface }}>
+          {header.map((cell: any, i: number) => (
+            <View key={i} style={{ width: colW, padding: 6, borderRightWidth: i < numCols - 1 ? StyleSheet.hairlineWidth : 0, borderRightColor: COLORS.border }}>
+              {cell}
+            </View>
+          ))}
+        </View>
+        {/* 데이터 행 */}
+        {rows.map((row: any, ri: number) => (
+          <View key={ri} style={{ flexDirection: 'row', borderTopWidth: StyleSheet.hairlineWidth, borderTopColor: COLORS.border }}>
+            {row.map((cell: any, ci: number) => (
+              <View key={ci} style={{ width: colW, padding: 6, borderRightWidth: ci < row.length - 1 ? StyleSheet.hairlineWidth : 0, borderRightColor: COLORS.border }}>
+                {cell}
+              </View>
+            ))}
+          </View>
+        ))}
+      </View>
     );
   }
 }
@@ -275,18 +306,19 @@ const _summaryRenderer = new BodyRenderer();
 const mdBodyStyles: MarkedStyles = {
   text: { fontSize: FONT.body, lineHeight: 26, color: COLORS.text },
   paragraph: { paddingVertical: 0, marginBottom: SPACING.md },
+  // marginBottom 작게 → 헤더가 자기 하위 내용에 가깝게 (Law of Proximity)
   h2: {
     fontSize: FONT.title, fontWeight: WEIGHT.bold, color: COLORS.text,
-    marginTop: 40, marginBottom: SPACING.lg, lineHeight: 30,
+    marginTop: 40, marginBottom: SPACING.sm, lineHeight: 30,
     borderBottomWidth: 0, paddingBottom: 0,
   },
   h3: {
     fontSize: FONT.subtitle, fontWeight: WEIGHT.bold, color: COLORS.text,
-    marginTop: SPACING.xl, marginBottom: SPACING.sm, lineHeight: 26,
+    marginTop: SPACING.md, marginBottom: SPACING.xs, lineHeight: 26,
     borderBottomWidth: 0, paddingBottom: 0,
   },
-  // paddingHorizontal: 2 → 형광펜 양쪽에 의도적 여백, iOS kerning 아티팩트 최소화
-  strong: { fontWeight: WEIGHT.bold, fontSize: FONT.body, color: COLORS.text, backgroundColor: COLORS.accentSoft, paddingHorizontal: 2 },
+  // paddingHorizontal: 2 양쪽 여백, paddingVertical: 0 형광펜 높이 압축
+  strong: { fontWeight: WEIGHT.bold, fontSize: FONT.body, color: COLORS.text, backgroundColor: COLORS.accentSoft, paddingHorizontal: 2, paddingVertical: 0 },
   link: { fontSize: FONT.body, color: COLORS.accentText, fontStyle: 'normal' },
   list: { marginLeft: SPACING.sm },
   li: { fontSize: FONT.body, lineHeight: 26, color: COLORS.text },
