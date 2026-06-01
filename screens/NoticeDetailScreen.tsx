@@ -317,8 +317,9 @@ const mdBodyStyles: MarkedStyles = {
     marginTop: SPACING.md, marginBottom: SPACING.xs, lineHeight: 26,
     borderBottomWidth: 0, paddingBottom: 0,
   },
-  // paddingHorizontal: 2 양쪽 여백, paddingVertical: 0 형광펜 높이 압축
-  strong: { fontWeight: WEIGHT.bold, fontSize: FONT.body, color: COLORS.text, backgroundColor: COLORS.accentSoft, paddingHorizontal: 2, paddingVertical: 0 },
+  // lineHeight: 20 → inline Text 배경 박스 높이 압축 (외부 lineHeight 26보다 낮아 형광펜이 라인 안에 뜨는 효과)
+  // padding 제거 → 우측 배경 여백(점) 없음
+  strong: { fontWeight: WEIGHT.bold, fontSize: FONT.body, color: COLORS.text, backgroundColor: COLORS.accentSoft, lineHeight: 20 },
   link: { fontSize: FONT.body, color: COLORS.accentText, fontStyle: 'normal' },
   list: { marginLeft: SPACING.sm },
   li: { fontSize: FONT.body, lineHeight: 26, color: COLORS.text },
