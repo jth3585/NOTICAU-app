@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useMemo } from 'react';
 import {
   Image,
   Linking,
@@ -11,7 +11,8 @@ import {
   View,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import Markdown from 'react-native-markdown-display';
+import { useMarkdown, Renderer } from 'react-native-marked';
+import type { MarkedStyles } from 'react-native-marked';
 import * as WebBrowser from 'expo-web-browser';
 import type { NativeStackScreenProps } from '@react-navigation/native-stack';
 import type { RootStackParamList } from '../lib/types';
@@ -157,26 +158,27 @@ function BodyBlock({
   sourceUrl: string | null;
   onOpen: (url: string | null) => void;
 }) {
+  const { summary, rest } = useMemo(
+    () => (md ? splitSummary(md) : { summary: null, rest: '' }),
+    [md],
+  );
+  // 훅은 조건 없이 항상 호출 — md null이면 빈 문자열 → 빈 배열 반환
+  const summaryElements = useMarkdown(summary ?? '', { renderer: _summaryRenderer, styles: mdSummaryStyles });
+  const bodyElements = useMarkdown(rest, { renderer: _bodyRenderer, styles: mdBodyStyles });
+
   if (md) {
-    const { summary, rest } = splitSummary(md);
     return (
       <View style={styles.bodyWrap}>
-        {summary ? (
+        {summary && summaryElements.length > 0 ? (
           <InfoBox tone="gradient">
             <View style={styles.summaryLabelRow}>
               <SparkleIcon size={14} color={COLORS.accent} />
               <Text style={styles.summaryLabelText}>AI 요약</Text>
             </View>
-            <Markdown style={mdStylesSummary} rules={mdRules}>
-              {summary}
-            </Markdown>
+            {summaryElements}
           </InfoBox>
         ) : null}
-        {rest ? (
-          <Markdown style={mdStyles} rules={mdRules}>
-            {rest}
-          </Markdown>
-        ) : null}
+        {rest && bodyElements.length > 0 ? bodyElements : null}
       </View>
     );
   }
@@ -253,90 +255,39 @@ const styles = StyleSheet.create({
   sourceBtnText: { fontSize: FONT.body, color: COLORS.accentText, fontWeight: WEIGHT.semibold },
 });
 
-// 본문 텍스트 노드를 selectable로 (복사 가능).
-// 마지막 행 borderBottom 생략 → 표 외곽선과 중복 방지 (헤더 행은 항상 구분선).
-const mdRules = {
-  text: (node: any, _children: any, _parent: any, styles: any) => (
-    <Text key={node.key} selectable selectionColor="rgba(74,144,226,0.38)" style={styles.text}>
-      {node.content}
-    </Text>
-  ),
-  // 부모 paragraph/heading도 selectable로 만들어야 단락 단위 선택이 동작 (RN 중첩 Text 규칙)
-  paragraph: (node: any, children: any, _parent: any, styles: any) => (
-    <Text key={node.key} selectable selectionColor="rgba(74,144,226,0.38)" style={styles.paragraph}>
-      {children}
-    </Text>
-  ),
-  heading1: (node: any, children: any, _parent: any, styles: any) => (
-    <Text key={node.key} selectable selectionColor="rgba(74,144,226,0.38)" style={styles.heading1}>
-      {children}
-    </Text>
-  ),
-  heading2: (node: any, children: any, _parent: any, styles: any) => (
-    <Text key={node.key} selectable selectionColor="rgba(74,144,226,0.38)" style={styles.heading2}>
-      {children}
-    </Text>
-  ),
-  heading3: (node: any, children: any, _parent: any, styles: any) => (
-    <Text key={node.key} selectable selectionColor="rgba(74,144,226,0.38)" style={styles.heading3}>
-      {children}
-    </Text>
-  ),
-  tr: (node: any, children: any, parent: any, styles: any) => {
-    const direct = parent?.[parent.length - 1];
-    const inThead = direct?.type === 'thead' || direct?.type === 'table_head';
-    const siblings: any[] = direct?.children ?? [];
-    const last = siblings[siblings.length - 1];
-    const isLast = !!last && last.key === node.key;
-    const showBottom = inThead || !isLast;
-    return (
-      <View
-        key={node.key}
-        style={[
-          styles.tr,
-          showBottom && {
-            borderBottomWidth: StyleSheet.hairlineWidth,
-            borderBottomColor: COLORS.border,
-          },
-        ]}
-      >
-        {children}
-      </View>
-    );
+// Renderer 인스턴스를 모듈 레벨에서 생성 → useMarkdown useMemo deps 안정
+const _bodyRenderer = new Renderer();
+const _summaryRenderer = new Renderer();
+
+// 본문용 스타일. ## = h2 (22), ### = h3 (17). strong = 옅은 블루 형광펜.
+const mdBodyStyles: MarkedStyles = {
+  text: { fontSize: FONT.body, lineHeight: 24, color: COLORS.text },
+  paragraph: { paddingVertical: 0, marginBottom: SPACING.md },
+  h2: {
+    fontSize: FONT.title, fontWeight: WEIGHT.bold, color: COLORS.text,
+    marginTop: 40, marginBottom: SPACING.lg, lineHeight: 30,
+    borderBottomWidth: 0, paddingBottom: 0,
   },
+  h3: {
+    fontSize: FONT.subtitle, fontWeight: WEIGHT.bold, color: COLORS.text,
+    marginTop: SPACING.xl, marginBottom: SPACING.sm, lineHeight: 26,
+    borderBottomWidth: 0, paddingBottom: 0,
+  },
+  strong: { fontWeight: WEIGHT.bold, fontSize: FONT.body, color: COLORS.text, backgroundColor: COLORS.accentSoft },
+  link: { fontSize: FONT.body, color: COLORS.accentText, fontStyle: 'normal' },
+  list: { marginLeft: SPACING.sm },
+  li: { fontSize: FONT.body, lineHeight: 24, color: COLORS.text },
+  table: { borderWidth: 1, borderColor: COLORS.border },
+  tableRow: { flexDirection: 'row' },
+  tableCell: { padding: 8, borderRightWidth: StyleSheet.hairlineWidth, borderRightColor: COLORS.border },
 };
 
-// react-native-markdown-display 룰 스타일 (디자인 토큰)
-// 마크다운 ## = heading2, ### = heading3.
-const mdStyles = StyleSheet.create({
-  body: { color: COLORS.text, fontSize: FONT.body, lineHeight: 24 },
-  heading1: { fontSize: FONT.title, fontWeight: WEIGHT.bold, color: COLORS.text, marginTop: SPACING.xl, marginBottom: SPACING.sm },
-  // 그 외 ## → SectionHeader level 1. 섹션 분리 명확히: 위 40, 아래 16
-  heading2: { fontSize: FONT.title, fontWeight: WEIGHT.bold, color: COLORS.text, marginTop: 40, marginBottom: SPACING.lg },
-  // ### → SectionHeader level 2
-  heading3: { fontSize: FONT.subtitle, fontWeight: WEIGHT.bold, color: COLORS.text, marginTop: SPACING.xl, marginBottom: SPACING.sm },
-  paragraph: { marginTop: 0, marginBottom: SPACING.md, fontSize: FONT.body, lineHeight: 24, color: COLORS.text },
-  // 옅은 블루 형광펜 (본문 ≤3개/섹션). paddingHorizontal 제거 → 좌우 점 어색함 해소.
-  strong: { fontWeight: WEIGHT.bold, color: COLORS.text, backgroundColor: COLORS.accentSoft },
-  bullet_list: { marginLeft: SPACING.sm },
-  ordered_list: { marginLeft: SPACING.sm },
-  bullet_list_icon: { color: COLORS.textSecondary, fontSize: FONT.body, lineHeight: 24, marginRight: SPACING.sm },
-  ordered_list_icon: { color: COLORS.textSecondary, fontSize: FONT.body, lineHeight: 24, marginRight: SPACING.sm },
-  list_item: { marginVertical: SPACING.xs },
-  link: { color: COLORS.accentText },
-  // 표: overflow hidden + tr 후킹으로 외곽선 중복 방지
-  table: { borderWidth: 1, borderColor: COLORS.border, borderRadius: RADIUS.box, marginVertical: SPACING.sm, overflow: 'hidden' },
-  thead: { backgroundColor: COLORS.surface },
-  th: { padding: 8, fontWeight: WEIGHT.bold, borderRightWidth: StyleSheet.hairlineWidth, borderRightColor: COLORS.border },
-  td: { padding: 8, borderRightWidth: StyleSheet.hairlineWidth, borderRightColor: COLORS.border },
-  tr: { flexDirection: 'row' },
-});
-
-// AI 요약용 변형: 본문/문단을 subtitle(17)/lineHeight 25로 키움 — AI요약 > 본문 위계.
-const mdStylesSummary = {
-  ...mdStyles,
-  body: { color: COLORS.text, fontSize: FONT.subtitle, lineHeight: 25 },
-  paragraph: { marginTop: 0, marginBottom: SPACING.md, fontSize: FONT.subtitle, lineHeight: 25, color: COLORS.text },
-  // 그라데이션 배경 위 형광펜은 색 충돌 → bold만
-  strong: { fontWeight: WEIGHT.bold, color: COLORS.text },
+// AI 요약용: 폰트 subtitle(17)/25, strong은 배경 없이 bold만 (그라데이션 배경 충돌 방지)
+const mdSummaryStyles: MarkedStyles = {
+  text: { fontSize: FONT.subtitle, lineHeight: 25, color: COLORS.text },
+  paragraph: { paddingVertical: 0, marginBottom: SPACING.md },
+  strong: { fontWeight: WEIGHT.bold, fontSize: FONT.subtitle, color: COLORS.text },
+  link: { fontSize: FONT.subtitle, color: COLORS.accentText, fontStyle: 'normal' },
+  list: { marginLeft: SPACING.sm },
+  li: { fontSize: FONT.subtitle, lineHeight: 25, color: COLORS.text },
 };
