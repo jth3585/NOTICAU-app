@@ -1,10 +1,16 @@
-import { Linking, StyleSheet, Text, TouchableOpacity } from 'react-native';
+import { StyleSheet, Text, TouchableOpacity } from 'react-native';
+import * as WebBrowser from 'expo-web-browser';
 import { COLORS, FONT, RADIUS, SPACING, WEIGHT } from '../../lib/theme';
 
-// 시스템 브라우저(Safari/Chrome)로 열어야 학교 CMS 세션 쿠키가 공유되어
-// PHP 다운로드 핸들러가 정상 작동함. InApp 브라우저는 별도 세션이라 빈 화면.
-function openAttachment(url: string) {
-  Linking.openURL(url).catch(() => {});
+// 원문 공지 페이지(sourceUrl)를 InApp 브라우저로 열어 사용자가 직접 다운로드.
+// 학교 PHP 첨부 URL은 CMS 세션 없이는 작동 안 하므로 원문 페이지로 우회.
+async function openSource(sourceUrl: string | null | undefined, fallbackUrl: string) {
+  const target = sourceUrl ?? fallbackUrl;
+  try {
+    await WebBrowser.openBrowserAsync(target);
+  } catch {
+    // 열기 실패 시 무시
+  }
 }
 
 // file_down.php?uploadFileOrgName=... 형태면 원본 파일명 추출, 아니면 URL 꼬리
@@ -30,13 +36,13 @@ function extOf(name: string): string {
   return m ? m[1].toUpperCase() : '';
 }
 
-export function AttachmentRow({ url, label }: { url: string; label?: string }) {
+export function AttachmentRow({ url, label, sourceUrl }: { url: string; label?: string; sourceUrl?: string | null }) {
   const name = fileNameOf(url, label);
   const ext = extOf(name);
   return (
     <TouchableOpacity
       style={styles.row}
-      onPress={() => openAttachment(url)}
+      onPress={() => openSource(sourceUrl, url)}
       activeOpacity={0.6}
     >
       <Text style={styles.icon}>📎</Text>

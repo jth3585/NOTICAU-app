@@ -105,7 +105,7 @@ export default function NoticeDetailScreen({ route, navigation }: Props) {
           <>
             <SectionHeader level={2}>첨부파일</SectionHeader>
             {attachments.map((url, i) => (
-              <AttachmentRow key={`${url}-${i}`} url={url} />
+              <AttachmentRow key={`${url}-${i}`} url={url} sourceUrl={notice.source_url} />
             ))}
           </>
         ) : null}
@@ -255,13 +255,25 @@ const styles = StyleSheet.create({
   sourceBtnText: { fontSize: FONT.body, color: COLORS.accentText, fontWeight: WEIGHT.semibold },
 });
 
+// ~text~ 단일 틸드를 marked GFM이 del(취소선)로 파싱함 — 한국어 날짜 ~5월 14일~ 오파싱 방지.
+// del()을 override해 textDecorationLine 없애고 평문으로 렌더.
+class BodyRenderer extends Renderer {
+  del(children: any, styles?: any): any {
+    return (
+      <Text key={this.getKey()} selectable style={{ ...(styles ?? {}), textDecorationLine: 'none' as const }}>
+        {children}
+      </Text>
+    );
+  }
+}
+
 // Renderer 인스턴스를 모듈 레벨에서 생성 → useMarkdown useMemo deps 안정
-const _bodyRenderer = new Renderer();
-const _summaryRenderer = new Renderer();
+const _bodyRenderer = new BodyRenderer();
+const _summaryRenderer = new BodyRenderer();
 
 // 본문용 스타일. ## = h2 (22), ### = h3 (17). strong = 옅은 블루 형광펜.
 const mdBodyStyles: MarkedStyles = {
-  text: { fontSize: FONT.body, lineHeight: 24, color: COLORS.text },
+  text: { fontSize: FONT.body, lineHeight: 26, color: COLORS.text },
   paragraph: { paddingVertical: 0, marginBottom: SPACING.md },
   h2: {
     fontSize: FONT.title, fontWeight: WEIGHT.bold, color: COLORS.text,
@@ -273,21 +285,22 @@ const mdBodyStyles: MarkedStyles = {
     marginTop: SPACING.xl, marginBottom: SPACING.sm, lineHeight: 26,
     borderBottomWidth: 0, paddingBottom: 0,
   },
-  strong: { fontWeight: WEIGHT.bold, fontSize: FONT.body, color: COLORS.text, backgroundColor: COLORS.accentSoft },
+  // paddingHorizontal: 2 → 형광펜 양쪽에 의도적 여백, iOS kerning 아티팩트 최소화
+  strong: { fontWeight: WEIGHT.bold, fontSize: FONT.body, color: COLORS.text, backgroundColor: COLORS.accentSoft, paddingHorizontal: 2 },
   link: { fontSize: FONT.body, color: COLORS.accentText, fontStyle: 'normal' },
   list: { marginLeft: SPACING.sm },
-  li: { fontSize: FONT.body, lineHeight: 24, color: COLORS.text },
+  li: { fontSize: FONT.body, lineHeight: 26, color: COLORS.text },
   table: { borderWidth: 1, borderColor: COLORS.border },
   tableRow: { flexDirection: 'row' },
   tableCell: { padding: 8, borderRightWidth: StyleSheet.hairlineWidth, borderRightColor: COLORS.border },
 };
 
-// AI 요약용: 폰트 subtitle(17)/25, strong은 배경 없이 bold만 (그라데이션 배경 충돌 방지)
+// AI 요약용: 폰트 subtitle(17)/27, strong은 배경 없이 bold만 (그라데이션 배경 충돌 방지)
 const mdSummaryStyles: MarkedStyles = {
-  text: { fontSize: FONT.subtitle, lineHeight: 25, color: COLORS.text },
+  text: { fontSize: FONT.subtitle, lineHeight: 27, color: COLORS.text },
   paragraph: { paddingVertical: 0, marginBottom: SPACING.md },
   strong: { fontWeight: WEIGHT.bold, fontSize: FONT.subtitle, color: COLORS.text },
   link: { fontSize: FONT.subtitle, color: COLORS.accentText, fontStyle: 'normal' },
   list: { marginLeft: SPACING.sm },
-  li: { fontSize: FONT.subtitle, lineHeight: 25, color: COLORS.text },
+  li: { fontSize: FONT.subtitle, lineHeight: 27, color: COLORS.text },
 };
