@@ -1,15 +1,10 @@
 import { Linking, StyleSheet, Text, TouchableOpacity } from 'react-native';
-import * as WebBrowser from 'expo-web-browser';
 import { COLORS, FONT, RADIUS, SPACING, WEIGHT } from '../../lib/theme';
 
-// 학교 PHP 다운로드 핸들러는 InApp 브라우저(referrer 유지)에서 더 잘 열림.
-// 실패 시 외부 브라우저 폴백.
-async function openAttachment(url: string) {
-  try {
-    await WebBrowser.openBrowserAsync(url);
-  } catch {
-    Linking.openURL(url).catch(() => {});
-  }
+// 시스템 브라우저(Safari/Chrome)로 열어야 학교 CMS 세션 쿠키가 공유되어
+// PHP 다운로드 핸들러가 정상 작동함. InApp 브라우저는 별도 세션이라 빈 화면.
+function openAttachment(url: string) {
+  Linking.openURL(url).catch(() => {});
 }
 
 // file_down.php?uploadFileOrgName=... 형태면 원본 파일명 추출, 아니면 URL 꼬리

@@ -24,6 +24,7 @@ import { SectionHeader } from '../components/ui/SectionHeader';
 import { AttachmentRow } from '../components/ui/AttachmentRow';
 import { InfoBox } from '../components/ui/InfoBox';
 import { SparkleIcon } from '../components/ui/SparkleIcon';
+import ImageViewing from 'react-native-image-viewing';
 
 type Props = NativeStackScreenProps<RootStackParamList, 'Detail'>;
 
@@ -40,6 +41,8 @@ export default function NoticeDetailScreen({ route, navigation }: Props) {
   const images = notice.body_image_urls ?? [];
   const attachments = notice.attachment_urls ?? [];
   const imgWidth = width - SPACING.lg * 2;
+  const [imgViewerIndex, setImgViewerIndex] = useState(0);
+  const [imgViewerVisible, setImgViewerVisible] = useState(false);
 
   // InApp 브라우저로 열기 (referrer/세션 유지 → 학교 PHP 다운로드 핸들러 호환).
   // 실패 시 외부 브라우저 폴백.
@@ -87,7 +90,12 @@ export default function NoticeDetailScreen({ route, navigation }: Props) {
           <>
             <SectionHeader level={2}>이미지</SectionHeader>
             {images.map((uri, i) => (
-              <AutoImage key={`${uri}-${i}`} uri={uri} width={imgWidth} />
+              <AutoImage
+              key={`${uri}-${i}`}
+              uri={uri}
+              width={imgWidth}
+              onPress={() => { setImgViewerIndex(i); setImgViewerVisible(true); }}
+            />
             ))}
           </>
         ) : null}
@@ -105,6 +113,17 @@ export default function NoticeDetailScreen({ route, navigation }: Props) {
           <Text style={styles.sourceBtnText}>원문 페이지 열기</Text>
         </TouchableOpacity>
       </ScrollView>
+
+      {images.length > 0 && (
+        <ImageViewing
+          images={images.map(uri => ({ uri }))}
+          imageIndex={imgViewerIndex}
+          visible={imgViewerVisible}
+          onRequestClose={() => setImgViewerVisible(false)}
+          swipeToCloseEnabled
+          doubleTapToZoomEnabled
+        />
+      )}
     </SafeAreaView>
   );
 }
@@ -171,19 +190,21 @@ function BodyBlock({
   );
 }
 
-// 로드 후 원본 비율로 높이를 맞추는 이미지
-function AutoImage({ uri, width }: { uri: string; width: number }) {
+// 로드 후 원본 비율로 높이를 맞추는 이미지. onPress → 풀스크린 뷰어로 연결.
+function AutoImage({ uri, width, onPress }: { uri: string; width: number; onPress?: () => void }) {
   const [ratio, setRatio] = useState(1.4);
   return (
-    <Image
-      source={{ uri }}
-      style={{ width, height: width / ratio, marginTop: SPACING.md, borderRadius: RADIUS.box }}
-      resizeMode="contain"
-      onLoad={(e) => {
-        const { width: w, height: h } = e.nativeEvent.source;
-        if (w && h) setRatio(w / h);
-      }}
-    />
+    <TouchableOpacity activeOpacity={0.85} onPress={onPress} disabled={!onPress}>
+      <Image
+        source={{ uri }}
+        style={{ width, height: width / ratio, marginTop: SPACING.md, borderRadius: RADIUS.box }}
+        resizeMode="contain"
+        onLoad={(e) => {
+          const { width: w, height: h } = e.nativeEvent.source;
+          if (w && h) setRatio(w / h);
+        }}
+      />
+    </TouchableOpacity>
   );
 }
 
@@ -236,46 +257,64 @@ const styles = StyleSheet.create({
 // 마지막 행 borderBottom 생략 → 표 외곽선과 중복 방지 (헤더 행은 항상 구분선).
 const mdRules = {
   text: (node: any, _children: any, _parent: any, styles: any) => (
-    <Text key={node.key} selectable selectionColor={COLORS.accentSoft} style={styles.text}>
+    <Text key={node.key} selectable selectionColor="#4A90E260" style={styles.text}>
       {node.content}
     </Text>
   ),
   // 부모 paragraph/heading도 selectable로 만들어야 단락 단위 선택이 동작 (RN 중첩 Text 규칙)
   paragraph: (node: any, children: any, _parent: any, styles: any) => (
-    <Text key={node.key} selectable selectionColor={COLORS.accentSoft} style={styles.paragraph}>
+    <Text key={node.key} selectable selectionColor="#4A90E260" style={styles.paragraph}>
       {children}
     </Text>
   ),
   heading1: (node: any, children: any, _parent: any, styles: any) => (
-    <Text key={node.key} selectable selectionColor={COLORS.accentSoft} style={styles.heading1}>
+    <Text key={node.key} selectable selectionColor="#4A90E260" style={styles.heading1}>
       {children}
     </Text>
   ),
   heading2: (node: any, children: any, _parent: any, styles: any) => (
-    <Text key={node.key} selectable selectionColor={COLORS.accentSoft} style={styles.heading2}>
+    <Text key={node.key} selectable selectionColor="#4A90E260" style={styles.heading2}>
       {children}
     </Text>
   ),
   heading3: (node: any, children: any, _parent: any, styles: any) => (
-    <Text key={node.key} selectable selectionColor={COLORS.accentSoft} style={styles.heading3}>
+    <Text key={node.key} selectable selectionColor="#4A90E260" style={styles.heading3}>
       {children}
     </Text>
   ),
-  // Text ·(가운데점)은 폰트 베이스라인에 그려져 lineHeight 조정으로 안 풀림.
-  // 작은 원 View로 직접 그려 수직 중앙 정렬.
-  bullet_list_icon: (node: any) => (
-    <View
-      key={node.key}
-      style={{
-        width: 5,
-        height: 5,
-        borderRadius: 2.5,
-        backgroundColor: COLORS.textSecondary,
-        marginRight: SPACING.sm,
-        marginTop: 10,
-      }}
-    />
-  ),
+  // bullet_list_icon은 AST 노드 타입이 아니라 스타일 키 → rule 후킹 불가.
+  // list_item 전체를 오버라이드해서 마커를 작은 원 View로 그림.
+  list_item: (node: any, children: any, parent: any, styles: any) => {
+    const inBullet = parent?.some((p: any) => p.type === 'bullet_list');
+    if (inBullet) {
+      return (
+        <View key={node.key} style={styles._VIEW_SAFE_list_item}>
+          <View style={{
+            width: 5, height: 5, borderRadius: 2.5,
+            backgroundColor: COLORS.textSecondary,
+            marginRight: SPACING.sm, marginTop: 9,
+          }} />
+          <View style={{ flex: 1 }}>{children}</View>
+        </View>
+      );
+    }
+    const ol = parent?.find((p: any) => p.type === 'ordered_list');
+    if (ol) {
+      const start = ol.attributes?.start ?? 0;
+      const num = start ? start + node.index : node.index + 1;
+      return (
+        <View key={node.key} style={styles._VIEW_SAFE_list_item}>
+          <Text style={styles.ordered_list_icon}>{num}{node.markup}</Text>
+          <View style={{ flex: 1 }}>{children}</View>
+        </View>
+      );
+    }
+    return (
+      <View key={node.key} style={styles._VIEW_SAFE_list_item}>
+        {children}
+      </View>
+    );
+  },
   tr: (node: any, children: any, parent: any, styles: any) => {
     const direct = parent?.[parent.length - 1];
     const inThead = direct?.type === 'thead' || direct?.type === 'table_head';
@@ -315,7 +354,6 @@ const mdStyles = StyleSheet.create({
   // 들여쓰기 최소화 (한국어 가독성)
   bullet_list: { marginLeft: SPACING.xs },
   ordered_list: { marginLeft: SPACING.xs },
-  // bullet_list_icon은 mdRules에서 View로 직접 그림 → 스타일 미사용
   ordered_list_icon: { color: COLORS.textSecondary, marginRight: SPACING.sm, fontSize: FONT.body, lineHeight: 24, alignSelf: 'flex-start' as const },
   list_item: { marginVertical: SPACING.xs }, // 항목 간 숨 쉴 공간
   link: { color: COLORS.accentText },
