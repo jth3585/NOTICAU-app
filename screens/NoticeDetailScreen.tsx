@@ -261,6 +261,21 @@ const mdRules = {
       {children}
     </Text>
   ),
+  // Text ·(가운데점)은 폰트 베이스라인에 그려져 lineHeight 조정으로 안 풀림.
+  // 작은 원 View로 직접 그려 수직 중앙 정렬.
+  bullet_list_icon: (node: any) => (
+    <View
+      key={node.key}
+      style={{
+        width: 5,
+        height: 5,
+        borderRadius: 2.5,
+        backgroundColor: COLORS.textSecondary,
+        marginRight: SPACING.sm,
+        marginTop: 10,
+      }}
+    />
+  ),
   tr: (node: any, children: any, parent: any, styles: any) => {
     const direct = parent?.[parent.length - 1];
     const inThead = direct?.type === 'thead' || direct?.type === 'table_head';
@@ -300,8 +315,7 @@ const mdStyles = StyleSheet.create({
   // 들여쓰기 최소화 (한국어 가독성)
   bullet_list: { marginLeft: SPACING.xs },
   ordered_list: { marginLeft: SPACING.xs },
-  // 마커 베이스라인 정렬 (마침표처럼 낮게 떨어지는 문제 해소)
-  bullet_list_icon: { color: COLORS.textSecondary, marginRight: SPACING.sm, fontSize: FONT.body, lineHeight: 24, alignSelf: 'flex-start' as const },
+  // bullet_list_icon은 mdRules에서 View로 직접 그림 → 스타일 미사용
   ordered_list_icon: { color: COLORS.textSecondary, marginRight: SPACING.sm, fontSize: FONT.body, lineHeight: 24, alignSelf: 'flex-start' as const },
   list_item: { marginVertical: SPACING.xs }, // 항목 간 숨 쉴 공간
   link: { color: COLORS.accentText },
