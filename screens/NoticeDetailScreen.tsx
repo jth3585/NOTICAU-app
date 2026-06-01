@@ -257,44 +257,41 @@ const styles = StyleSheet.create({
 // 마지막 행 borderBottom 생략 → 표 외곽선과 중복 방지 (헤더 행은 항상 구분선).
 const mdRules = {
   text: (node: any, _children: any, _parent: any, styles: any) => (
-    <Text key={node.key} selectable selectionColor="#4A90E260" style={styles.text}>
+    <Text key={node.key} selectable selectionColor="rgba(74,144,226,0.38)" style={styles.text}>
       {node.content}
     </Text>
   ),
   // 부모 paragraph/heading도 selectable로 만들어야 단락 단위 선택이 동작 (RN 중첩 Text 규칙)
   paragraph: (node: any, children: any, _parent: any, styles: any) => (
-    <Text key={node.key} selectable selectionColor="#4A90E260" style={styles.paragraph}>
+    <Text key={node.key} selectable selectionColor="rgba(74,144,226,0.38)" style={styles.paragraph}>
       {children}
     </Text>
   ),
   heading1: (node: any, children: any, _parent: any, styles: any) => (
-    <Text key={node.key} selectable selectionColor="#4A90E260" style={styles.heading1}>
+    <Text key={node.key} selectable selectionColor="rgba(74,144,226,0.38)" style={styles.heading1}>
       {children}
     </Text>
   ),
   heading2: (node: any, children: any, _parent: any, styles: any) => (
-    <Text key={node.key} selectable selectionColor="#4A90E260" style={styles.heading2}>
+    <Text key={node.key} selectable selectionColor="rgba(74,144,226,0.38)" style={styles.heading2}>
       {children}
     </Text>
   ),
   heading3: (node: any, children: any, _parent: any, styles: any) => (
-    <Text key={node.key} selectable selectionColor="#4A90E260" style={styles.heading3}>
+    <Text key={node.key} selectable selectionColor="rgba(74,144,226,0.38)" style={styles.heading3}>
       {children}
     </Text>
   ),
   // bullet_list_icon은 AST 노드 타입이 아니라 스타일 키 → rule 후킹 불가.
-  // list_item 전체를 오버라이드해서 마커를 작은 원 View로 그림.
+  // list_item 전체를 오버라이드. styles._VIEW_SAFE_list_item에 의존하지 않고
+  // flexDirection:'row'를 인라인으로 명시 — 라이브러리 styles 병합 결과에 무관.
   list_item: (node: any, children: any, parent: any, styles: any) => {
     const inBullet = parent?.some((p: any) => p.type === 'bullet_list');
     if (inBullet) {
       return (
-        <View key={node.key} style={styles._VIEW_SAFE_list_item}>
-          <View style={{
-            width: 5, height: 5, borderRadius: 2.5,
-            backgroundColor: COLORS.textSecondary,
-            marginRight: SPACING.sm, marginTop: 9,
-          }} />
-          <View style={{ flex: 1 }}>{children}</View>
+        <View key={node.key} style={listItemRow}>
+          <View style={bulletDot} />
+          <View style={listItemContent}>{children}</View>
         </View>
       );
     }
@@ -303,14 +300,14 @@ const mdRules = {
       const start = ol.attributes?.start ?? 0;
       const num = start ? start + node.index : node.index + 1;
       return (
-        <View key={node.key} style={styles._VIEW_SAFE_list_item}>
+        <View key={node.key} style={listItemRow}>
           <Text style={styles.ordered_list_icon}>{num}{node.markup}</Text>
-          <View style={{ flex: 1 }}>{children}</View>
+          <View style={listItemContent}>{children}</View>
         </View>
       );
     }
     return (
-      <View key={node.key} style={styles._VIEW_SAFE_list_item}>
+      <View key={node.key} style={listItemRow}>
         {children}
       </View>
     );
@@ -338,6 +335,12 @@ const mdRules = {
     );
   },
 };
+
+// list_item 오버라이드용 고정 스타일. styles._VIEW_SAFE_list_item에 의존하지 않고
+// flexDirection:'row'를 보장. StyleSheet.create 밖에서 정의 → 재렌더 시 객체 재생성 없음.
+const listItemRow = StyleSheet.create({ s: { flexDirection: 'row', alignItems: 'flex-start', marginVertical: SPACING.xs } }).s;
+const bulletDot   = StyleSheet.create({ s: { width: 5, height: 5, borderRadius: 2.5, backgroundColor: COLORS.textSecondary, marginRight: SPACING.sm, marginTop: 9, alignSelf: 'flex-start' } }).s;
+const listItemContent = StyleSheet.create({ s: { flex: 1 } }).s;
 
 // react-native-markdown-display 룰 스타일 (디자인 토큰)
 // 마크다운 ## = heading2, ### = heading3.
