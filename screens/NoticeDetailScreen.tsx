@@ -282,36 +282,6 @@ const mdRules = {
       {children}
     </Text>
   ),
-  // bullet_list_icon은 AST 노드 타입이 아니라 스타일 키 → rule 후킹 불가.
-  // list_item 전체를 오버라이드. styles._VIEW_SAFE_list_item에 의존하지 않고
-  // flexDirection:'row'를 인라인으로 명시 — 라이브러리 styles 병합 결과에 무관.
-  list_item: (node: any, children: any, parent: any, styles: any) => {
-    const inBullet = parent?.some((p: any) => p.type === 'bullet_list');
-    if (inBullet) {
-      return (
-        <View key={node.key} style={listItemRow}>
-          <View style={bulletDot} />
-          <View style={listItemContent}>{children}</View>
-        </View>
-      );
-    }
-    const ol = parent?.find((p: any) => p.type === 'ordered_list');
-    if (ol) {
-      const start = ol.attributes?.start ?? 0;
-      const num = start ? start + node.index : node.index + 1;
-      return (
-        <View key={node.key} style={listItemRow}>
-          <Text style={styles.ordered_list_icon}>{num}{node.markup}</Text>
-          <View style={listItemContent}>{children}</View>
-        </View>
-      );
-    }
-    return (
-      <View key={node.key} style={listItemRow}>
-        {children}
-      </View>
-    );
-  },
   tr: (node: any, children: any, parent: any, styles: any) => {
     const direct = parent?.[parent.length - 1];
     const inThead = direct?.type === 'thead' || direct?.type === 'table_head';
@@ -336,12 +306,6 @@ const mdRules = {
   },
 };
 
-// list_item 오버라이드용 고정 스타일. styles._VIEW_SAFE_list_item에 의존하지 않고
-// flexDirection:'row'를 보장. StyleSheet.create 밖에서 정의 → 재렌더 시 객체 재생성 없음.
-const listItemRow = StyleSheet.create({ s: { flexDirection: 'row', alignItems: 'flex-start', marginVertical: SPACING.xs } }).s;
-const bulletDot   = StyleSheet.create({ s: { width: 5, height: 5, borderRadius: 2.5, backgroundColor: COLORS.textSecondary, marginRight: SPACING.sm, marginTop: 9, alignSelf: 'flex-start' } }).s;
-const listItemContent = StyleSheet.create({ s: { flex: 1 } }).s;
-
 // react-native-markdown-display 룰 스타일 (디자인 토큰)
 // 마크다운 ## = heading2, ### = heading3.
 const mdStyles = StyleSheet.create({
@@ -354,11 +318,11 @@ const mdStyles = StyleSheet.create({
   paragraph: { marginTop: 0, marginBottom: SPACING.md, fontSize: FONT.body, lineHeight: 24, color: COLORS.text },
   // 옅은 블루 형광펜 (본문 ≤3개/섹션). paddingHorizontal 제거 → 좌우 점 어색함 해소.
   strong: { fontWeight: WEIGHT.bold, color: COLORS.text, backgroundColor: COLORS.accentSoft },
-  // 들여쓰기 최소화 (한국어 가독성)
-  bullet_list: { marginLeft: SPACING.xs },
-  ordered_list: { marginLeft: SPACING.xs },
-  ordered_list_icon: { color: COLORS.textSecondary, marginRight: SPACING.sm, fontSize: FONT.body, lineHeight: 24, alignSelf: 'flex-start' as const },
-  list_item: { marginVertical: SPACING.xs }, // 항목 간 숨 쉴 공간
+  bullet_list: { marginLeft: SPACING.sm },
+  ordered_list: { marginLeft: SPACING.sm },
+  bullet_list_icon: { color: COLORS.textSecondary, fontSize: FONT.body, lineHeight: 24, marginRight: SPACING.sm },
+  ordered_list_icon: { color: COLORS.textSecondary, fontSize: FONT.body, lineHeight: 24, marginRight: SPACING.sm },
+  list_item: { marginVertical: SPACING.xs },
   link: { color: COLORS.accentText },
   // 표: overflow hidden + tr 후킹으로 외곽선 중복 방지
   table: { borderWidth: 1, borderColor: COLORS.border, borderRadius: RADIUS.box, marginVertical: SPACING.sm, overflow: 'hidden' },
