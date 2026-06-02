@@ -295,14 +295,22 @@ class BaseRenderer extends Renderer {
     );
   }
   list(ordered: boolean, li: any[], _ls?: any, _ts?: any, startIndex?: number): any {
+    // 불릿을 position:'absolute' top:0 으로 고정.
+    // flex 기반 alignItems는 content 높이(marginBottom 등)에 따라 불릿이 밀림.
+    // 절대 위치는 content 크기와 무관하게 항상 첫 줄에 고정.
+    const BW = 18;
     return (
-      <View key={this.getKey()} style={{ marginLeft: SPACING.sm }}>
+      <View key={this.getKey()} style={{ marginLeft: SPACING.sm, paddingLeft: BW }}>
         {li.map((item: any, i: number) => (
-          <View key={i} style={{ flexDirection: 'row', alignItems: 'flex-start', marginVertical: 2 }}>
-            <Text style={{ fontSize: FONT.body, lineHeight: 26, color: COLORS.textSecondary, width: 18, textAlign: 'center' }}>
+          <View key={i} style={{ marginVertical: 2 }}>
+            <Text style={{
+              position: 'absolute', left: -BW, top: 0,
+              width: BW, textAlign: 'center',
+              fontSize: FONT.body, lineHeight: 26, color: COLORS.textSecondary,
+            }}>
               {ordered ? `${(startIndex ?? 1) + i}.` : '•'}
             </Text>
-            <View style={{ flex: 1 }}>{item}</View>
+            {item}
           </View>
         ))}
       </View>
