@@ -298,18 +298,22 @@ class BaseRenderer extends Renderer {
   }
 }
 
-// 본문용: strong → CAU 파란 bold 텍스트 (배경 없음 → iOS advance-width 우측 점 완전 제거)
+// 본문용: strong → accentSoft 배경 형광펜 + borderRadius:3 (모서리 둥글게 → 우측 점 완화)
 class BodyRenderer extends BaseRenderer {
   strong(children: any, styles?: any): any {
     return (
-      <Text key={this.getKey()} selectable style={{ ...(styles ?? {}), color: COLORS.accentText }}>
+      <Text
+        key={this.getKey()}
+        selectable
+        style={{ ...(styles ?? {}), backgroundColor: COLORS.accentSoft, borderRadius: 3 }}
+      >
         {children}
       </Text>
     );
   }
 }
 
-// AI 요약용: strong에 색/배경 변화 없음 (그라데이션 InfoBox 안에서 plain bold만)
+// AI 요약용: strong override 없음 → 라이브러리 기본 bold만 (배경/색 변화 없음)
 class SummaryRenderer extends BaseRenderer {}
 
 const _bodyRenderer = new BodyRenderer();
@@ -333,12 +337,12 @@ const mdBodyStyles: MarkedStyles = {
     marginTop: SPACING.lg, marginBottom: 6, lineHeight: 26,
     borderBottomWidth: 0, paddingBottom: 0,
   },
-  // strong color는 BodyRenderer.strong()에서 COLORS.accentText로 override
-  strong: { fontWeight: WEIGHT.bold, fontSize: FONT.body },
+  // strong backgroundColor는 BodyRenderer.strong()에서 직접 적용
+  strong: { fontWeight: WEIGHT.bold, fontSize: FONT.body, color: COLORS.text },
   link: { fontSize: FONT.body, color: COLORS.accentText, fontStyle: 'normal' },
   list: { marginLeft: SPACING.sm },
-  // list item 간격: marginVertical로 항목 사이 숨 공간
-  li: { fontSize: FONT.body, lineHeight: 26, color: COLORS.text },
+  // alignSelf:'flex-start' → @jsamr/react-native-li의 기본 'flex-end' override → 마커 상단 정렬
+  li: { fontSize: FONT.body, lineHeight: 26, color: COLORS.text, alignSelf: 'flex-start' } as any,
   table: { borderWidth: 1, borderColor: COLORS.border },
   tableRow: { flexDirection: 'row' },
   tableCell: { padding: 8, borderRightWidth: StyleSheet.hairlineWidth, borderRightColor: COLORS.border },
