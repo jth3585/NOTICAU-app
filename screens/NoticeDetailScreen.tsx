@@ -256,11 +256,9 @@ const styles = StyleSheet.create({
   sourceBtnText: { fontSize: FONT.body, color: COLORS.accentText, fontWeight: WEIGHT.semibold },
 });
 
-// ~text~ 단일 틸드를 marked GFM이 del(취소선)로 파싱 → 한국어 날짜 오파싱 방지.
-// table()을 override → react-native-reanimated-table 가로 넘침/key 경고 회피,
-//   화면 폭 안에 맞는 커스텀 View 테이블로 대체.
-// 공통: del(취소선 비활성), table(화면 폭 맞춤)
-// strong은 서브클래스에서 각각 다르게 처리
+// 공통: del(취소선 비활성), table(화면 폭 맞춤), list(커스텀 • 문자)
+// alignItems:'center'로 불릿-텍스트 수직 정렬: character center = (rowH-fontSize)/2
+// → lineHeight값 무관 수학적으로 항상 일치. @jsamr/react-native-li 완전 우회.
 class BaseRenderer extends Renderer {
   del(children: any, styles?: any): any {
     return (
@@ -296,6 +294,20 @@ class BaseRenderer extends Renderer {
       </View>
     );
   }
+  list(ordered: boolean, li: any[], _ls?: any, _ts?: any, startIndex?: number): any {
+    return (
+      <View key={this.getKey()} style={{ marginLeft: SPACING.sm }}>
+        {li.map((item: any, i: number) => (
+          <View key={i} style={{ flexDirection: 'row', alignItems: 'center', marginVertical: 2 }}>
+            <Text style={{ fontSize: FONT.body, lineHeight: 26, color: COLORS.textSecondary, width: 18, textAlign: 'center' }}>
+              {ordered ? `${(startIndex ?? 1) + i}.` : '•'}
+            </Text>
+            <View style={{ flex: 1 }}>{item}</View>
+          </View>
+        ))}
+      </View>
+    );
+  }
 }
 
 // 본문용: strong → accentSoft 배경 형광펜 + borderRadius:3 (모서리 둥글게 → 우측 점 완화)
@@ -305,7 +317,7 @@ class BodyRenderer extends BaseRenderer {
       <Text
         key={this.getKey()}
         selectable
-        style={{ ...(styles ?? {}), backgroundColor: COLORS.accentSoft, borderRadius: 3 }}
+        style={{ ...(styles ?? {}), backgroundColor: COLORS.accentSoft, borderRadius: 3, lineHeight: 20 }}
       >
         {children}
       </Text>
@@ -341,8 +353,7 @@ const mdBodyStyles: MarkedStyles = {
   strong: { fontWeight: WEIGHT.bold, fontSize: FONT.body, color: COLORS.text },
   link: { fontSize: FONT.body, color: COLORS.accentText, fontStyle: 'normal' },
   list: { marginLeft: SPACING.sm },
-  // alignSelf:'flex-start' → @jsamr/react-native-li의 기본 'flex-end' override → 마커 상단 정렬
-  li: { fontSize: FONT.body, lineHeight: 26, color: COLORS.text, alignSelf: 'flex-start' } as any,
+  li: { fontSize: FONT.body, lineHeight: 26, color: COLORS.text },
   table: { borderWidth: 1, borderColor: COLORS.border },
   tableRow: { flexDirection: 'row' },
   tableCell: { padding: 8, borderRightWidth: StyleSheet.hairlineWidth, borderRightColor: COLORS.border },
