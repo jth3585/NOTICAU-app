@@ -14,6 +14,10 @@ import {
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useMarkdown, Renderer } from 'react-native-marked';
 import type { MarkedStyles } from 'react-native-marked';
+import { useMarkedList, MarkedListItem } from '@jsamr/react-native-li';
+import Disc from '@jsamr/counter-style/presets/disc';
+import Decimal from '@jsamr/counter-style/presets/decimal';
+import type { ReactNode } from 'react';
 import * as WebBrowser from 'expo-web-browser';
 import type { NativeStackScreenProps } from '@react-navigation/native-stack';
 import type { RootStackParamList } from '../lib/types';
@@ -256,9 +260,36 @@ const styles = StyleSheet.create({
   sourceBtnText: { fontSize: FONT.body, color: COLORS.accentText, fontWeight: WEIGHT.semibold },
 });
 
-// 공통: del(취소선 비활성), table(화면 폭 맞춤), list(커스텀 • 문자)
-// alignItems:'center'로 불릿-텍스트 수직 정렬: character center = (rowH-fontSize)/2
-// → lineHeight값 무관 수학적으로 항상 일치. @jsamr/react-native-li 완전 우회.
+// MDList(react-native-marked)는 useMarkedList에 lineStyle 미전달
+// → alignItems:'stretch'(기본) → MarkerBox가 content 전체 높이로 늘어남
+// → syntheticMarkerTextStyle.alignSelf:'flex-end'가 세로 하단으로 밀어냄.
+// CustomMDList: lineStyle:{alignItems:'flex-start'} 추가 → MarkerBox가 첫 줄에만 밀착.
+function CustomMDList({
+  ordered, li, markerTextStyle, markerBoxStyle, startIndex,
+}: {
+  ordered: boolean; li: ReactNode[];
+  markerTextStyle?: any; markerBoxStyle?: any; startIndex?: number;
+}) {
+  const listProps = useMarkedList({
+    counterRenderer: ordered ? Decimal : Disc,
+    startIndex: startIndex ?? 1,
+    markerTextStyle,
+    markerBoxStyle,
+    lineStyle: { alignItems: 'flex-start' },
+    length: li.length,
+  });
+  return (
+    <>
+      {li.map((node, index) => (
+        <MarkedListItem key={index} index={index} {...listProps}>
+          {node}
+        </MarkedListItem>
+      ))}
+    </>
+  );
+}
+
+// 공통: del(취소선 비활성), table(화면 폭 맞춤), list(lineStyle fix)
 class BaseRenderer extends Renderer {
   del(children: any, styles?: any): any {
     return (
@@ -294,26 +325,16 @@ class BaseRenderer extends Renderer {
       </View>
     );
   }
-  list(ordered: boolean, li: any[], _ls?: any, _ts?: any, startIndex?: number): any {
-    // 불릿을 position:'absolute' top:0 으로 고정.
-    // flex 기반 alignItems는 content 높이(marginBottom 등)에 따라 불릿이 밀림.
-    // 절대 위치는 content 크기와 무관하게 항상 첫 줄에 고정.
-    const BW = 18;
+  list(ordered: boolean, li: any[], listStyle?: any, textStyle?: any, startIndex?: number): any {
     return (
-      <View key={this.getKey()} style={{ marginLeft: SPACING.sm, paddingLeft: BW }}>
-        {li.map((item: any, i: number) => (
-          <View key={i} style={{ marginVertical: 2 }}>
-            <Text style={{
-              position: 'absolute', left: -BW, top: 0,
-              width: BW, textAlign: 'center',
-              fontSize: FONT.body, lineHeight: 26, color: COLORS.textSecondary,
-            }}>
-              {ordered ? `${(startIndex ?? 1) + i}.` : '•'}
-            </Text>
-            {item}
-          </View>
-        ))}
-      </View>
+      <CustomMDList
+        key={this.getKey()}
+        ordered={ordered}
+        li={li}
+        markerTextStyle={textStyle}
+        markerBoxStyle={listStyle}
+        startIndex={startIndex}
+      />
     );
   }
 }
