@@ -298,7 +298,7 @@ class BaseRenderer extends Renderer {
     return (
       <View key={this.getKey()} style={{ marginLeft: SPACING.sm }}>
         {li.map((item: any, i: number) => (
-          <View key={i} style={{ flexDirection: 'row', alignItems: 'center', marginVertical: 2 }}>
+          <View key={i} style={{ flexDirection: 'row', alignItems: 'flex-start', marginVertical: 2 }}>
             <Text style={{ fontSize: FONT.body, lineHeight: 26, color: COLORS.textSecondary, width: 18, textAlign: 'center' }}>
               {ordered ? `${(startIndex ?? 1) + i}.` : '•'}
             </Text>
