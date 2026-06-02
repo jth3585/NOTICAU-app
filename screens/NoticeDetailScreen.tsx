@@ -305,7 +305,7 @@ class BodyRenderer extends BaseRenderer {
       <Text
         key={this.getKey()}
         selectable
-        style={{ ...(styles ?? {}), backgroundColor: COLORS.accentSoft, borderRadius: 3, lineHeight: 20 }}
+        style={{ ...(styles ?? {}), backgroundColor: COLORS.accentSoft, borderRadius: 3 }}
       >
         {children}
       </Text>
