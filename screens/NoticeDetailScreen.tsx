@@ -259,26 +259,12 @@ const styles = StyleSheet.create({
 // ~text~ 단일 틸드를 marked GFM이 del(취소선)로 파싱 → 한국어 날짜 오파싱 방지.
 // table()을 override → react-native-reanimated-table 가로 넘침/key 경고 회피,
 //   화면 폭 안에 맞는 커스텀 View 테이블로 대체.
-class BodyRenderer extends Renderer {
+// 공통: del(취소선 비활성), table(화면 폭 맞춤)
+// strong은 서브클래스에서 각각 다르게 처리
+class BaseRenderer extends Renderer {
   del(children: any, styles?: any): any {
     return (
       <Text key={this.getKey()} selectable style={{ ...(styles ?? {}), textDecorationLine: 'none' as const }}>
-        {children}
-      </Text>
-    );
-  }
-
-  // backgroundColor를 styles에서 빼고 여기서 직접 rgba()로 적용.
-  // iOS CoreText가 advance width 경계까지 background를 그리는 아티팩트를
-  // 반투명 배경으로 흰 배경에 묻히게 해 시각적으로 최소화.
-  strong(children: any, styles?: any): any {
-    const { backgroundColor: _bg, ...rest } = styles ?? {};
-    return (
-      <Text
-        key={this.getKey()}
-        selectable
-        style={{ ...rest, backgroundColor: 'rgba(74,144,226,0.13)', lineHeight: 20 }}
-      >
         {children}
       </Text>
     );
@@ -291,7 +277,6 @@ class BodyRenderer extends Renderer {
     const colW = Math.floor(available / numCols);
     return (
       <View key={this.getKey()} style={{ borderWidth: 1, borderColor: COLORS.border, borderRadius: RADIUS.box, overflow: 'hidden', marginVertical: SPACING.sm }}>
-        {/* 헤더 행 */}
         <View style={{ flexDirection: 'row', backgroundColor: COLORS.surface }}>
           {header.map((cell: any, i: number) => (
             <View key={i} style={{ width: colW, padding: 6, borderRightWidth: i < numCols - 1 ? StyleSheet.hairlineWidth : 0, borderRightColor: COLORS.border }}>
@@ -299,7 +284,6 @@ class BodyRenderer extends Renderer {
             </View>
           ))}
         </View>
-        {/* 데이터 행 */}
         {rows.map((row: any, ri: number) => (
           <View key={ri} style={{ flexDirection: 'row', borderTopWidth: StyleSheet.hairlineWidth, borderTopColor: COLORS.border }}>
             {row.map((cell: any, ci: number) => (
@@ -314,9 +298,22 @@ class BodyRenderer extends Renderer {
   }
 }
 
-// Renderer 인스턴스를 모듈 레벨에서 생성 → useMarkdown useMemo deps 안정
+// 본문용: strong → CAU 파란 bold 텍스트 (배경 없음 → iOS advance-width 우측 점 완전 제거)
+class BodyRenderer extends BaseRenderer {
+  strong(children: any, styles?: any): any {
+    return (
+      <Text key={this.getKey()} selectable style={{ ...(styles ?? {}), color: COLORS.accentText }}>
+        {children}
+      </Text>
+    );
+  }
+}
+
+// AI 요약용: strong에 색/배경 변화 없음 (그라데이션 InfoBox 안에서 plain bold만)
+class SummaryRenderer extends BaseRenderer {}
+
 const _bodyRenderer = new BodyRenderer();
-const _summaryRenderer = new BodyRenderer();
+const _summaryRenderer = new SummaryRenderer();
 
 // 본문용 스타일. ## = h2 (22), ### = h3 (17).
 // strong backgroundColor는 BodyRenderer.strong()에서 rgba()로 직접 적용.
@@ -336,8 +333,8 @@ const mdBodyStyles: MarkedStyles = {
     marginTop: SPACING.lg, marginBottom: 6, lineHeight: 26,
     borderBottomWidth: 0, paddingBottom: 0,
   },
-  // backgroundColor는 Renderer.strong() override에서 rgba()로 — styles에선 제거
-  strong: { fontWeight: WEIGHT.bold, fontSize: FONT.body, color: COLORS.text },
+  // strong color는 BodyRenderer.strong()에서 COLORS.accentText로 override
+  strong: { fontWeight: WEIGHT.bold, fontSize: FONT.body },
   link: { fontSize: FONT.body, color: COLORS.accentText, fontStyle: 'normal' },
   list: { marginLeft: SPACING.sm },
   // list item 간격: marginVertical로 항목 사이 숨 공간
