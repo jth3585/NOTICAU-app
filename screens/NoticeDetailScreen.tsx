@@ -14,10 +14,6 @@ import {
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useMarkdown, Renderer } from 'react-native-marked';
 import type { MarkedStyles } from 'react-native-marked';
-import { useMarkedList, MarkedListItem } from '@jsamr/react-native-li';
-import Disc from '@jsamr/counter-style/presets/disc';
-import Decimal from '@jsamr/counter-style/presets/decimal';
-import type { ReactNode } from 'react';
 import * as WebBrowser from 'expo-web-browser';
 import type { NativeStackScreenProps } from '@react-navigation/native-stack';
 import type { RootStackParamList } from '../lib/types';
@@ -260,36 +256,7 @@ const styles = StyleSheet.create({
   sourceBtnText: { fontSize: FONT.body, color: COLORS.accentText, fontWeight: WEIGHT.semibold },
 });
 
-// MDList(react-native-marked)는 useMarkedList에 lineStyle 미전달
-// → alignItems:'stretch'(기본) → MarkerBox가 content 전체 높이로 늘어남
-// → syntheticMarkerTextStyle.alignSelf:'flex-end'가 세로 하단으로 밀어냄.
-// CustomMDList: lineStyle:{alignItems:'flex-start'} 추가 → MarkerBox가 첫 줄에만 밀착.
-function CustomMDList({
-  ordered, li, markerTextStyle, markerBoxStyle, startIndex,
-}: {
-  ordered: boolean; li: ReactNode[];
-  markerTextStyle?: any; markerBoxStyle?: any; startIndex?: number;
-}) {
-  const listProps = useMarkedList({
-    counterRenderer: ordered ? Decimal : Disc,
-    startIndex: startIndex ?? 1,
-    markerTextStyle,
-    markerBoxStyle,
-    lineStyle: { alignItems: 'flex-start' },
-    length: li.length,
-  });
-  return (
-    <>
-      {li.map((node, index) => (
-        <MarkedListItem key={index} index={index} {...listProps}>
-          {node}
-        </MarkedListItem>
-      ))}
-    </>
-  );
-}
-
-// 공통: del(취소선 비활성), table(화면 폭 맞춤), list(lineStyle fix)
+// 공통: del(취소선 비활성), table(화면 폭 맞춤), list(마커 제거)
 class BaseRenderer extends Renderer {
   del(children: any, styles?: any): any {
     return (
@@ -325,16 +292,15 @@ class BaseRenderer extends Renderer {
       </View>
     );
   }
-  list(ordered: boolean, li: any[], listStyle?: any, textStyle?: any, startIndex?: number): any {
+  // 마커 제거 — 형광펜 lineHeight:20과 마커 lineHeight:26 충돌 영구 해소
+  // 항목 식별은 들여쓰기 + 라벨 bold/형광펜으로 충분
+  list(_ordered: boolean, li: any[]): any {
     return (
-      <CustomMDList
-        key={this.getKey()}
-        ordered={ordered}
-        li={li}
-        markerTextStyle={textStyle}
-        markerBoxStyle={listStyle}
-        startIndex={startIndex}
-      />
+      <View key={this.getKey()} style={{ marginLeft: SPACING.sm, marginVertical: SPACING.xs }}>
+        {li.map((item: any, i: number) => (
+          <View key={i} style={{ marginVertical: 2 }}>{item}</View>
+        ))}
+      </View>
     );
   }
 }
