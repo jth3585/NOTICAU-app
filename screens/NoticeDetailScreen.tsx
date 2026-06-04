@@ -231,7 +231,7 @@ const styles = StyleSheet.create({
     lineHeight: 32,
   },
   metaLine: { fontSize: FONT.caption, color: COLORS.textSecondary, marginTop: SPACING.sm },
-  bodyWrap: { marginTop: SPACING.lg },
+  bodyWrap: { marginTop: SPACING.sm },
   summaryLabelRow: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -314,7 +314,7 @@ class BaseRenderer extends Renderer {
         {li.map((item: any, i: number) => {
           if (containsStrong(item)) {
             return (
-              <View key={i} style={{ marginVertical: 2, paddingLeft: BW }}>{item}</View>
+              <View key={i} style={{ marginVertical: 2 }}>{item}</View>
             );
           }
           return (
