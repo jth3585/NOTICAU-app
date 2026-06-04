@@ -256,7 +256,20 @@ const styles = StyleSheet.create({
   sourceBtnText: { fontSize: FONT.body, color: COLORS.accentText, fontWeight: WEIGHT.semibold },
 });
 
-// 공통: del(취소선 비활성), table(화면 폭 맞춤), list(마커 제거)
+// ReactNode 트리에 accentSoft 배경(= strong 형광펜)이 있는지 재귀 탐색
+function containsStrong(node: any): boolean {
+  if (!node) return false;
+  if (Array.isArray(node)) return node.some(containsStrong);
+  if (typeof node !== 'object') return false;
+  const style = node.props?.style;
+  if (style) {
+    const arr = Array.isArray(style) ? style : [style];
+    if (arr.some((s: any) => s && typeof s === 'object' && s.backgroundColor === COLORS.accentSoft)) return true;
+  }
+  return containsStrong(node.props?.children);
+}
+
+// 공통: del(취소선 비활성), table(화면 폭 맞춤), list(조건부 마커)
 class BaseRenderer extends Renderer {
   del(children: any, styles?: any): any {
     return (
@@ -292,14 +305,27 @@ class BaseRenderer extends Renderer {
       </View>
     );
   }
-  // 마커 제거 — 형광펜 lineHeight:20과 마커 lineHeight:26 충돌 영구 해소
-  // 항목 식별은 들여쓰기 + 라벨 bold/형광펜으로 충분
-  list(_ordered: boolean, li: any[]): any {
+  // strong 포함 항목: 마커 제거(lineHeight 충돌 방지) + 들여쓰기
+  // strong 없는 항목: • 마커 정상 표시
+  list(ordered: boolean, li: any[], _ls?: any, _ts?: any, startIndex?: number): any {
+    const BW = 18;
     return (
-      <View key={this.getKey()} style={{ marginLeft: SPACING.sm, marginVertical: SPACING.xs }}>
-        {li.map((item: any, i: number) => (
-          <View key={i} style={{ marginVertical: 2 }}>{item}</View>
-        ))}
+      <View key={this.getKey()} style={{ marginLeft: SPACING.sm }}>
+        {li.map((item: any, i: number) => {
+          if (containsStrong(item)) {
+            return (
+              <View key={i} style={{ marginVertical: 2, paddingLeft: BW }}>{item}</View>
+            );
+          }
+          return (
+            <View key={i} style={{ flexDirection: 'row', marginVertical: 2 }}>
+              <Text style={{ width: BW, textAlign: 'center', fontSize: FONT.body, lineHeight: 26, color: COLORS.textSecondary }}>
+                {ordered ? `${(startIndex ?? 1) + i}.` : '•'}
+              </Text>
+              <View style={{ flex: 1 }}>{item}</View>
+            </View>
+          );
+        })}
       </View>
     );
   }
