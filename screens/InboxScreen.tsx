@@ -122,13 +122,13 @@ export default function InboxScreen() {
   return (
     <SafeAreaView style={styles.container} edges={['top']}>
       <View style={styles.header}>
-        <View>
+        <View style={styles.headerLeft}>
           <Text style={styles.title}>전체 공지</Text>
-          {newTodayCount > 0 && !query ? (
-            <Text style={styles.subtitle}>새로운 공지 {newTodayCount}건</Text>
-          ) : null}
+          <SortToggle mode={sortMode} onChange={setSortMode} />
         </View>
-        <SortToggle mode={sortMode} onChange={setSortMode} />
+        {newTodayCount > 0 && !query ? (
+          <Text style={styles.subtitle}>새로운 공지 {newTodayCount}건</Text>
+        ) : null}
       </View>
 
       {/* 검색바 */}
@@ -194,12 +194,14 @@ const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: COLORS.bg },
   centered: { alignItems: 'center', justifyContent: 'center' },
   header: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
     paddingHorizontal: SPACING.lg,
     paddingTop: SPACING.sm,
     paddingBottom: SPACING.xs,
+  },
+  headerLeft: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: SPACING.md,
   },
   title: { fontSize: FONT.display, fontWeight: WEIGHT.bold, color: COLORS.text },
   subtitle: { fontSize: FONT.caption, color: COLORS.textSecondary, marginTop: SPACING.xs },
