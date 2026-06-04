@@ -310,7 +310,7 @@ class BaseRenderer extends Renderer {
   list(ordered: boolean, li: any[], _ls?: any, _ts?: any, startIndex?: number): any {
     const BW = 18;
     return (
-      <View key={this.getKey()} style={{ marginLeft: SPACING.sm }}>
+      <View key={this.getKey()}>
         {li.map((item: any, i: number) => {
           if (containsStrong(item)) {
             return (
