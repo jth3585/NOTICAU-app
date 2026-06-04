@@ -12,6 +12,7 @@ import { isPostedToday, metaOf, sortNotices, type SortMode } from '../lib/format
 import { CategoryChips } from '../components/CategoryChips';
 import { SortToggle } from '../components/ui/SortToggle';
 import { NoticeCard } from '../components/NoticeCard';
+import { SearchIcon } from '../components/ui/SearchIcon';
 import { useReadSet } from '../lib/read';
 import { useLastSeenAt, touchLastSeenAt } from '../lib/new-badge';
 
@@ -129,7 +130,9 @@ export default function InboxScreen() {
 
       {/* 검색바 */}
       <View style={styles.searchRow}>
-        <Text style={styles.searchIcon}>🔍</Text>
+        <View style={{ marginRight: SPACING.sm }}>
+          <SearchIcon size={16} color={COLORS.textTertiary} />
+        </View>
         <TextInput
           style={styles.searchInput}
           placeholder="공지 검색"
@@ -205,7 +208,6 @@ const styles = StyleSheet.create({
     paddingHorizontal: SPACING.md,
     paddingVertical: SPACING.sm,
   },
-  searchIcon: { fontSize: 14, marginRight: SPACING.sm },
   searchInput: {
     flex: 1,
     fontSize: FONT.body,
