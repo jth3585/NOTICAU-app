@@ -305,6 +305,22 @@ class BaseRenderer extends Renderer {
       </View>
     );
   }
+  text(children: any, styles?: any): any {
+    return (
+      <Text key={this.getKey()} selectable style={styles} lineBreakStrategyIOS="hangul-word">
+        {children}
+      </Text>
+    );
+  }
+
+  heading(children: any, styles?: any): any {
+    return (
+      <Text key={this.getKey()} selectable style={styles} lineBreakStrategyIOS="hangul-word">
+        {children}
+      </Text>
+    );
+  }
+
   // strong 포함 항목: 마커 제거(lineHeight 충돌 방지) + 들여쓰기
   // strong 없는 항목: • 마커 정상 표시
   list(ordered: boolean, li: any[], _ls?: any, _ts?: any, startIndex?: number): any {
