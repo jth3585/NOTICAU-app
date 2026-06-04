@@ -1,7 +1,8 @@
 import { useEffect, useMemo, useState, type ReactNode } from 'react';
 import { FlatList, StyleSheet, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import type { NativeStackScreenProps } from '@react-navigation/native-stack';
+import { useNavigation } from '@react-navigation/native';
+import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { supabase } from '../lib/supabase';
 import type { Notice, RootStackParamList } from '../lib/types';
 import { CHIP_TOPICS } from '../lib/constants';
@@ -11,9 +12,8 @@ import { CategoryChips } from '../components/CategoryChips';
 import { SortToggle } from '../components/ui/SortToggle';
 import { NoticeCard } from '../components/NoticeCard';
 
-type Props = NativeStackScreenProps<RootStackParamList, 'Inbox'>;
-
-export default function InboxScreen({ navigation }: Props) {
+export default function InboxScreen() {
+  const navigation = useNavigation<NativeStackNavigationProp<RootStackParamList>>();
   const [notices, setNotices] = useState<Notice[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);

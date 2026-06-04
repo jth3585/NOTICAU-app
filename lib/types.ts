@@ -46,6 +46,13 @@ export type Notice = {
 
 // react-navigation 스택 파라미터
 export type RootStackParamList = {
-  Inbox: undefined;
+  Tabs: undefined;
   Detail: { notice: Notice };
+};
+
+export type TabParamList = {
+  Home: undefined;
+  Feed: undefined;
+  Bookmark: undefined;
+  MyPage: undefined;
 };
