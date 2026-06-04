@@ -13,6 +13,7 @@ import { CategoryChips } from '../components/CategoryChips';
 import { SortToggle } from '../components/ui/SortToggle';
 import { NoticeCard } from '../components/NoticeCard';
 import { SearchIcon } from '../components/ui/SearchIcon';
+import { XIcon } from '../components/ui/XIcon';
 import { useReadSet } from '../lib/read';
 import { useLastSeenAt, touchLastSeenAt } from '../lib/new-badge';
 
@@ -143,8 +144,8 @@ export default function InboxScreen() {
           clearButtonMode="while-editing"
         />
         {query.length > 0 ? (
-          <TouchableOpacity onPress={() => setQuery('')} hitSlop={8}>
-            <Text style={styles.clearBtn}>✕</Text>
+          <TouchableOpacity onPress={() => setQuery('')} hitSlop={8} style={{ paddingLeft: SPACING.sm }}>
+            <XIcon size={14} color={COLORS.textTertiary} />
           </TouchableOpacity>
         ) : null}
       </View>
@@ -214,7 +215,6 @@ const styles = StyleSheet.create({
     color: COLORS.text,
     padding: 0,
   },
-  clearBtn: { fontSize: FONT.caption, color: COLORS.textTertiary, paddingLeft: SPACING.sm },
   listHeader: { backgroundColor: COLORS.bg },
   listContent: { paddingBottom: SPACING.xl },
   empty: {
