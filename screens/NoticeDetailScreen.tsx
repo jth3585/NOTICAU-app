@@ -231,7 +231,7 @@ const styles = StyleSheet.create({
     lineHeight: 32,
   },
   metaLine: { fontSize: FONT.caption, color: COLORS.textSecondary, marginTop: SPACING.sm },
-  bodyWrap: { marginTop: SPACING.sm },
+  bodyWrap: { marginTop: SPACING.xs },
   summaryLabelRow: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -361,7 +361,7 @@ const mdBodyStyles: MarkedStyles = {
   // h2: 위 섹션과 40 떨어지고 자기 내용과는 12로 가깝게
   h2: {
     fontSize: FONT.title, fontWeight: WEIGHT.bold, color: COLORS.text,
-    marginTop: 40, marginBottom: SPACING.md, lineHeight: 30,
+    marginTop: SPACING.lg, marginBottom: SPACING.md, lineHeight: 30,
     borderBottomWidth: 0, paddingBottom: 0,
   },
   // h3: 위 내용과 16, 자기 내용과는 6으로 가깝게
