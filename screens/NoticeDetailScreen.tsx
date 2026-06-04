@@ -27,6 +27,7 @@ import { AttachmentRow } from '../components/ui/AttachmentRow';
 import { InfoBox } from '../components/ui/InfoBox';
 import { SparkleIcon } from '../components/ui/SparkleIcon';
 import ImageViewing from 'react-native-image-viewing';
+import { useBookmark } from '../lib/bookmarks';
 
 type Props = NativeStackScreenProps<RootStackParamList, 'Detail'>;
 
@@ -45,6 +46,7 @@ export default function NoticeDetailScreen({ route, navigation }: Props) {
   const imgWidth = width - SPACING.lg * 2;
   const [imgViewerIndex, setImgViewerIndex] = useState(0);
   const [imgViewerVisible, setImgViewerVisible] = useState(false);
+  const { bookmarked, toggle: toggleBookmark } = useBookmark(notice.id);
 
   // InApp 브라우저로 열기 (referrer/세션 유지 → 학교 PHP 다운로드 핸들러 호환).
   // 실패 시 외부 브라우저 폴백.
@@ -66,6 +68,11 @@ export default function NoticeDetailScreen({ route, navigation }: Props) {
         <View style={styles.headerMeta}>
           {topic ? <CategoryBadge topic={topic} /> : null}
           <SourceBadge parserKey={src?.parser_key ?? null} />
+          <TouchableOpacity onPress={toggleBookmark} hitSlop={8}>
+            <Text style={{ fontSize: 20, color: bookmarked ? COLORS.accent : COLORS.textTertiary }}>
+              🔖
+            </Text>
+          </TouchableOpacity>
         </View>
       </View>
 
