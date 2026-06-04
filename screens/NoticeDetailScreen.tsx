@@ -28,6 +28,7 @@ import { InfoBox } from '../components/ui/InfoBox';
 import { SparkleIcon } from '../components/ui/SparkleIcon';
 import ImageViewing from 'react-native-image-viewing';
 import { useBookmark } from '../lib/bookmarks';
+import { BookmarkIcon } from '../components/ui/BookmarkIcon';
 
 type Props = NativeStackScreenProps<RootStackParamList, 'Detail'>;
 
@@ -69,9 +70,7 @@ export default function NoticeDetailScreen({ route, navigation }: Props) {
           {topic ? <CategoryBadge topic={topic} /> : null}
           <SourceBadge parserKey={src?.parser_key ?? null} />
           <TouchableOpacity onPress={toggleBookmark} hitSlop={8}>
-            <Text style={{ fontSize: 20, color: bookmarked ? COLORS.accent : COLORS.textTertiary }}>
-              🔖
-            </Text>
+            <BookmarkIcon size={22} filled={bookmarked} color={bookmarked ? COLORS.accent : COLORS.textTertiary} />
           </TouchableOpacity>
         </View>
       </View>

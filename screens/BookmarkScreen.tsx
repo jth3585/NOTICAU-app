@@ -8,6 +8,7 @@ import { useBookmarkList } from '../lib/bookmarks';
 import type { Notice, RootStackParamList } from '../lib/types';
 import { COLORS, FONT, RADIUS, SPACING, WEIGHT } from '../lib/theme';
 import { NoticeCard } from '../components/NoticeCard';
+import { BookmarkIcon } from '../components/ui/BookmarkIcon';
 
 export default function BookmarkScreen() {
   const navigation = useNavigation<NativeStackNavigationProp<RootStackParamList>>();
@@ -46,7 +47,7 @@ export default function BookmarkScreen() {
         </View>
       ) : notices.length === 0 ? (
         <View style={styles.center}>
-          <Text style={styles.emptyIcon}>🔖</Text>
+          <BookmarkIcon size={40} filled={false} color={COLORS.textTertiary} />
           <Text style={styles.emptyTitle}>아직 북마크한 공지가 없어요</Text>
           <Text style={styles.sub}>공지 상세 화면에서 🔖 아이콘을 눌러보세요.</Text>
         </View>
