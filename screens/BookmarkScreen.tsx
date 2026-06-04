@@ -5,6 +5,8 @@ import { useFocusEffect, useNavigation } from '@react-navigation/native';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { supabase } from '../lib/supabase';
 import { useBookmarkList } from '../lib/bookmarks';
+import { useReadSet } from '../lib/read';
+import { useLastSeenAt } from '../lib/new-badge';
 import type { Notice, RootStackParamList } from '../lib/types';
 import { COLORS, FONT, RADIUS, SPACING, WEIGHT } from '../lib/theme';
 import { NoticeCard } from '../components/NoticeCard';
@@ -13,11 +15,13 @@ import { BookmarkIcon } from '../components/ui/BookmarkIcon';
 export default function BookmarkScreen() {
   const navigation = useNavigation<NativeStackNavigationProp<RootStackParamList>>();
   const { bookmarkIds, loading: idsLoading, refresh } = useBookmarkList();
+  const { isRead, refresh: refreshRead } = useReadSet();
+  const { lastSeenAt } = useLastSeenAt();
   const [notices, setNotices] = useState<Notice[]>([]);
   const [fetching, setFetching] = useState(false);
 
   // 탭 포커스 시 목록 새로고침
-  useFocusEffect(useCallback(() => { refresh(); }, [refresh]));
+  useFocusEffect(useCallback(() => { refresh(); refreshRead(); }, [refresh, refreshRead]));
 
   useEffect(() => {
     if (idsLoading) return;
@@ -59,6 +63,8 @@ export default function BookmarkScreen() {
           renderItem={({ item }) => (
               <NoticeCard
                 notice={item}
+                isRead={isRead(item.id)}
+                isNew={!isRead(item.id) && !!lastSeenAt && (item.posted_at ?? '') > lastSeenAt}
                 onPress={() => navigation.navigate('Detail', { notice: item })}
               />
           )}

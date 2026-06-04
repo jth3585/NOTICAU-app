@@ -1,4 +1,4 @@
-import { useState, useMemo } from 'react';
+import { useState, useMemo, useEffect } from 'react';
 import {
   Dimensions,
   Image,
@@ -29,6 +29,7 @@ import { SparkleIcon } from '../components/ui/SparkleIcon';
 import ImageViewing from 'react-native-image-viewing';
 import { useBookmark } from '../lib/bookmarks';
 import { BookmarkIcon } from '../components/ui/BookmarkIcon';
+import { markAsRead } from '../lib/read';
 
 type Props = NativeStackScreenProps<RootStackParamList, 'Detail'>;
 
@@ -48,6 +49,9 @@ export default function NoticeDetailScreen({ route, navigation }: Props) {
   const [imgViewerIndex, setImgViewerIndex] = useState(0);
   const [imgViewerVisible, setImgViewerVisible] = useState(false);
   const { bookmarked, toggle: toggleBookmark } = useBookmark(notice.id);
+
+  // 상세 진입 시 자동 읽음 처리
+  useEffect(() => { markAsRead(notice.id); }, [notice.id]);
 
   // InApp 브라우저로 열기 (referrer/세션 유지 → 학교 PHP 다운로드 핸들러 호환).
   // 실패 시 외부 브라우저 폴백.
