@@ -9,14 +9,13 @@ export type NoticeMeta = {
   notice_id: string;
   topic: string | null;
   action: string | null;
-  deadline_at: string | null; // ISO timestamptz 문자열
+  deadline_at: string | null;
   target_grades: number[] | null;
   target_depts: string[] | null;
   target_campuses: string[] | null;
-  // 2026-05 추가 (이 화면에선 미사용, 다음 세션 마이페이지에서 사용)
   target_enrollment_status: EnrollmentStatus[] | null;
   targets_freshmen: boolean;
-  // LLM이 재구성한 모바일용 마크다운. null이면 body_text 폴백.
+  excludes_undergrad?: boolean | null;
   body_markdown: string | null;
 };
 
@@ -42,6 +41,25 @@ export type Notice = {
   // 방어적으로 배열 가능성도 허용 (format.ts의 one()으로 정규화).
   notice_meta: NoticeMeta | NoticeMeta[] | null;
   sources: Source | Source[] | null;
+};
+
+// 다이제스트/매칭용 공유 타입
+export type Profile = {
+  user_id: string;
+  grade: number;
+  campus: string;
+  college: string | null;
+  dept: string | null;
+  dept_secondary: string | null;
+  enrollment_status: string[];
+  is_dormitory: boolean;
+};
+
+export type UserKeyword = {
+  id: string;
+  user_id: string;
+  keyword: string;
+  notify: boolean;
 };
 
 // react-navigation 스택 파라미터
