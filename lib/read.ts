@@ -10,7 +10,7 @@ export async function markAsRead(noticeId: string): Promise<void> {
   );
 }
 
-async function fetchReadIds(): Promise<Set<string>> {
+export async function fetchReadIds(): Promise<Set<string>> {
   const { data: { session } } = await supabase.auth.getSession();
   if (!session) return new Set();
   const { data } = await supabase
