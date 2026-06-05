@@ -59,6 +59,7 @@ export default function CategoryPrefsScreen() {
                 onValueChange={() => toggle(topic)}
                 trackColor={{ true: COLORS.accent }}
                 thumbColor="#fff"
+                style={{ transform: [{ scale: 0.75 }] }}
               />
             </View>
           ))}

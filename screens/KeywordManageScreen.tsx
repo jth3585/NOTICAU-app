@@ -101,6 +101,7 @@ export default function KeywordManageScreen() {
                     onValueChange={next => handleToggleNotify(item.id, next)}
                     trackColor={{ true: COLORS.accent }}
                     thumbColor="#fff"
+                    style={{ transform: [{ scale: 0.75 }] }}
                   />
                   <TouchableOpacity onPress={() => handleDelete(item.id)} hitSlop={8}>
                     <Text style={styles.deleteBtn}>✕</Text>
