@@ -1,16 +1,13 @@
 import { createContext, useContext, useState, type ReactNode } from 'react';
 
-export type EnrollmentStatus = 'enrolled' | 'leave' | 'returning' | 'graduating';
-
 export type OnboardingData = {
   grade: number | null;
-  campus: 'seoul' | 'anseong' | null;
+  campus: 'seoul' | 'davinci' | null;
   college: string | null;
   dept: string | null;
   dept_secondary: string | null;
-  enrollment_status: EnrollmentStatus | null;
+  enrollment_status: string[];
   is_dormitory: boolean | null;
-  career_paths: string[];
 };
 
 type OnboardingContextType = OnboardingData & {
@@ -26,9 +23,8 @@ export function OnboardingProvider({ children }: { children: ReactNode }) {
     college: null,
     dept: null,
     dept_secondary: null,
-    enrollment_status: null,
+    enrollment_status: [],
     is_dormitory: null,
-    career_paths: [],
   });
 
   const set = (patch: Partial<OnboardingData>) =>

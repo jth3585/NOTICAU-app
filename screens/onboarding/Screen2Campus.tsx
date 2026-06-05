@@ -9,16 +9,15 @@ type Props = NativeStackScreenProps<OnboardingStackParamList, 'Campus'>;
 export default function Screen2Campus({ navigation }: Props) {
   const { campus, set } = useOnboarding();
 
-  const handleSelect = (value: 'seoul' | 'anseong') => {
-    // 캠퍼스 바뀌면 단대/학과 초기화
+  const handleSelect = (value: 'seoul' | 'davinci') => {
     set({ campus: value, college: null, dept: null, dept_secondary: null });
-    navigation.navigate('CollegeDept');
+    navigation.navigate('College');
   };
 
   return (
     <OnboardingLayout step={2} title="어느 캠퍼스에 다니세요?" onBack={() => navigation.goBack()}>
       <OptionButton label="서울" selected={campus === 'seoul'} onPress={() => handleSelect('seoul')} />
-      <OptionButton label="안성" selected={campus === 'anseong'} onPress={() => handleSelect('anseong')} />
+      <OptionButton label="다빈치" selected={campus === 'davinci'} onPress={() => handleSelect('davinci')} />
     </OnboardingLayout>
   );
 }

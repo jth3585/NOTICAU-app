@@ -61,8 +61,8 @@ export type TabParamList = {
 export type OnboardingStackParamList = {
   Grade: undefined;
   Campus: undefined;
-  CollegeDept: undefined;
+  College: undefined;
+  Dept: { collegeCode: string };
   SecondaryDept: undefined;
   Enrollment: undefined;
-  Career: undefined;
 };

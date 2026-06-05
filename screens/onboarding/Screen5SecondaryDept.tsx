@@ -9,43 +9,30 @@ import type { OnboardingStackParamList } from '../../lib/types';
 import { COLORS, FONT, SPACING } from '../../lib/theme';
 
 type Props = NativeStackScreenProps<OnboardingStackParamList, 'SecondaryDept'>;
-
 type Row = { code: string; name: string };
 
-export default function Screen4SecondaryDept({ navigation }: Props) {
+export default function Screen5SecondaryDept({ navigation }: Props) {
   const { dept_secondary, set } = useOnboarding();
-  const [showPicker, setShowPicker] = useState(dept_secondary !== null && dept_secondary !== '__none__');
+  const [showPicker, setShowPicker] = useState(false);
   const [allDepts, setAllDepts] = useState<Row[]>([]);
 
   useEffect(() => {
+    if (!showPicker) return;
     supabase.from('departments').select('code,name').order('name')
       .then(({ data }) => setAllDepts((data as Row[]) ?? []));
-  }, []);
+  }, [showPicker]);
 
-  const handleNone = () => {
-    set({ dept_secondary: null });
-    navigation.navigate('Enrollment');
-  };
+  const goNext = () => navigation.navigate('Enrollment');
 
-  const handleHas = () => {
-    setShowPicker(true);
-  };
-
-  const handleSelect = (code: string) => {
-    set({ dept_secondary: code });
-    navigation.navigate('Enrollment');
-  };
+  const handleNone = () => { set({ dept_secondary: null }); goNext(); };
+  const handleSelect = (code: string) => { set({ dept_secondary: code }); goNext(); };
 
   return (
-    <OnboardingLayout
-      step={4}
-      title="복수전공이 있나요?"
-      onBack={() => navigation.goBack()}
-    >
+    <OnboardingLayout step={5} title="복수전공이 있나요?" onBack={() => navigation.goBack()}>
       {!showPicker ? (
         <>
           <OptionButton label="없음" selected={false} onPress={handleNone} />
-          <OptionButton label="있음" selected={false} onPress={handleHas} />
+          <OptionButton label="있음" selected={false} onPress={() => setShowPicker(true)} />
         </>
       ) : (
         <View style={styles.picker}>

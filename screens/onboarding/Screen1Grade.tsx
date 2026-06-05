@@ -6,14 +6,7 @@ import type { OnboardingStackParamList } from '../../lib/types';
 
 type Props = NativeStackScreenProps<OnboardingStackParamList, 'Grade'>;
 
-const GRADES = [
-  { value: 1, label: '1학년' },
-  { value: 2, label: '2학년' },
-  { value: 3, label: '3학년' },
-  { value: 4, label: '4학년' },
-  { value: 5, label: '5학년', sublabel: '초과학기' },
-  { value: 6, label: '6학년', sublabel: '초과학기' },
-];
+const GRADES = [1, 2, 3, 4, 5, 6];
 
 export default function Screen1Grade({ navigation }: Props) {
   const { grade, set } = useOnboarding();
@@ -27,11 +20,10 @@ export default function Screen1Grade({ navigation }: Props) {
     <OnboardingLayout step={1} title="몇 학년이세요?">
       {GRADES.map((g) => (
         <OptionButton
-          key={g.value}
-          label={g.label}
-          sublabel={g.sublabel}
-          selected={grade === g.value}
-          onPress={() => handleSelect(g.value)}
+          key={g}
+          label={`${g}학년`}
+          selected={grade === g}
+          onPress={() => handleSelect(g)}
         />
       ))}
     </OnboardingLayout>
