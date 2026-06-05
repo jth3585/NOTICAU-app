@@ -1,0 +1,24 @@
+import type { NativeStackScreenProps } from '@react-navigation/native-stack';
+import { OnboardingLayout } from '../../components/onboarding/OnboardingLayout';
+import { OptionButton } from '../../components/onboarding/OptionButton';
+import { useOnboarding } from '../../contexts/OnboardingContext';
+import type { OnboardingStackParamList } from '../../lib/types';
+
+type Props = NativeStackScreenProps<OnboardingStackParamList, 'Campus'>;
+
+export default function Screen2Campus({ navigation }: Props) {
+  const { campus, set } = useOnboarding();
+
+  const handleSelect = (value: 'seoul' | 'anseong') => {
+    // 캠퍼스 바뀌면 단대/학과 초기화
+    set({ campus: value, college: null, dept: null, dept_secondary: null });
+    navigation.navigate('CollegeDept');
+  };
+
+  return (
+    <OnboardingLayout step={2} title="어느 캠퍼스에 다니세요?" onBack={() => navigation.goBack()}>
+      <OptionButton label="서울" selected={campus === 'seoul'} onPress={() => handleSelect('seoul')} />
+      <OptionButton label="안성" selected={campus === 'anseong'} onPress={() => handleSelect('anseong')} />
+    </OnboardingLayout>
+  );
+}

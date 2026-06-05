@@ -9,6 +9,8 @@ import type { RootStackParamList, TabParamList } from './lib/types';
 import { COLORS, FONT, WEIGHT } from './lib/theme';
 import { ensureAnonSession } from './lib/auth';
 import { migrateLocalToDB } from './lib/migrate';
+import { supabase } from './lib/supabase';
+import OnboardingNavigator from './screens/onboarding/OnboardingNavigator';
 
 import HomeScreen from './screens/HomeScreen';
 import InboxScreen from './screens/InboxScreen';
@@ -74,11 +76,20 @@ function Tabs() {
 
 export default function App() {
   const [ready, setReady] = useState(false);
+  const [hasProfile, setHasProfile] = useState(false);
 
   useEffect(() => {
     (async () => {
-      await ensureAnonSession();
-      await migrateLocalToDB();
+      const session = await ensureAnonSession();
+      if (session) {
+        await migrateLocalToDB();
+        const { data } = await supabase
+          .from('profiles')
+          .select('user_id')
+          .eq('user_id', session.user.id)
+          .maybeSingle();
+        setHasProfile(!!data);
+      }
       setReady(true);
     })();
   }, []);
@@ -95,7 +106,11 @@ export default function App() {
     <SafeAreaProvider>
       <StatusBar style="dark" />
       <NavigationContainer>
-        <Stack.Navigator screenOptions={{ headerShown: false }}>
+        <Stack.Navigator
+          screenOptions={{ headerShown: false }}
+          initialRouteName={hasProfile ? 'Tabs' : 'Onboarding'}
+        >
+          <Stack.Screen name="Onboarding" component={OnboardingNavigator} />
           <Stack.Screen name="Tabs" component={Tabs} />
           <Stack.Screen name="Detail" component={NoticeDetailScreen} />
         </Stack.Navigator>

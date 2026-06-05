@@ -46,6 +46,7 @@ export type Notice = {
 
 // react-navigation 스택 파라미터
 export type RootStackParamList = {
+  Onboarding: undefined;
   Tabs: undefined;
   Detail: { notice: Notice };
 };
@@ -55,4 +56,13 @@ export type TabParamList = {
   Feed: undefined;
   Bookmark: undefined;
   MyPage: undefined;
+};
+
+export type OnboardingStackParamList = {
+  Grade: undefined;
+  Campus: undefined;
+  CollegeDept: undefined;
+  SecondaryDept: undefined;
+  Enrollment: undefined;
+  Career: undefined;
 };
