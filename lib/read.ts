@@ -1,26 +1,24 @@
-import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useCallback, useEffect, useRef, useState } from 'react';
-
-const KEY = 'noticau:read';
-
-export async function readReadIds(): Promise<Set<string>> {
-  try {
-    const raw = await AsyncStorage.getItem(KEY);
-    const arr = raw ? (JSON.parse(raw) as string[]) : [];
-    return new Set(arr);
-  } catch {
-    return new Set();
-  }
-}
+import { supabase } from './supabase';
 
 export async function markAsRead(noticeId: string): Promise<void> {
-  try {
-    const set = await readReadIds();
-    if (!set.has(noticeId)) {
-      set.add(noticeId);
-      await AsyncStorage.setItem(KEY, JSON.stringify([...set]));
-    }
-  } catch {}
+  const { data: { session } } = await supabase.auth.getSession();
+  if (!session) return;
+  await supabase.from('user_feed_state').upsert(
+    { user_id: session.user.id, notice_id: noticeId, read_at: new Date().toISOString() },
+    { onConflict: 'user_id,notice_id' },
+  );
+}
+
+async function fetchReadIds(): Promise<Set<string>> {
+  const { data: { session } } = await supabase.auth.getSession();
+  if (!session) return new Set();
+  const { data } = await supabase
+    .from('user_feed_state')
+    .select('notice_id')
+    .eq('user_id', session.user.id)
+    .not('read_at', 'is', null);
+  return new Set(data?.map((r: any) => r.notice_id as string) ?? []);
 }
 
 export function useReadSet() {
@@ -28,7 +26,7 @@ export function useReadSet() {
   const mountedRef = useRef(true);
 
   const refresh = useCallback(async () => {
-    const set = await readReadIds();
+    const set = await fetchReadIds();
     if (mountedRef.current) setReadSet(new Set(set));
   }, []);
 

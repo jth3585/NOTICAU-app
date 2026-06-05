@@ -1,19 +1,34 @@
-import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useCallback, useEffect, useRef, useState } from 'react';
+import { supabase } from './supabase';
 
-const KEY = 'noticau:bookmarks';
-
-async function readIds(): Promise<string[]> {
-  try {
-    const raw = await AsyncStorage.getItem(KEY);
-    return raw ? (JSON.parse(raw) as string[]) : [];
-  } catch {
-    return [];
-  }
+async function fetchBookmarkIds(): Promise<string[]> {
+  const { data: { session } } = await supabase.auth.getSession();
+  if (!session) return [];
+  const { data } = await supabase
+    .from('user_feed_state')
+    .select('notice_id')
+    .eq('user_id', session.user.id)
+    .not('bookmarked_at', 'is', null);
+  return data?.map((r: any) => r.notice_id as string) ?? [];
 }
 
-async function writeIds(ids: string[]): Promise<void> {
-  await AsyncStorage.setItem(KEY, JSON.stringify(ids));
+async function addBookmark(noticeId: string): Promise<void> {
+  const { data: { session } } = await supabase.auth.getSession();
+  if (!session) return;
+  await supabase.from('user_feed_state').upsert(
+    { user_id: session.user.id, notice_id: noticeId, bookmarked_at: new Date().toISOString() },
+    { onConflict: 'user_id,notice_id' },
+  );
+}
+
+async function removeBookmark(noticeId: string): Promise<void> {
+  const { data: { session } } = await supabase.auth.getSession();
+  if (!session) return;
+  await supabase
+    .from('user_feed_state')
+    .update({ bookmarked_at: null })
+    .eq('user_id', session.user.id)
+    .eq('notice_id', noticeId);
 }
 
 // 단일 공지 북마크 상태 훅. optimistic update.
@@ -23,11 +38,8 @@ export function useBookmark(noticeId: string) {
 
   useEffect(() => {
     let alive = true;
-    readIds().then((ids) => {
-      if (alive) {
-        setBookmarked(ids.includes(noticeId));
-        setLoading(false);
-      }
+    fetchBookmarkIds().then((ids) => {
+      if (alive) { setBookmarked(ids.includes(noticeId)); setLoading(false); }
     });
     return () => { alive = false; };
   }, [noticeId]);
@@ -35,11 +47,8 @@ export function useBookmark(noticeId: string) {
   const toggle = useCallback(async () => {
     const next = !bookmarked;
     setBookmarked(next); // optimistic
-    const ids = await readIds();
-    const updated = next
-      ? ids.includes(noticeId) ? ids : [...ids, noticeId]
-      : ids.filter((id) => id !== noticeId);
-    await writeIds(updated);
+    if (next) await addBookmark(noticeId);
+    else await removeBookmark(noticeId);
   }, [bookmarked, noticeId]);
 
   return { bookmarked, toggle, loading };
@@ -53,11 +62,8 @@ export function useBookmarkList() {
 
   const refresh = useCallback(async () => {
     setLoading(true);
-    const ids = await readIds();
-    if (mountedRef.current) {
-      setBookmarkIds(ids);
-      setLoading(false);
-    }
+    const ids = await fetchBookmarkIds();
+    if (mountedRef.current) { setBookmarkIds(ids); setLoading(false); }
   }, []);
 
   useEffect(() => {

@@ -1,11 +1,14 @@
+import { useEffect, useState } from 'react';
 import { NavigationContainer } from '@react-navigation/native';
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
 import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 import { StatusBar } from 'expo-status-bar';
-import { StyleSheet, Text } from 'react-native';
+import { StyleSheet, Text, View } from 'react-native';
 import type { RootStackParamList, TabParamList } from './lib/types';
 import { COLORS, FONT, WEIGHT } from './lib/theme';
+import { ensureAnonSession } from './lib/auth';
+import { migrateLocalToDB } from './lib/migrate';
 
 import HomeScreen from './screens/HomeScreen';
 import InboxScreen from './screens/InboxScreen';
@@ -70,6 +73,24 @@ function Tabs() {
 }
 
 export default function App() {
+  const [ready, setReady] = useState(false);
+
+  useEffect(() => {
+    (async () => {
+      await ensureAnonSession();
+      await migrateLocalToDB();
+      setReady(true);
+    })();
+  }, []);
+
+  if (!ready) {
+    return (
+      <SafeAreaProvider>
+        <View style={{ flex: 1, backgroundColor: COLORS.bg }} />
+      </SafeAreaProvider>
+    );
+  }
+
   return (
     <SafeAreaProvider>
       <StatusBar style="dark" />
