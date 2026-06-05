@@ -33,12 +33,16 @@ export default function ProfileEditScreen() {
   const navigation = useNavigation();
   const [profile, setProfile] = useState<Profile | null>(null);
   const [colleges, setColleges] = useState<Row[]>([]);
+  const [allColleges, setAllColleges] = useState<Row[]>([]);
   const [depts, setDepts] = useState<Row[]>([]);
-  const [allDepts, setAllDepts] = useState<Row[]>([]);
+  const [secondaryDepts, setSecondaryDepts] = useState<Row[]>([]);
   const [saving, setSaving] = useState(false);
-  const [sheet, setSheet] = useState<string | null>(null); // which field sheet is open
+  const [sheet, setSheet] = useState<string | null>(null);
+  // 복수전공 2단계: 단대 선택 후 학과 선택
+  const [secondaryCollegeCode, setSecondaryCollegeCode] = useState<string | null>(null);
+  const [secondaryDeptName, setSecondaryDeptName] = useState<string>('');
 
-  // Load profile
+  // Load profile + all colleges
   useEffect(() => {
     (async () => {
       const { data: { session } } = await supabase.auth.getSession();
@@ -46,7 +50,7 @@ export default function ProfileEditScreen() {
       const { data } = await supabase.from('profiles').select('*').eq('user_id', session.user.id).maybeSingle();
       if (data) setProfile(data as Profile);
     })();
-    supabase.from('departments').select('code,name').order('name').then(({ data }) => setAllDepts((data as Row[]) ?? []));
+    supabase.from('colleges').select('code,name').order('name').then(({ data }) => setAllColleges((data as Row[]) ?? []));
   }, []);
 
   // Load colleges when campus changes
@@ -57,12 +61,26 @@ export default function ProfileEditScreen() {
       .then(({ data }) => setColleges((data as Row[]) ?? []));
   }, [profile?.campus]);
 
-  // Load depts when college changes
+  // Load main depts when college changes
   useEffect(() => {
     if (!profile?.college) { setDepts([]); return; }
     supabase.from('departments').select('code,name').eq('college_code', profile.college).order('name')
       .then(({ data }) => setDepts((data as Row[]) ?? []));
   }, [profile?.college]);
+
+  // Load secondary depts when secondary college selected
+  useEffect(() => {
+    if (!secondaryCollegeCode) { setSecondaryDepts([]); return; }
+    supabase.from('departments').select('code,name').eq('college_code', secondaryCollegeCode).order('name')
+      .then(({ data }) => setSecondaryDepts((data as Row[]) ?? []));
+  }, [secondaryCollegeCode]);
+
+  // Load secondary dept display name when profile loads
+  useEffect(() => {
+    if (!profile?.dept_secondary) { setSecondaryDeptName(''); return; }
+    supabase.from('departments').select('name').eq('code', profile.dept_secondary).maybeSingle()
+      .then(({ data }) => setSecondaryDeptName((data as any)?.name ?? profile.dept_secondary ?? ''));
+  }, [profile?.dept_secondary]);
 
   const patch = useCallback((p: Partial<Profile>) => setProfile((prev) => prev ? { ...prev, ...p } : prev), []);
 
@@ -111,7 +129,7 @@ export default function ProfileEditScreen() {
         <Group label="소속">
           <Row_ label="단과대학" value={nameOf(colleges, profile.college)} onPress={() => setSheet('college')} />
           <Row_ label="학과" value={nameOf(depts, profile.dept) || (depts.length === 0 && profile.college ? '준비 중' : '—')} onPress={() => depts.length > 0 && setSheet('dept')} />
-          <Row_ label="복수전공" value={nameOf(allDepts, profile.dept_secondary) || '없음'} onPress={() => setSheet('secondary')} />
+          <Row_ label="복수전공" value={secondaryDeptName || '없음'} onPress={() => { setSecondaryCollegeCode(null); setSheet('secondary'); }} />
         </Group>
         <Group label="상태">
           <Row_ label="재학상태" value={statusText} onPress={() => setSheet('status')} />
@@ -144,13 +162,36 @@ export default function ProfileEditScreen() {
             onPress={() => { patch({ dept: d.code }); setSheet(null); }} />
         ))}
       </Sheet>
-      <Sheet open={sheet === 'secondary'} onClose={() => setSheet(null)} title="복수전공">
-        <SheetOption label="없음" selected={!profile.dept_secondary}
-          onPress={() => { patch({ dept_secondary: null }); setSheet(null); }} />
-        {allDepts.map(d => (
-          <SheetOption key={d.code} label={d.name} selected={profile.dept_secondary === d.code}
-            onPress={() => { patch({ dept_secondary: d.code }); setSheet(null); }} />
-        ))}
+      {/* 복수전공: 단대 선택 → 학과 선택 2단계 */}
+      <Sheet
+        open={sheet === 'secondary'}
+        onClose={() => { setSheet(null); setSecondaryCollegeCode(null); }}
+        title={secondaryCollegeCode ? '복수전공 학과 선택' : '복수전공 단과대학 선택'}
+      >
+        {!secondaryCollegeCode ? (
+          <>
+            <SheetOption label="없음 (복수전공 해제)" selected={!profile.dept_secondary}
+              onPress={() => { patch({ dept_secondary: null }); setSheet(null); }} />
+            {allColleges.map(c => (
+              <SheetOption key={c.code} label={c.name} selected={false}
+                onPress={() => setSecondaryCollegeCode(c.code)} />
+            ))}
+          </>
+        ) : (
+          <>
+            {secondaryDepts.length > 0
+              ? secondaryDepts.map(d => (
+                  <SheetOption key={d.code} label={d.name} selected={profile.dept_secondary === d.code}
+                    onPress={() => { patch({ dept_secondary: d.code }); setSheet(null); setSecondaryCollegeCode(null); }} />
+                ))
+              : <SheetOption label="학과 정보 준비 중 — 단대만 저장" selected={false}
+                  onPress={() => { patch({ dept_secondary: secondaryCollegeCode }); setSheet(null); setSecondaryCollegeCode(null); }} />
+            }
+            <TouchableOpacity style={styles.sheetDone} onPress={() => setSecondaryCollegeCode(null)}>
+              <Text style={[styles.sheetDoneText, { color: COLORS.textSecondary }]}>← 단과대학 다시 선택</Text>
+            </TouchableOpacity>
+          </>
+        )}
       </Sheet>
       <Sheet open={sheet === 'status'} onClose={() => setSheet(null)} title="재학상태 (복수 선택)">
         {STATUS_OPTIONS.map(o => {
