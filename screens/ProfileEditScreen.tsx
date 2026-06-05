@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import {
   Modal, ScrollView, StyleSheet, Text, TouchableOpacity,
   TouchableWithoutFeedback, View,
@@ -36,17 +36,17 @@ export default function ProfileEditScreen() {
   const [allColleges, setAllColleges] = useState<Row[]>([]);
   const [depts, setDepts] = useState<Row[]>([]);
   const [secondaryDepts, setSecondaryDepts] = useState<Row[]>([]);
-  const [saving, setSaving] = useState(false);
   const [sheet, setSheet] = useState<string | null>(null);
-  // 복수전공 2단계: 단대 선택 후 학과 선택
   const [secondaryCollegeCode, setSecondaryCollegeCode] = useState<string | null>(null);
   const [secondaryDeptName, setSecondaryDeptName] = useState<string>('');
+  const userIdRef = useRef<string | null>(null);
 
   // Load profile + all colleges
   useEffect(() => {
     (async () => {
       const { data: { session } } = await supabase.auth.getSession();
       if (!session) return;
+      userIdRef.current = session.user.id;
       const { data } = await supabase.from('profiles').select('*').eq('user_id', session.user.id).maybeSingle();
       if (data) setProfile(data as Profile);
     })();
@@ -82,20 +82,12 @@ export default function ProfileEditScreen() {
       .then(({ data }) => setSecondaryDeptName((data as any)?.name ?? profile.dept_secondary ?? ''));
   }, [profile?.dept_secondary]);
 
-  const patch = useCallback((p: Partial<Profile>) => setProfile((prev) => prev ? { ...prev, ...p } : prev), []);
-
-  const handleSave = async () => {
-    if (!profile || saving) return;
-    setSaving(true);
-    const { data: { session } } = await supabase.auth.getSession();
-    if (!session) { setSaving(false); return; }
-    await supabase.from('profiles').update({
-      grade: profile.grade, campus: profile.campus, college: profile.college,
-      dept: profile.dept, dept_secondary: profile.dept_secondary,
-      enrollment_status: profile.enrollment_status, is_dormitory: profile.is_dormitory,
-    }).eq('user_id', session.user.id);
-    setSaving(false);
-    navigation.goBack();
+  // 선택 즉시 로컬 state + DB 동시 업데이트
+  const autosave = (p: Partial<Profile>) => {
+    setProfile((prev) => prev ? { ...prev, ...p } : prev);
+    const uid = userIdRef.current;
+    if (!uid) return;
+    supabase.from('profiles').update(p as any).eq('user_id', uid).then();
   };
 
   const nameOf = (list: Row[], code: string | null | undefined) =>
@@ -116,9 +108,7 @@ export default function ProfileEditScreen() {
           <Text style={styles.back}>‹ 뒤로</Text>
         </TouchableOpacity>
         <Text style={styles.title}>프로필 수정</Text>
-        <TouchableOpacity onPress={handleSave} hitSlop={8}>
-          <Text style={[styles.saveBtn, saving && { opacity: 0.5 }]}>{saving ? '저장 중…' : '저장'}</Text>
-        </TouchableOpacity>
+        <View style={{ width: 40 }} />
       </View>
 
       <ScrollView contentContainerStyle={styles.scroll}>
@@ -141,25 +131,25 @@ export default function ProfileEditScreen() {
       <Sheet open={sheet === 'grade'} onClose={() => setSheet(null)} title="학년">
         {[1,2,3,4,5,6].map(g => (
           <SheetOption key={g} label={`${g}학년`} selected={profile.grade === g}
-            onPress={() => { patch({ grade: g }); setSheet(null); }} />
+            onPress={() => { autosave({ grade: g }); setSheet(null); }} />
         ))}
       </Sheet>
       <Sheet open={sheet === 'campus'} onClose={() => setSheet(null)} title="캠퍼스">
         {CAMPUS_OPTIONS.map(o => (
           <SheetOption key={o.value} label={o.label} selected={profile.campus === o.value}
-            onPress={() => { patch({ campus: o.value, college: null, dept: null }); setSheet(null); }} />
+            onPress={() => { autosave({ campus: o.value, college: null, dept: null }); setSheet(null); }} />
         ))}
       </Sheet>
       <Sheet open={sheet === 'college'} onClose={() => setSheet(null)} title="단과대학">
         {colleges.map(c => (
           <SheetOption key={c.code} label={c.name} selected={profile.college === c.code}
-            onPress={() => { patch({ college: c.code, dept: null }); setSheet(null); }} />
+            onPress={() => { autosave({ college: c.code, dept: null }); setSheet(null); }} />
         ))}
       </Sheet>
       <Sheet open={sheet === 'dept'} onClose={() => setSheet(null)} title="학과">
         {depts.map(d => (
           <SheetOption key={d.code} label={d.name} selected={profile.dept === d.code}
-            onPress={() => { patch({ dept: d.code }); setSheet(null); }} />
+            onPress={() => { autosave({ dept: d.code }); setSheet(null); }} />
         ))}
       </Sheet>
       {/* 복수전공: 단대 선택 → 학과 선택 2단계 */}
@@ -171,7 +161,7 @@ export default function ProfileEditScreen() {
         {!secondaryCollegeCode ? (
           <>
             <SheetOption label="없음 (복수전공 해제)" selected={!profile.dept_secondary}
-              onPress={() => { patch({ dept_secondary: null }); setSheet(null); }} />
+              onPress={() => { autosave({ dept_secondary: null }); setSheet(null); }} />
             {allColleges.map(c => (
               <SheetOption key={c.code} label={c.name} selected={false}
                 onPress={() => setSecondaryCollegeCode(c.code)} />
@@ -182,10 +172,10 @@ export default function ProfileEditScreen() {
             {secondaryDepts.length > 0
               ? secondaryDepts.map(d => (
                   <SheetOption key={d.code} label={d.name} selected={profile.dept_secondary === d.code}
-                    onPress={() => { patch({ dept_secondary: d.code }); setSheet(null); setSecondaryCollegeCode(null); }} />
+                    onPress={() => { autosave({ dept_secondary: d.code }); setSheet(null); setSecondaryCollegeCode(null); }} />
                 ))
               : <SheetOption label="학과 정보 준비 중 — 단대만 저장" selected={false}
-                  onPress={() => { patch({ dept_secondary: secondaryCollegeCode }); setSheet(null); setSecondaryCollegeCode(null); }} />
+                  onPress={() => { autosave({ dept_secondary: secondaryCollegeCode }); setSheet(null); setSecondaryCollegeCode(null); }} />
             }
             <TouchableOpacity style={styles.sheetDone} onPress={() => setSecondaryCollegeCode(null)}>
               <Text style={[styles.sheetDoneText, { color: COLORS.textSecondary }]}>← 단과대학 다시 선택</Text>
@@ -201,7 +191,7 @@ export default function ProfileEditScreen() {
               const next = selected
                 ? profile.enrollment_status.filter(s => s !== o.value)
                 : [...profile.enrollment_status, o.value];
-              patch({ enrollment_status: next });
+              autosave({ enrollment_status: next });
             }} />
           );
         })}
@@ -211,9 +201,9 @@ export default function ProfileEditScreen() {
       </Sheet>
       <Sheet open={sheet === 'dorm'} onClose={() => setSheet(null)} title="기숙사 거주">
         <SheetOption label="예" selected={profile.is_dormitory}
-          onPress={() => { patch({ is_dormitory: true }); setSheet(null); }} />
+          onPress={() => { autosave({ is_dormitory: true }); setSheet(null); }} />
         <SheetOption label="아니요" selected={!profile.is_dormitory}
-          onPress={() => { patch({ is_dormitory: false }); setSheet(null); }} />
+          onPress={() => { autosave({ is_dormitory: false }); setSheet(null); }} />
       </Sheet>
     </SafeAreaView>
   );
