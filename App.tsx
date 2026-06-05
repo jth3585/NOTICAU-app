@@ -11,6 +11,9 @@ import { ensureAnonSession } from './lib/auth';
 import { migrateLocalToDB } from './lib/migrate';
 import { supabase } from './lib/supabase';
 import OnboardingNavigator from './screens/onboarding/OnboardingNavigator';
+import ProfileEditScreen from './screens/ProfileEditScreen';
+import KeywordManageScreen from './screens/KeywordManageScreen';
+import CategoryPrefsScreen from './screens/CategoryPrefsScreen';
 
 import HomeScreen from './screens/HomeScreen';
 import InboxScreen from './screens/InboxScreen';
@@ -113,6 +116,9 @@ export default function App() {
           <Stack.Screen name="Onboarding" component={OnboardingNavigator} />
           <Stack.Screen name="Tabs" component={Tabs} />
           <Stack.Screen name="Detail" component={NoticeDetailScreen} />
+          <Stack.Screen name="ProfileEdit" component={ProfileEditScreen} />
+          <Stack.Screen name="KeywordManage" component={KeywordManageScreen} />
+          <Stack.Screen name="CategoryPrefs" component={CategoryPrefsScreen} />
         </Stack.Navigator>
       </NavigationContainer>
     </SafeAreaProvider>

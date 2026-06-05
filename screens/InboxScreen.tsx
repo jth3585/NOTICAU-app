@@ -43,7 +43,22 @@ export default function InboxScreen() {
   const { isRead, refresh: refreshRead } = useReadSet();
   const { lastSeenAt } = useLastSeenAt();
 
-  useFocusEffect(useCallback(() => { refreshRead(); }, [refreshRead]));
+  // 카테고리 OFF 프리프 (topic → false인 것들)
+  const [disabledTopics, setDisabledTopics] = useState<Set<string>>(new Set());
+
+  useFocusEffect(useCallback(() => {
+    refreshRead();
+    // 카테고리 프리프 새로고침 (CategoryPrefsScreen에서 변경 후 돌아올 때)
+    (async () => {
+      const { data: { session } } = await supabase.auth.getSession();
+      if (!session) return;
+      const { data } = await supabase.from('user_category_prefs')
+        .select('topic,is_enabled').eq('user_id', session.user.id);
+      const disabled = new Set<string>();
+      (data ?? []).forEach((r: any) => { if (!r.is_enabled) disabled.add(r.topic); });
+      setDisabledTopics(disabled);
+    })();
+  }, [refreshRead]));
 
   useEffect(() => {
     const sub = AppState.addEventListener('change', (state) => {
@@ -110,9 +125,14 @@ export default function InboxScreen() {
 
   const visible = useMemo(() => {
     if (query.trim()) return searchResults;
-    const f = selected === '전체' ? notices : notices.filter((n) => metaOf(n)?.topic === selected);
+    let f = selected === '전체'
+      ? notices.filter((n) => {
+          const topic = metaOf(n)?.topic;
+          return !topic || !disabledTopics.has(topic);
+        })
+      : notices.filter((n) => metaOf(n)?.topic === selected);
     return sortNotices(f, sortMode);
-  }, [notices, selected, sortMode, query, searchResults]);
+  }, [notices, selected, sortMode, query, searchResults, disabledTopics]);
 
   if (loading) return <Centered>Loading...</Centered>;
   if (error) return <Centered>Error: {error}</Centered>;

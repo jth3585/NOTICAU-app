@@ -49,6 +49,9 @@ export type RootStackParamList = {
   Onboarding: undefined;
   Tabs: undefined;
   Detail: { notice: Notice };
+  ProfileEdit: undefined;
+  KeywordManage: undefined;
+  CategoryPrefs: undefined;
 };
 
 export type TabParamList = {
