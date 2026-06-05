@@ -1,5 +1,8 @@
 import { useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
-import { AppState, FlatList, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
+import {
+  AppState, FlatList, Modal, StyleSheet, Text, TextInput,
+  TouchableOpacity, TouchableWithoutFeedback, View,
+} from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useFocusEffect, useNavigation } from '@react-navigation/native';
 import { useCallback } from 'react';
@@ -10,11 +13,16 @@ import { CHIP_TOPICS } from '../lib/constants';
 import { COLORS, FONT, RADIUS, SPACING, WEIGHT } from '../lib/theme';
 import { isPostedToday, metaOf, sortNotices, type SortMode } from '../lib/format';
 import { CategoryChips } from '../components/CategoryChips';
-import { SortToggle } from '../components/ui/SortToggle';
 import { NoticeCard } from '../components/NoticeCard';
 import { SearchIcon } from '../components/ui/SearchIcon';
+import { SortIcon } from '../components/ui/SortIcon';
 import { useReadSet } from '../lib/read';
 import { useLastSeenAt, touchLastSeenAt } from '../lib/new-badge';
+
+const SORT_LABELS: Record<SortMode, string> = {
+  deadline: '마감일순',
+  posted: '등록일순',
+};
 
 export default function InboxScreen() {
   const navigation = useNavigation<NativeStackNavigationProp<RootStackParamList>>();
@@ -23,6 +31,7 @@ export default function InboxScreen() {
   const [error, setError] = useState<string | null>(null);
   const [selected, setSelected] = useState<string>('전체');
   const [sortMode, setSortMode] = useState<SortMode>('deadline');
+  const [sortSheetOpen, setSortSheetOpen] = useState(false);
 
   // 검색
   const [query, setQuery] = useState('');
@@ -34,10 +43,8 @@ export default function InboxScreen() {
   const { isRead, refresh: refreshRead } = useReadSet();
   const { lastSeenAt } = useLastSeenAt();
 
-  // 탭 포커스 시 읽음 상태 갱신 (다른 화면에서 읽고 돌아올 때)
   useFocusEffect(useCallback(() => { refreshRead(); }, [refreshRead]));
 
-  // 앱 백그라운드 전환 시 last_seen_at 갱신
   useEffect(() => {
     const sub = AppState.addEventListener('change', (state) => {
       if (state === 'background' || state === 'inactive') touchLastSeenAt();
@@ -45,7 +52,6 @@ export default function InboxScreen() {
     return () => sub.remove();
   }, []);
 
-  // 전체 공지 fetch
   useEffect(() => {
     let active = true;
     (async () => {
@@ -62,14 +68,12 @@ export default function InboxScreen() {
     return () => { active = false; };
   }, []);
 
-  // 검색 debounce 300ms
   useEffect(() => {
     if (debounceRef.current) clearTimeout(debounceRef.current);
     if (!query.trim()) { setSearchResults([]); setSearching(false); return; }
     setSearching(true);
     debounceRef.current = setTimeout(async () => {
       try {
-        // PGroonga RPC 시도
         const { data: ids, error: rpcErr } = await supabase
           .rpc('search_notices', { q: query.trim() });
         if (!rpcErr && ids && ids.length > 0) {
@@ -82,7 +86,6 @@ export default function InboxScreen() {
         } else if (!rpcErr) {
           setSearchResults([]);
         } else {
-          // 폴백: 제목 ilike
           const { data } = await supabase
             .from('notices')
             .select('*, notice_meta(*), sources(parser_key, name)')
@@ -105,11 +108,6 @@ export default function InboxScreen() {
     return (n.posted_at ?? '') > lastSeenAt;
   }, [isRead, lastSeenAt]);
 
-  const newTodayCount = useMemo(
-    () => notices.filter((n) => isPostedToday(n.posted_at)).length,
-    [notices]
-  );
-
   const visible = useMemo(() => {
     if (query.trim()) return searchResults;
     const f = selected === '전체' ? notices : notices.filter((n) => metaOf(n)?.topic === selected);
@@ -121,35 +119,35 @@ export default function InboxScreen() {
 
   return (
     <SafeAreaView style={styles.container} edges={['top']}>
-      <View style={styles.header}>
-        <View style={styles.headerLeft}>
-          <Text style={styles.title}>전체 공지</Text>
-          <SortToggle mode={sortMode} onChange={setSortMode} />
+      {/* 검색바 + 정렬 아이콘 */}
+      <View style={styles.topBar}>
+        <View style={styles.searchRow}>
+          <View style={{ marginRight: SPACING.sm }}>
+            <SearchIcon size={16} color={COLORS.textTertiary} />
+          </View>
+          <TextInput
+            style={styles.searchInput}
+            placeholder="공지 검색"
+            placeholderTextColor={COLORS.textTertiary}
+            value={query}
+            onChangeText={setQuery}
+            returnKeyType="search"
+            clearButtonMode="while-editing"
+          />
+          {query.length > 0 ? (
+            <TouchableOpacity onPress={() => setQuery('')} hitSlop={8} style={{ paddingLeft: SPACING.sm }}>
+              <Text style={styles.clearBtn}>✕</Text>
+            </TouchableOpacity>
+          ) : null}
         </View>
-        {newTodayCount > 0 && !query ? (
-          <Text style={styles.subtitle}>새로운 공지 {newTodayCount}건</Text>
-        ) : null}
-      </View>
 
-      {/* 검색바 */}
-      <View style={styles.searchRow}>
-        <View style={{ marginRight: SPACING.sm }}>
-          <SearchIcon size={16} color={COLORS.textTertiary} />
-        </View>
-        <TextInput
-          style={styles.searchInput}
-          placeholder="공지 검색"
-          placeholderTextColor={COLORS.textTertiary}
-          value={query}
-          onChangeText={setQuery}
-          returnKeyType="search"
-          clearButtonMode="while-editing"
-        />
-        {query.length > 0 ? (
-          <TouchableOpacity onPress={() => setQuery('')} hitSlop={8}>
-            <Text style={styles.clearBtn}>✕</Text>
-          </TouchableOpacity>
-        ) : null}
+        <TouchableOpacity
+          style={[styles.sortBtn, sortMode !== 'deadline' && styles.sortBtnActive]}
+          onPress={() => setSortSheetOpen(true)}
+          hitSlop={6}
+        >
+          <SortIcon size={18} color={sortMode !== 'deadline' ? COLORS.accent : COLORS.textSecondary} />
+        </TouchableOpacity>
       </View>
 
       <FlatList
@@ -178,6 +176,36 @@ export default function InboxScreen() {
         }
         contentContainerStyle={styles.listContent}
       />
+
+      {/* 정렬 시트 */}
+      <Modal
+        visible={sortSheetOpen}
+        transparent
+        animationType="fade"
+        onRequestClose={() => setSortSheetOpen(false)}
+      >
+        <TouchableWithoutFeedback onPress={() => setSortSheetOpen(false)}>
+          <View style={styles.overlay}>
+            <TouchableWithoutFeedback>
+              <View style={styles.sheet}>
+                <Text style={styles.sheetTitle}>정렬</Text>
+                {(['deadline', 'posted'] as SortMode[]).map((mode) => (
+                  <TouchableOpacity
+                    key={mode}
+                    style={styles.sheetOption}
+                    onPress={() => { setSortMode(mode); setSortSheetOpen(false); }}
+                  >
+                    <Text style={[styles.sheetOptionText, sortMode === mode && styles.sheetOptionActive]}>
+                      {SORT_LABELS[mode]}
+                    </Text>
+                    {sortMode === mode ? <Text style={styles.checkmark}>✓</Text> : null}
+                  </TouchableOpacity>
+                ))}
+              </View>
+            </TouchableWithoutFeedback>
+          </View>
+        </TouchableWithoutFeedback>
+      </Modal>
     </SafeAreaView>
   );
 }
@@ -193,25 +221,20 @@ function Centered({ children }: { children: ReactNode }) {
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: COLORS.bg },
   centered: { alignItems: 'center', justifyContent: 'center' },
-  header: {
-    paddingHorizontal: SPACING.lg,
-    paddingTop: SPACING.sm,
-    paddingBottom: SPACING.xs,
-  },
-  headerLeft: {
+  topBar: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: SPACING.md,
+    paddingHorizontal: SPACING.lg,
+    paddingTop: SPACING.sm,
+    paddingBottom: SPACING.sm,
+    gap: SPACING.sm,
   },
-  title: { fontSize: FONT.display, fontWeight: WEIGHT.bold, color: COLORS.text },
-  subtitle: { fontSize: FONT.caption, color: COLORS.textSecondary, marginTop: SPACING.xs },
   searchRow: {
+    flex: 1,
     flexDirection: 'row',
     alignItems: 'center',
     backgroundColor: COLORS.surface,
     borderRadius: RADIUS.box,
-    marginHorizontal: SPACING.lg,
-    marginBottom: SPACING.sm,
     paddingHorizontal: SPACING.md,
     paddingVertical: SPACING.sm,
   },
@@ -221,7 +244,16 @@ const styles = StyleSheet.create({
     color: COLORS.text,
     padding: 0,
   },
-  clearBtn: { fontSize: FONT.caption, color: COLORS.textTertiary, paddingLeft: SPACING.sm },
+  clearBtn: { fontSize: FONT.caption, color: COLORS.textTertiary },
+  sortBtn: {
+    width: 40,
+    height: 40,
+    backgroundColor: COLORS.surface,
+    borderRadius: RADIUS.box,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  sortBtnActive: { backgroundColor: COLORS.accentSoft },
   listHeader: { backgroundColor: COLORS.bg },
   listContent: { paddingBottom: SPACING.xl },
   empty: {
@@ -230,5 +262,48 @@ const styles = StyleSheet.create({
     fontSize: FONT.body,
     marginTop: SPACING.xl,
     marginHorizontal: SPACING.lg,
+  },
+  // 정렬 시트
+  overlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0,0,0,0.35)',
+    justifyContent: 'flex-end',
+  },
+  sheet: {
+    backgroundColor: COLORS.bg,
+    borderTopLeftRadius: 20,
+    borderTopRightRadius: 20,
+    paddingHorizontal: SPACING.lg,
+    paddingTop: SPACING.lg,
+    paddingBottom: SPACING.xxl,
+  },
+  sheetTitle: {
+    fontSize: FONT.caption,
+    fontWeight: WEIGHT.semibold,
+    color: COLORS.textTertiary,
+    marginBottom: SPACING.sm,
+    textTransform: 'uppercase',
+    letterSpacing: 0.8,
+  },
+  sheetOption: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingVertical: SPACING.md,
+    borderBottomWidth: StyleSheet.hairlineWidth,
+    borderBottomColor: COLORS.border,
+  },
+  sheetOptionText: {
+    fontSize: FONT.body,
+    color: COLORS.text,
+  },
+  sheetOptionActive: {
+    color: COLORS.accent,
+    fontWeight: WEIGHT.semibold,
+  },
+  checkmark: {
+    fontSize: FONT.body,
+    color: COLORS.accent,
+    fontWeight: WEIGHT.bold,
   },
 });
