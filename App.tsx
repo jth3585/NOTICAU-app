@@ -9,11 +9,16 @@ import type { RootStackParamList, TabParamList } from './lib/types';
 import { COLORS, FONT, WEIGHT } from './lib/theme';
 import { ensureAnonSession } from './lib/auth';
 import { migrateLocalToDB } from './lib/migrate';
+import { setupPushNotifications } from './lib/push';
 import { supabase } from './lib/supabase';
 import OnboardingNavigator from './screens/onboarding/OnboardingNavigator';
 import ProfileEditScreen from './screens/ProfileEditScreen';
 import KeywordManageScreen from './screens/KeywordManageScreen';
 import CategoryPrefsScreen from './screens/CategoryPrefsScreen';
+import NotificationSettingsScreen from './screens/NotificationSettingsScreen';
+import TermsScreen from './screens/TermsScreen';
+import PrivacyScreen from './screens/PrivacyScreen';
+import DeleteAccountScreen from './screens/DeleteAccountScreen';
 
 import HomeScreen from './screens/HomeScreen';
 import InboxScreen from './screens/InboxScreen';
@@ -86,6 +91,8 @@ export default function App() {
       const session = await ensureAnonSession();
       if (session) {
         await migrateLocalToDB();
+        // 푸시 등록은 UI 블록하지 않도록 fire-and-forget.
+        setupPushNotifications();
         const { data } = await supabase
           .from('profiles')
           .select('user_id')
@@ -119,6 +126,10 @@ export default function App() {
           <Stack.Screen name="ProfileEdit" component={ProfileEditScreen} />
           <Stack.Screen name="KeywordManage" component={KeywordManageScreen} />
           <Stack.Screen name="CategoryPrefs" component={CategoryPrefsScreen} />
+          <Stack.Screen name="NotificationSettings" component={NotificationSettingsScreen} />
+          <Stack.Screen name="Terms" component={TermsScreen} />
+          <Stack.Screen name="Privacy" component={PrivacyScreen} />
+          <Stack.Screen name="DeleteAccount" component={DeleteAccountScreen} />
         </Stack.Navigator>
       </NavigationContainer>
     </SafeAreaProvider>

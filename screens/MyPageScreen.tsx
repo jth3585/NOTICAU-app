@@ -85,18 +85,25 @@ export default function MyPageScreen() {
         {/* 앱 정보 */}
         <Text style={styles.groupLabel}>앱 정보</Text>
         <View style={styles.menuGroup}>
-          <MenuItem label="알림 설정" disabled />
-          <MenuItem label="약관 및 개인정보 처리방침" disabled />
+          <MenuItem label="알림 설정" onPress={() => navigation.navigate('NotificationSettings')} />
+          <MenuItem label="이용약관" onPress={() => navigation.navigate('Terms')} />
+          <MenuItem label="개인정보 처리방침" onPress={() => navigation.navigate('Privacy')} />
+        </View>
+
+        {/* 계정 */}
+        <Text style={styles.groupLabel}>계정</Text>
+        <View style={styles.menuGroup}>
+          <MenuItem label="회원 탈퇴" onPress={() => navigation.navigate('DeleteAccount')} danger />
         </View>
       </ScrollView>
     </SafeAreaView>
   );
 }
 
-function MenuItem({ label, onPress, disabled }: { label: string; onPress?: () => void; disabled?: boolean }) {
+function MenuItem({ label, onPress, disabled, danger }: { label: string; onPress?: () => void; disabled?: boolean; danger?: boolean }) {
   return (
     <TouchableOpacity style={styles.menuItem} onPress={onPress} disabled={disabled} activeOpacity={0.6}>
-      <Text style={[styles.menuLabel, disabled && styles.menuDisabled]}>{label}</Text>
+      <Text style={[styles.menuLabel, disabled && styles.menuDisabled, danger && styles.menuDanger]}>{label}</Text>
       <Text style={[styles.chevron, disabled && styles.menuDisabled]}>›</Text>
     </TouchableOpacity>
   );
@@ -140,4 +147,5 @@ const styles = StyleSheet.create({
   },
   menuLabel: { fontSize: FONT.body, color: COLORS.text },
   menuDisabled: { color: COLORS.textTertiary },
+  menuDanger: { color: COLORS.danger },
 });

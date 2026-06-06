@@ -70,6 +70,10 @@ export type RootStackParamList = {
   ProfileEdit: undefined;
   KeywordManage: undefined;
   CategoryPrefs: undefined;
+  NotificationSettings: undefined;
+  Terms: undefined;
+  Privacy: undefined;
+  DeleteAccount: undefined;
 };
 
 export type TabParamList = {
