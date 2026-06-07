@@ -88,19 +88,25 @@ export default function App() {
 
   useEffect(() => {
     (async () => {
-      const session = await ensureAnonSession();
-      if (session) {
-        await migrateLocalToDB();
-        // 푸시 등록은 UI 블록하지 않도록 fire-and-forget.
-        setupPushNotifications();
-        const { data } = await supabase
-          .from('profiles')
-          .select('user_id')
-          .eq('user_id', session.user.id)
-          .maybeSingle();
-        setHasProfile(!!data);
+      // 어떤 init이 실패해도 흰 화면에 갇히지 않도록 finally에서 ready 보장.
+      try {
+        const session = await ensureAnonSession();
+        if (session) {
+          await migrateLocalToDB();
+          // 푸시 등록은 UI 블록하지 않도록 fire-and-forget.
+          setupPushNotifications();
+          const { data } = await supabase
+            .from('profiles')
+            .select('user_id')
+            .eq('user_id', session.user.id)
+            .maybeSingle();
+          setHasProfile(!!data);
+        }
+      } catch (e) {
+        console.error('[App] init failed', e);
+      } finally {
+        setReady(true);
       }
-      setReady(true);
     })();
   }, []);
 
