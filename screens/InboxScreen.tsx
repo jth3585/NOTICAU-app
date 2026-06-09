@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
 import {
-  AppState, FlatList, Modal, StyleSheet, Text, TextInput,
+  AppState, Dimensions, FlatList, Modal, StyleSheet, Text, TextInput,
   TouchableOpacity, TouchableWithoutFeedback, View,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
@@ -32,6 +32,16 @@ export default function InboxScreen() {
   const [selected, setSelected] = useState<string>('전체');
   const [sortMode, setSortMode] = useState<SortMode>('deadline');
   const [sortSheetOpen, setSortSheetOpen] = useState(false);
+  const sortBtnRef = useRef<View>(null);
+  // 정렬 버튼을 anchor 삼아 그 아래에 말풍선 팝오버를 띄우기 위한 좌표.
+  const [sortAnchor, setSortAnchor] = useState<{ top: number; right: number } | null>(null);
+
+  const openSort = () => {
+    sortBtnRef.current?.measureInWindow((x, y, w, h) => {
+      setSortAnchor({ top: y + h + 6, right: Dimensions.get('window').width - (x + w) });
+      setSortSheetOpen(true);
+    });
+  };
 
   // 검색
   const [query, setQuery] = useState('');
@@ -162,8 +172,9 @@ export default function InboxScreen() {
         </View>
 
         <TouchableOpacity
+          ref={sortBtnRef}
           style={[styles.sortBtn, sortMode !== 'deadline' && styles.sortBtnActive]}
-          onPress={() => setSortSheetOpen(true)}
+          onPress={openSort}
           hitSlop={6}
         >
           <SortIcon size={18} color={sortMode !== 'deadline' ? COLORS.accent : COLORS.textSecondary} />
@@ -197,7 +208,7 @@ export default function InboxScreen() {
         contentContainerStyle={styles.listContent}
       />
 
-      {/* 정렬 시트 */}
+      {/* 정렬 말풍선 팝오버 (정렬 버튼 anchor 기준) */}
       <Modal
         visible={sortSheetOpen}
         transparent
@@ -206,23 +217,25 @@ export default function InboxScreen() {
       >
         <TouchableWithoutFeedback onPress={() => setSortSheetOpen(false)}>
           <View style={styles.overlay}>
-            <TouchableWithoutFeedback>
-              <View style={styles.sheet}>
-                <Text style={styles.sheetTitle}>정렬</Text>
-                {(['deadline', 'posted'] as SortMode[]).map((mode) => (
-                  <TouchableOpacity
-                    key={mode}
-                    style={styles.sheetOption}
-                    onPress={() => { setSortMode(mode); setSortSheetOpen(false); }}
-                  >
-                    <Text style={[styles.sheetOptionText, sortMode === mode && styles.sheetOptionActive]}>
-                      {SORT_LABELS[mode]}
-                    </Text>
-                    {sortMode === mode ? <Text style={styles.checkmark}>✓</Text> : null}
-                  </TouchableOpacity>
-                ))}
-              </View>
-            </TouchableWithoutFeedback>
+            {sortAnchor ? (
+              <TouchableWithoutFeedback>
+                <View style={[styles.popover, { top: sortAnchor.top, right: sortAnchor.right }]}>
+                  <View style={styles.caret} />
+                  {(['deadline', 'posted'] as SortMode[]).map((mode) => (
+                    <TouchableOpacity
+                      key={mode}
+                      style={styles.popOption}
+                      onPress={() => { setSortMode(mode); setSortSheetOpen(false); }}
+                    >
+                      <Text style={[styles.popOptionText, sortMode === mode && styles.popOptionActive]}>
+                        {SORT_LABELS[mode]}
+                      </Text>
+                      {sortMode === mode ? <Text style={styles.checkmark}>✓</Text> : null}
+                    </TouchableOpacity>
+                  ))}
+                </View>
+              </TouchableWithoutFeedback>
+            ) : null}
           </View>
         </TouchableWithoutFeedback>
       </Modal>
@@ -283,41 +296,51 @@ const styles = StyleSheet.create({
     marginTop: SPACING.xl,
     marginHorizontal: SPACING.lg,
   },
-  // 정렬 시트
+  // 정렬 말풍선 팝오버
   overlay: {
     flex: 1,
-    backgroundColor: 'rgba(0,0,0,0.35)',
-    justifyContent: 'flex-end',
+    backgroundColor: 'transparent',
   },
-  sheet: {
+  popover: {
+    position: 'absolute',
+    minWidth: 132,
     backgroundColor: COLORS.bg,
-    borderTopLeftRadius: 20,
-    borderTopRightRadius: 20,
-    paddingHorizontal: SPACING.lg,
-    paddingTop: SPACING.lg,
-    paddingBottom: SPACING.xxl,
+    borderRadius: RADIUS.box,
+    paddingVertical: SPACING.xs,
+    borderWidth: StyleSheet.hairlineWidth,
+    borderColor: COLORS.border,
+    shadowColor: '#000',
+    shadowOpacity: 0.12,
+    shadowRadius: 12,
+    shadowOffset: { width: 0, height: 4 },
+    elevation: 6,
   },
-  sheetTitle: {
-    fontSize: FONT.caption,
-    fontWeight: WEIGHT.semibold,
-    color: COLORS.textTertiary,
-    marginBottom: SPACING.sm,
-    textTransform: 'uppercase',
-    letterSpacing: 0.8,
+  // 말풍선 꼬리: 45도 회전한 정사각형의 위/왼쪽 테두리만 보여 위를 가리키게.
+  caret: {
+    position: 'absolute',
+    top: -6,
+    right: 12,
+    width: 12,
+    height: 12,
+    backgroundColor: COLORS.bg,
+    borderLeftWidth: StyleSheet.hairlineWidth,
+    borderTopWidth: StyleSheet.hairlineWidth,
+    borderColor: COLORS.border,
+    transform: [{ rotate: '45deg' }],
   },
-  sheetOption: {
+  popOption: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    paddingVertical: SPACING.md,
-    borderBottomWidth: StyleSheet.hairlineWidth,
-    borderBottomColor: COLORS.border,
+    gap: SPACING.md,
+    paddingVertical: SPACING.sm,
+    paddingHorizontal: SPACING.md,
   },
-  sheetOptionText: {
+  popOptionText: {
     fontSize: FONT.body,
     color: COLORS.text,
   },
-  sheetOptionActive: {
+  popOptionActive: {
     color: COLORS.accent,
     fontWeight: WEIGHT.semibold,
   },
