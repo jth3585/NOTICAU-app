@@ -19,13 +19,15 @@ export default function BookmarkScreen() {
   const { lastSeenAt } = useLastSeenAt();
   const [notices, setNotices] = useState<Notice[]>([]);
   const [fetching, setFetching] = useState(false);
+  // 최초 1회 로드 여부. 이후 포커스 갱신은 기존 목록을 유지한 채 백그라운드로만 처리(stale-while-revalidate).
+  const [loadedOnce, setLoadedOnce] = useState(false);
 
   // 탭 포커스 시 목록 새로고침
   useFocusEffect(useCallback(() => { refresh(); refreshRead(); }, [refresh, refreshRead]));
 
   useEffect(() => {
     if (idsLoading) return;
-    if (bookmarkIds.length === 0) { setNotices([]); return; }
+    if (bookmarkIds.length === 0) { setNotices([]); setLoadedOnce(true); return; }
     setFetching(true);
     supabase
       .from('notices')
@@ -35,10 +37,12 @@ export default function BookmarkScreen() {
       .then(({ data }) => {
         setNotices((data as Notice[]) ?? []);
         setFetching(false);
+        setLoadedOnce(true);
       });
   }, [bookmarkIds, idsLoading]);
 
-  const loading = idsLoading || fetching;
+  // 풀스크린 로더는 첫 로드에만. 재포커스 갱신 중엔 기존 notices를 그대로 보여줌.
+  const loading = !loadedOnce && (idsLoading || fetching);
 
   return (
     <SafeAreaView style={styles.container} edges={['top']}>
