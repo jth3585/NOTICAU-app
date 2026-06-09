@@ -1,10 +1,16 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { supabase } from './supabase';
-import type { Notice, Profile, UserKeyword } from './types';
+import type { Notice, NoticeMeta, Profile, UserKeyword } from './types';
 import { metaOf, sourceOf } from './format';
 import { isMismatch, calculateMatchScore } from './matching';
 import { fetchReadIds } from './read';
+
+// actionable인데 마감일이 지난 공지는 디지스트에서 제외 (이미 신청 종료 → 무의미).
+function isExpiredActionable(meta: NoticeMeta | null): boolean {
+  return !!meta && meta.action === 'actionable' && !!meta.deadline_at
+    && new Date(meta.deadline_at).getTime() < Date.now();
+}
 
 const CACHE_KEY = 'noticau:digest_today';
 type DigestCache = { date: string; notice_ids: string[] };
@@ -56,6 +62,7 @@ async function computeDigestIds(excludeIds: string[], limit: number): Promise<st
   const scored = notices
     .filter(n => !excludeSet.has(n.id))
     .filter(n => !isMismatch(n, metaOf(n), profile, disabledTopics, readIds))
+    .filter(n => !isExpiredActionable(metaOf(n)))
     .map(n => ({
       id: n.id,
       score: calculateMatchScore(n, metaOf(n), profile, keywords, sourceOf(n)),
