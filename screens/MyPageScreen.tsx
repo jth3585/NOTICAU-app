@@ -21,7 +21,7 @@ type Profile = {
 
 const CAMPUS_LABEL: Record<string, string> = { seoul: '서울', davinci: '다빈치' };
 const STATUS_LABEL: Record<string, string> = {
-  enrolled: '재학중', on_leave: '휴학중', returning: '복학예정', graduating: '졸업예정',
+  enrolled: '재학중', on_leave: '휴학중', graduating: '졸업예정',
 };
 
 export default function MyPageScreen() {

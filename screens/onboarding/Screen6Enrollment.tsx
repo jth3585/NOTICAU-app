@@ -13,7 +13,6 @@ type Props = NativeStackScreenProps<OnboardingStackParamList, 'Enrollment'>;
 const STATUSES = [
   { value: 'enrolled', label: '재학중' },
   { value: 'on_leave', label: '휴학중' },
-  { value: 'returning', label: '복학예정' },
   { value: 'graduating', label: '졸업예정' },
 ];
 

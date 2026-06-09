@@ -3,7 +3,7 @@
 //
 // 주의: 실제 DB의 sources 컬럼은 name (name_ko/name_en 없음).
 
-export type EnrollmentStatus = 'enrolled' | 'leave' | 'returning' | 'graduating';
+export type EnrollmentStatus = 'enrolled' | 'on_leave' | 'graduating';
 
 export type NoticeMeta = {
   notice_id: string;

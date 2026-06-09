@@ -22,11 +22,11 @@ type Row = { code: string; name: string };
 const CAMPUS_OPTIONS = [{ value: 'seoul', label: '서울' }, { value: 'davinci', label: '다빈치' }];
 const STATUS_OPTIONS = [
   { value: 'enrolled', label: '재학중' }, { value: 'on_leave', label: '휴학중' },
-  { value: 'returning', label: '복학예정' }, { value: 'graduating', label: '졸업예정' },
+  { value: 'graduating', label: '졸업예정' },
 ];
 const CAMPUS_LABEL: Record<string, string> = { seoul: '서울', davinci: '다빈치' };
 const STATUS_LABEL: Record<string, string> = {
-  enrolled: '재학중', on_leave: '휴학중', returning: '복학예정', graduating: '졸업예정',
+  enrolled: '재학중', on_leave: '휴학중', graduating: '졸업예정',
 };
 
 export default function ProfileEditScreen() {
