@@ -10,11 +10,13 @@ export function NoticeCard({
   onPress,
   isRead = false,
   isNew = false,
+  unread = false,
 }: {
   notice: Notice;
   onPress: () => void;
   isRead?: boolean;
   isNew?: boolean;
+  unread?: boolean;
 }) {
   const meta = metaOf(notice);
   const src = sourceOf(notice);
@@ -33,6 +35,7 @@ export function NoticeCard({
       <View style={styles.topRow}>
         {topic ? <CategoryBadge topic={topic} /> : <View />}
         <View style={styles.topRight}>
+          {unread ? <View style={styles.unreadDot} /> : null}
           {isNew ? (
             <View style={styles.newBadge}>
               <Text style={styles.newText}>N</Text>
@@ -42,7 +45,7 @@ export function NoticeCard({
         </View>
       </View>
 
-      <Text style={[styles.title, isRead && styles.titleRead]} numberOfLines={2}>
+      <Text style={[styles.title, isRead && styles.titleRead]} numberOfLines={2} lineBreakStrategyIOS="hangul-word">
         {notice.title}
       </Text>
 
@@ -84,6 +87,7 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
   newText: { fontSize: 9, fontWeight: WEIGHT.bold, color: '#fff' },
+  unreadDot: { width: 8, height: 8, borderRadius: 4, backgroundColor: COLORS.accent },
   title: {
     fontSize: FONT.subtitle,
     color: COLORS.text,

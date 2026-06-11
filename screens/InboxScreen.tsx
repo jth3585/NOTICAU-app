@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
 import {
-  AppState, Dimensions, FlatList, Modal, StyleSheet, Text, TextInput,
+  AppState, Dimensions, FlatList, Modal, RefreshControl, StyleSheet, Text, TextInput,
   TouchableOpacity, TouchableWithoutFeedback, View,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
@@ -77,21 +77,27 @@ export default function InboxScreen() {
     return () => sub.remove();
   }, []);
 
-  useEffect(() => {
-    let active = true;
-    (async () => {
-      const { data, error } = await supabase
-        .from('notices')
-        .select('*, notice_meta(*), sources(parser_key, name)')
-        .order('posted_at', { ascending: false })
-        .limit(100);
-      if (!active) return;
-      if (error) { setError(error.message); setLoading(false); return; }
-      setNotices((data ?? []) as Notice[]);
-      setLoading(false);
-    })();
-    return () => { active = false; };
+  const [refreshing, setRefreshing] = useState(false);
+
+  const loadNotices = useCallback(async () => {
+    const { data, error } = await supabase
+      .from('notices')
+      .select('*, notice_meta(*), sources(parser_key, name)')
+      .order('posted_at', { ascending: false })
+      .limit(100);
+    if (error) { setError(error.message); return; }
+    setNotices((data ?? []) as Notice[]);
   }, []);
+
+  useEffect(() => {
+    (async () => { await loadNotices(); setLoading(false); })();
+  }, [loadNotices]);
+
+  const onRefresh = useCallback(async () => {
+    setRefreshing(true);
+    await loadNotices();
+    setRefreshing(false);
+  }, [loadNotices]);
 
   useEffect(() => {
     if (debounceRef.current) clearTimeout(debounceRef.current);
@@ -184,6 +190,9 @@ export default function InboxScreen() {
       <FlatList
         data={visible}
         keyExtractor={(item) => item.id}
+        refreshControl={
+          <RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={COLORS.accent} />
+        }
         ListHeaderComponent={
           query ? null : (
             <View style={styles.listHeader}>

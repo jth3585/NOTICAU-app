@@ -43,11 +43,15 @@ export default function BookmarkScreen() {
 
   // 풀스크린 로더는 첫 로드에만. 재포커스 갱신 중엔 기존 notices를 그대로 보여줌.
   const loading = !loadedOnce && (idsLoading || fetching);
+  const unreadCount = notices.filter((n) => !isRead(n.id)).length;
 
   return (
     <SafeAreaView style={styles.container} edges={['top']}>
       <View style={styles.header}>
         <Text style={styles.title}>북마크</Text>
+        {unreadCount > 0 ? (
+          <Text style={styles.unreadSummary}>안 읽은 북마크 {unreadCount}개</Text>
+        ) : null}
       </View>
       {loading ? (
         <View style={styles.center}>
@@ -69,6 +73,7 @@ export default function BookmarkScreen() {
                 notice={item}
                 isRead={isRead(item.id)}
                 isNew={!isRead(item.id) && !!lastSeenAt && (item.posted_at ?? '') > lastSeenAt}
+                unread={!isRead(item.id)}
                 onPress={() => navigation.navigate('Detail', { notice: item })}
               />
           )}
@@ -82,6 +87,7 @@ const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: COLORS.bg },
   header: { paddingHorizontal: SPACING.lg, paddingVertical: SPACING.md },
   title: { fontSize: FONT.display, fontWeight: WEIGHT.bold, color: COLORS.text },
+  unreadSummary: { fontSize: FONT.caption, color: COLORS.accentText, marginTop: 2, fontWeight: WEIGHT.semibold },
   list: { paddingHorizontal: SPACING.lg, paddingBottom: SPACING.xxl },
   center: { flex: 1, justifyContent: 'center', alignItems: 'center', gap: SPACING.sm, paddingHorizontal: SPACING.xl },
   emptyIcon: { fontSize: 40 },

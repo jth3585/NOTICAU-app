@@ -10,6 +10,9 @@ import { COLORS, FONT, RADIUS, SPACING, WEIGHT } from '../lib/theme';
 
 type Keyword = { id: string; keyword: string; notify: boolean };
 
+// 학교 공지 빈출 추천 키워드 (이미 등록한 건 제외하고 노출)
+const RECOMMENDED = ['장학', '등록금', '수강신청', '계절학기', '교환학생', '인턴', '공모전', '졸업', '현장실습', '비교과'];
+
 export default function KeywordManageScreen() {
   const navigation = useNavigation();
   const [keywords, setKeywords] = useState<Keyword[]>([]);
@@ -28,10 +31,9 @@ export default function KeywordManageScreen() {
 
   useEffect(() => { loadKeywords(); }, []);
 
-  const handleAdd = async () => {
-    const text = input.trim();
+  const addKeyword = async (text: string) => {
     if (!text || adding) return;
-    if (keywords.some(k => k.keyword === text)) { setInput(''); return; }
+    if (keywords.some(k => k.keyword === text)) return;
     setAdding(true);
     const { data: { session } } = await supabase.auth.getSession();
     if (!session) { setAdding(false); return; }
@@ -39,9 +41,17 @@ export default function KeywordManageScreen() {
       .insert({ user_id: session.user.id, keyword: text, notify: false })
       .select('id,keyword,notify').single();
     if (data) setKeywords(prev => [data as Keyword, ...prev]);
-    setInput('');
     setAdding(false);
   };
+
+  const handleAdd = async () => {
+    const text = input.trim();
+    if (!text) return;
+    setInput('');
+    await addKeyword(text);
+  };
+
+  const recommended = RECOMMENDED.filter(r => !keywords.some(k => k.keyword === r));
 
   const handleDelete = async (id: string) => {
     await supabase.from('user_keywords').delete().eq('id', id);
@@ -80,6 +90,19 @@ export default function KeywordManageScreen() {
             <Text style={styles.addBtnText}>추가</Text>
           </TouchableOpacity>
         </View>
+
+        {recommended.length > 0 ? (
+          <View style={styles.recoSection}>
+            <Text style={styles.recoLabel}>추천 키워드</Text>
+            <View style={styles.recoChips}>
+              {recommended.map(r => (
+                <TouchableOpacity key={r} style={styles.recoChip} onPress={() => addKeyword(r)} disabled={adding} activeOpacity={0.7}>
+                  <Text style={styles.recoChipText}>+ {r}</Text>
+                </TouchableOpacity>
+              ))}
+            </View>
+          </View>
+        ) : null}
 
         {keywords.length === 0 ? (
           <View style={styles.empty}>
@@ -126,6 +149,11 @@ const styles = StyleSheet.create({
   addBtn: { backgroundColor: COLORS.accent, borderRadius: RADIUS.box, paddingHorizontal: SPACING.md, paddingVertical: SPACING.sm },
   addBtnDisabled: { backgroundColor: COLORS.surface2 },
   addBtnText: { fontSize: FONT.body, fontWeight: WEIGHT.semibold, color: '#fff' },
+  recoSection: { paddingHorizontal: SPACING.lg, paddingBottom: SPACING.md },
+  recoLabel: { fontSize: FONT.caption, color: COLORS.textSecondary, fontWeight: WEIGHT.semibold, marginBottom: SPACING.sm },
+  recoChips: { flexDirection: 'row', flexWrap: 'wrap', gap: SPACING.sm },
+  recoChip: { backgroundColor: COLORS.surface, borderRadius: RADIUS.box, paddingHorizontal: SPACING.md, paddingVertical: SPACING.xs },
+  recoChipText: { fontSize: FONT.caption, color: COLORS.accentText, fontWeight: WEIGHT.semibold },
   list: { paddingHorizontal: SPACING.lg, paddingBottom: SPACING.xxl },
   keywordRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingVertical: SPACING.md, borderBottomWidth: StyleSheet.hairlineWidth, borderBottomColor: COLORS.border },
   keywordText: { fontSize: FONT.body, color: COLORS.text, flex: 1 },

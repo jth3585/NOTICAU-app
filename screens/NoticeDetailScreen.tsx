@@ -5,6 +5,7 @@ import {
   Linking,
   Platform,
   ScrollView,
+  Share,
   StyleSheet,
   Text,
   TouchableOpacity,
@@ -29,6 +30,7 @@ import { SparkleIcon } from '../components/ui/SparkleIcon';
 import ImageViewing from 'react-native-image-viewing';
 import { useBookmark } from '../lib/bookmarks';
 import { BookmarkIcon } from '../components/ui/BookmarkIcon';
+import { ShareIcon } from '../components/ui/ShareIcon';
 import { markAsRead } from '../lib/read';
 
 type Props = NativeStackScreenProps<RootStackParamList, 'Detail'>;
@@ -53,6 +55,14 @@ export default function NoticeDetailScreen({ route, navigation }: Props) {
   // 상세 진입 시 자동 읽음 처리
   useEffect(() => { markAsRead(notice.id); }, [notice.id]);
 
+  // 공유: 제목 + 원문 링크
+  const onShare = async () => {
+    const url = notice.source_url ?? '';
+    try {
+      await Share.share({ message: url ? `${notice.title}\n${url}` : notice.title });
+    } catch { /* 사용자 취소 등 무시 */ }
+  };
+
   // InApp 브라우저로 열기 (referrer/세션 유지 → 학교 PHP 다운로드 핸들러 호환).
   // 실패 시 외부 브라우저 폴백.
   const open = async (url: string | null | undefined) => {
@@ -73,6 +83,9 @@ export default function NoticeDetailScreen({ route, navigation }: Props) {
         <View style={styles.headerMeta}>
           {topic ? <CategoryBadge topic={topic} /> : null}
           <SourceBadge parserKey={src?.parser_key ?? null} />
+          <TouchableOpacity onPress={onShare} hitSlop={8}>
+            <ShareIcon size={22} color={COLORS.textTertiary} />
+          </TouchableOpacity>
           <TouchableOpacity onPress={toggleBookmark} hitSlop={8}>
             <BookmarkIcon size={22} filled={bookmarked} color={bookmarked ? COLORS.accent : COLORS.textTertiary} />
           </TouchableOpacity>
