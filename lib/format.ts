@@ -95,23 +95,37 @@ export function formatDeadlineDetail(deadlineAt: string | null): DeadlineDetail 
 
 export type SortMode = 'deadline' | 'posted';
 
-// 정렬. 'deadline': deadline_at(asc, NULLS LAST) → posted_at(desc).
+// 정렬. 'deadline': 임박 마감(오늘·미래) 오름차순(가까운 게 위) → 마감 지난 것 → 마감 없는 것.
+//        같은 그룹 내 동률은 posted_at(desc). 마감 지난 공지는 최상단을 차지하지 않고 아래로.
 //      'posted': posted_at(desc)만. 둘 다 안정 정렬.
 export function sortNotices(rows: Notice[], mode: SortMode = 'deadline'): Notice[] {
   if (mode === 'posted') {
     return [...rows].sort((a, b) => (b.posted_at ?? '').localeCompare(a.posted_at ?? ''));
   }
+  const today = kstTodayKey();
+  // 0: 임박(오늘·미래 마감), 1: 마감 지남, 2: 마감 없음
+  const rank = (n: Notice): number => {
+    const dl = metaOf(n)?.deadline_at ?? null;
+    if (!dl || isNaN(Date.parse(dl))) return 2;
+    return dayDiff(kstDateKey(dl), today) >= 0 ? 0 : 1;
+  };
   return [...rows].sort((a, b) => {
-    const da = metaOf(a)?.deadline_at ?? null;
-    const db = metaOf(b)?.deadline_at ?? null;
-    if (da !== db) {
-      if (da === null) return 1;
-      if (db === null) return -1;
+    const ra = rank(a), rb = rank(b);
+    if (ra !== rb) return ra - rb;
+    const da = metaOf(a)?.deadline_at ?? '';
+    const db = metaOf(b)?.deadline_at ?? '';
+    const pa = a.posted_at ?? '', pb = b.posted_at ?? '';
+    if (ra === 0) {
+      // 임박: 마감 가까운 순(오름차순), 동률이면 최신 등록
       const cmp = da.localeCompare(db);
-      if (cmp !== 0) return cmp;
+      return cmp !== 0 ? cmp : pb.localeCompare(pa);
     }
-    const pa = a.posted_at ?? '';
-    const pb = b.posted_at ?? '';
+    if (ra === 1) {
+      // 마감 지남: 최근에 지난 것부터(내림차순), 동률이면 최신 등록
+      const cmp = db.localeCompare(da);
+      return cmp !== 0 ? cmp : pb.localeCompare(pa);
+    }
+    // 마감 없음: 최신 등록순
     return pb.localeCompare(pa);
   });
 }
