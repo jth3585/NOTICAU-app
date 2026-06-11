@@ -134,14 +134,12 @@ Deno.serve(async (req) => {
     }
 
     const uid = profile.user_id;
-    const [kwRes, prefRes, readRes, tokRes] = await Promise.all([
-      supabase.from("user_keywords").select("keyword").eq("user_id", uid),
+    const [prefRes, readRes, tokRes] = await Promise.all([
       supabase.from("user_category_prefs").select("topic,is_enabled").eq("user_id", uid),
       supabase.from("user_feed_state").select("notice_id").eq("user_id", uid).not("read_at", "is", null),
       supabase.from("push_tokens").select("token").eq("user_id", uid).eq("is_active", true),
     ]);
 
-    const keywords = ((kwRes.data ?? []) as any[]).map((k) => k.keyword);
     const disabledTopics = new Set<string>(
       ((prefRes.data ?? []) as any[]).filter((p) => !p.is_enabled).map((p) => p.topic),
     );
@@ -149,7 +147,7 @@ Deno.serve(async (req) => {
     const tokens = ((tokRes.data ?? []) as any[]).map((t) => t.token);
     if (tokens.length === 0) continue;
 
-    // N = 미스매치 아닌 최근 공지, M = 그중 키워드 매칭
+    // N = 미스매치 아닌(미만료) 최근 공지 수
     const matched = recent.filter((n: any) => {
       const meta = one<Meta>(n.notice_meta);
       return !isMismatch(n, meta, profile, disabledTopics, readIds) && !isExpiredActionable(meta);
@@ -157,11 +155,10 @@ Deno.serve(async (req) => {
     const N = matched.length;
     if (N === 0) continue; // 보낼 게 없으면 생략 (last_daily_push_at 미갱신)
 
-    const M = keywords.length > 0 ? matched.filter((n: any) => keywordMatches(n, keywords)).length : 0;
-    const body = M > 0 ? `오늘 새 공지 ${N}개 (키워드 매칭 ${M}개)` : `오늘 새 공지 ${N}개`;
+    const body = `오늘 새 공지 ${N}건`;
 
     for (const token of tokens) {
-      messages.push({ to: token, sound: "default", title: "오늘의 공지", body });
+      messages.push({ to: token, sound: "default", title: "NOTICAU", body });
     }
     sentUserIds.push(uid);
   }
