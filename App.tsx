@@ -1,4 +1,5 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
+import * as SplashScreen from 'expo-splash-screen';
 import { NavigationContainer } from '@react-navigation/native';
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
 import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
@@ -25,6 +26,10 @@ import InboxScreen from './screens/InboxScreen';
 import BookmarkScreen from './screens/BookmarkScreen';
 import MyPageScreen from './screens/MyPageScreen';
 import NoticeDetailScreen from './screens/NoticeDetailScreen';
+
+// 콜드 스타트 시 네이티브 스플래시를 수동 제어 (init 완료 + 최소 표시시간 후 hide).
+SplashScreen.preventAutoHideAsync().catch(() => {});
+const MIN_SPLASH_MS = 1500; // 콜드 스타트 스플래시 최소 표시 시간
 
 const Stack = createNativeStackNavigator<RootStackParamList>();
 const Tab = createBottomTabNavigator<TabParamList>();
@@ -85,6 +90,7 @@ function Tabs() {
 export default function App() {
   const [ready, setReady] = useState(false);
   const [hasProfile, setHasProfile] = useState(false);
+  const initStartTime = useRef(Date.now()).current;
 
   useEffect(() => {
     (async () => {
@@ -105,7 +111,11 @@ export default function App() {
       } catch (e) {
         console.error('[App] init failed', e);
       } finally {
+        // 스플래시 최소 표시 보장(min). init이 더 빨랐으면 남은 시간만 대기.
+        const remaining = MIN_SPLASH_MS - (Date.now() - initStartTime);
+        if (remaining > 0) await new Promise((r) => setTimeout(r, remaining));
         setReady(true);
+        await SplashScreen.hideAsync();
       }
     })();
   }, []);
