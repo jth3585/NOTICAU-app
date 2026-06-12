@@ -1,7 +1,7 @@
 import { StyleSheet, View } from 'react-native';
 import { COLORS, RADIUS } from '../../lib/theme';
 
-export function ProgressBar({ step, total = 6 }: { step: number; total?: number }) {
+export function ProgressBar({ step, total = 7 }: { step: number; total?: number }) {
   return (
     <View style={styles.track}>
       <View style={[styles.fill, { width: `${(step / total) * 100}%` as any }]} />

@@ -53,6 +53,12 @@ export function formatDday(deadlineAt: string | null): Dday | null {
   return { label: `D-${diff}`, overdue: false, urgent: diff <= 3 };
 }
 
+// KST 기준 마감일까지 남은 일수 (오늘=0, 내일=1, 지남=음수). 없으면 null.
+export function ddayDiff(deadlineAt: string | null): number | null {
+  if (!deadlineAt || isNaN(Date.parse(deadlineAt))) return null;
+  return dayDiff(kstDateKey(deadlineAt), kstTodayKey());
+}
+
 // posted_at → "M/D" (KST)
 export function formatDateShort(iso: string | null): string {
   if (!iso || isNaN(Date.parse(iso))) return '';

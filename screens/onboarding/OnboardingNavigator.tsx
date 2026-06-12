@@ -7,6 +7,7 @@ import Screen3College from './Screen3College';
 import Screen4Dept from './Screen4Dept';
 import Screen5SecondaryDept from './Screen5SecondaryDept';
 import Screen6Enrollment from './Screen6Enrollment';
+import Screen7Nickname from './Screen7Nickname';
 
 const Stack = createNativeStackNavigator<OnboardingStackParamList>();
 
@@ -20,6 +21,7 @@ export default function OnboardingNavigator() {
         <Stack.Screen name="Dept" component={Screen4Dept} />
         <Stack.Screen name="SecondaryDept" component={Screen5SecondaryDept} />
         <Stack.Screen name="Enrollment" component={Screen6Enrollment} />
+        <Stack.Screen name="Nickname" component={Screen7Nickname} />
       </Stack.Navigator>
     </OnboardingProvider>
   );

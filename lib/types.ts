@@ -35,6 +35,7 @@ export type Notice = {
   source_category: string | null;
   author: string | null;
   posted_at: string | null; // ISO timestamptz 문자열
+  crawled_at: string | null; // 우리 DB에 적재된 시각 (새공지 판별용)
   is_pinned: boolean | null;
 
   // PostgREST 임베드. 1:1/N:1이라 보통 단일 객체로 오지만,
@@ -53,6 +54,7 @@ export type Profile = {
   dept_secondary: string | null;
   enrollment_status: string[];
   is_dormitory: boolean;
+  nickname: string | null;
 };
 
 export type UserKeyword = {
@@ -90,4 +92,5 @@ export type OnboardingStackParamList = {
   Dept: { collegeCode: string };
   SecondaryDept: undefined;
   Enrollment: undefined;
+  Nickname: undefined;
 };

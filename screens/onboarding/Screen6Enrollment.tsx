@@ -1,10 +1,8 @@
-import { useState } from 'react';
 import { StyleSheet, Text, View } from 'react-native';
 import type { NativeStackScreenProps } from '@react-navigation/native-stack';
 import { OnboardingLayout } from '../../components/onboarding/OnboardingLayout';
 import { OptionButton } from '../../components/onboarding/OptionButton';
 import { useOnboarding } from '../../contexts/OnboardingContext';
-import { supabase } from '../../lib/supabase';
 import type { OnboardingStackParamList } from '../../lib/types';
 import { COLORS, FONT, SPACING } from '../../lib/theme';
 
@@ -17,9 +15,7 @@ const STATUSES = [
 ];
 
 export default function Screen6Enrollment({ navigation }: Props) {
-  const { enrollment_status, is_dormitory, set, ...profile } = useOnboarding();
-  const [saving, setSaving] = useState(false);
-  const [error, setError] = useState<string | null>(null);
+  const { enrollment_status, is_dormitory, set } = useOnboarding();
 
   const toggleStatus = (value: string) => {
     const next = enrollment_status.includes(value)
@@ -28,35 +24,11 @@ export default function Screen6Enrollment({ navigation }: Props) {
     set({ enrollment_status: next });
   };
 
-  const canComplete = enrollment_status.length > 0 && is_dormitory !== null && !saving;
+  const canComplete = enrollment_status.length > 0 && is_dormitory !== null;
 
-  const handleComplete = async () => {
-    if (!canComplete) return;
-    setSaving(true);
-    setError(null);
-
-    const { data: { session } } = await supabase.auth.getSession();
-    if (!session) { setError('세션 오류. 앱을 재시작해 주세요.'); setSaving(false); return; }
-
-    const { error: insertErr } = await supabase.from('profiles').insert({
-      user_id: session.user.id,
-      grade: profile.grade,
-      campus: profile.campus,
-      college: profile.college,
-      dept: profile.dept,
-      dept_secondary: profile.dept_secondary,
-      enrollment_status,
-      is_dormitory: is_dormitory ?? false,
-      onboarded_at: new Date().toISOString(),
-    });
-
-    if (insertErr) {
-      setError('저장 실패: ' + insertErr.message);
-      setSaving(false);
-      return;
-    }
-
-    navigation.getParent()?.reset({ index: 0, routes: [{ name: 'Tabs' }] });
+  // 저장(INSERT)은 마지막 호칭 단계(Screen7Nickname)에서 한 번에 수행.
+  const handleNext = () => {
+    if (canComplete) navigation.navigate('Nickname');
   };
 
   return (
@@ -65,8 +37,8 @@ export default function Screen6Enrollment({ navigation }: Props) {
       title="현재 상태를 선택해 주세요"
       subtitle="복수 선택 가능합니다"
       onBack={() => navigation.goBack()}
-      onNext={handleComplete}
-      nextLabel={saving ? '저장 중…' : '완료'}
+      onNext={handleNext}
+      nextLabel="다음"
       nextEnabled={canComplete}
     >
       {STATUSES.map((s) => (
@@ -85,7 +57,6 @@ export default function Screen6Enrollment({ navigation }: Props) {
           <OptionButton label="아니요" selected={is_dormitory === false} onPress={() => set({ is_dormitory: false })} />
         </View>
       )}
-      {error ? <Text style={styles.error}>{error}</Text> : null}
     </OnboardingLayout>
   );
 }

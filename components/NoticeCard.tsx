@@ -11,12 +11,16 @@ export function NoticeCard({
   isRead = false,
   isNew = false,
   unread = false,
+  width,
+  keywordTag,
 }: {
   notice: Notice;
   onPress: () => void;
   isRead?: boolean;
   isNew?: boolean;
   unread?: boolean;
+  width?: number;      // 지정 시 가로 스크롤용 고정 너비 카드
+  keywordTag?: string; // 지정 시 매칭 키워드 #태그 표시
 }) {
   const meta = metaOf(notice);
   const src = sourceOf(notice);
@@ -31,7 +35,11 @@ export function NoticeCard({
       : COLORS.textSecondary;
 
   return (
-    <TouchableOpacity onPress={onPress} activeOpacity={0.6} style={styles.card}>
+    <TouchableOpacity
+      onPress={onPress}
+      activeOpacity={0.6}
+      style={[styles.card, width != null && { width, marginHorizontal: 0, marginRight: SPACING.md, marginBottom: 0 }]}
+    >
       <View style={styles.topRow}>
         {topic ? <CategoryBadge topic={topic} /> : <View />}
         <View style={styles.topRight}>
@@ -58,6 +66,7 @@ export function NoticeCard({
         ) : (
           <Text style={styles.dim}>{postedMD}</Text>
         )}
+        {keywordTag ? <Text style={styles.kwTag}>  #{keywordTag}</Text> : null}
       </Text>
     </TouchableOpacity>
   );
@@ -98,4 +107,5 @@ const styles = StyleSheet.create({
   bottom: { fontSize: FONT.caption },
   dday: { fontSize: FONT.caption, fontWeight: WEIGHT.semibold },
   dim: { fontSize: FONT.caption, color: COLORS.textSecondary },
+  kwTag: { fontSize: FONT.caption, color: COLORS.accentText, fontWeight: WEIGHT.semibold },
 });
