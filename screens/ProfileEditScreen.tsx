@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from 'react';
 import {
-  Modal, ScrollView, StyleSheet, Text, TouchableOpacity,
+  Animated, Modal, ScrollView, StyleSheet, Text, TouchableOpacity,
   TouchableWithoutFeedback, View,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
@@ -230,19 +230,39 @@ function Row_({ label, value, onPress }: { label: string; value: string; onPress
   );
 }
 
+const SHEET_OFFSET = 500; // 시트가 아래에서 올라오는 거리
+
+// 백드롭은 제자리에서 페이드인, 시트만 아래에서 슬라이드업 (둘이 함께 올라오지 않게).
 function Sheet({ open, onClose, title, children }: { open: boolean; onClose: () => void; title: string; children: React.ReactNode }) {
+  const [mounted, setMounted] = useState(open);
+  const anim = useRef(new Animated.Value(0)).current;
+
+  useEffect(() => {
+    if (open) {
+      setMounted(true);
+      Animated.timing(anim, { toValue: 1, duration: 220, useNativeDriver: true }).start();
+    } else {
+      Animated.timing(anim, { toValue: 0, duration: 180, useNativeDriver: true }).start(({ finished }) => {
+        if (finished) setMounted(false);
+      });
+    }
+  }, [open, anim]);
+
+  if (!mounted) return null;
+
+  const translateY = anim.interpolate({ inputRange: [0, 1], outputRange: [SHEET_OFFSET, 0] });
+
   return (
-    <Modal visible={open} transparent animationType="slide" onRequestClose={onClose}>
-      <TouchableWithoutFeedback onPress={onClose}>
-        <View style={styles.overlay}>
-          <TouchableWithoutFeedback>
-            <View style={styles.sheet}>
-              <Text style={styles.sheetTitle}>{title}</Text>
-              <ScrollView style={{ maxHeight: 320 }}>{children}</ScrollView>
-            </View>
-          </TouchableWithoutFeedback>
-        </View>
-      </TouchableWithoutFeedback>
+    <Modal visible transparent animationType="none" onRequestClose={onClose}>
+      <View style={styles.sheetRoot}>
+        <TouchableWithoutFeedback onPress={onClose}>
+          <Animated.View style={[styles.backdrop, { opacity: anim }]} />
+        </TouchableWithoutFeedback>
+        <Animated.View style={[styles.sheet, { transform: [{ translateY }] }]}>
+          <Text style={styles.sheetTitle}>{title}</Text>
+          <ScrollView style={{ maxHeight: 320 }}>{children}</ScrollView>
+        </Animated.View>
+      </View>
     </Modal>
   );
 }
@@ -271,7 +291,8 @@ const styles = StyleSheet.create({
   rowRight: { flexDirection: 'row', alignItems: 'center', gap: SPACING.xs, maxWidth: '55%' },
   rowValue: { fontSize: FONT.body, color: COLORS.textSecondary },
   rowChevron: { fontSize: 16, color: COLORS.textTertiary },
-  overlay: { flex: 1, backgroundColor: 'rgba(0,0,0,0.35)', justifyContent: 'flex-end' },
+  sheetRoot: { flex: 1, justifyContent: 'flex-end' },
+  backdrop: { ...StyleSheet.absoluteFillObject, backgroundColor: 'rgba(0,0,0,0.35)' },
   sheet: { backgroundColor: COLORS.bg, borderTopLeftRadius: 20, borderTopRightRadius: 20, paddingHorizontal: SPACING.lg, paddingTop: SPACING.lg, paddingBottom: SPACING.xxl },
   sheetTitle: { fontSize: FONT.caption, fontWeight: WEIGHT.semibold, color: COLORS.textTertiary, marginBottom: SPACING.sm, textTransform: 'uppercase', letterSpacing: 0.8 },
   sheetOption: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingVertical: SPACING.md, borderBottomWidth: StyleSheet.hairlineWidth, borderBottomColor: COLORS.border },
