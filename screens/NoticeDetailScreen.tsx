@@ -279,6 +279,19 @@ const styles = StyleSheet.create({
   sourceBtnText: { fontSize: FONT.body, color: COLORS.accentText, fontWeight: WEIGHT.semibold },
 });
 
+// 문단의 단일 자식이 strong(accentSoft 배경)인지 = LLM이 ### 대신 볼드 줄로 쓴 소제목.
+function isStrongOnlyParagraph(children: any): boolean {
+  const arr = Array.isArray(children)
+    ? children.filter((c) => c !== null && c !== undefined && c !== ' ' && c !== '')
+    : [children];
+  if (arr.length !== 1) return false;
+  const node = arr[0];
+  if (!node || typeof node !== 'object') return false;
+  const style = node.props?.style;
+  const styleArr = Array.isArray(style) ? style : [style];
+  return styleArr.some((s: any) => s && typeof s === 'object' && s.backgroundColor === COLORS.accentSoft);
+}
+
 // ReactNode 트리에 accentSoft 배경(= strong 형광펜)이 있는지 재귀 탐색
 function containsStrong(node: any): boolean {
   if (!node) return false;
@@ -372,6 +385,18 @@ class BaseRenderer extends Renderer {
 
 // 본문용: strong → accentSoft 배경 형광펜 + borderRadius:3 (모서리 둥글게 → 우측 점 완화)
 class BodyRenderer extends BaseRenderer {
+  // 문단 전체가 볼드 하나뿐(LLM이 ### 헤더 대신 볼드 줄로 쓴 소제목) → 위 여백 부여해 소제목처럼.
+  paragraph(children: any, pstyle?: any): any {
+    if (isStrongOnlyParagraph(children)) {
+      return (
+        <View key={this.getKey()} style={{ marginTop: SPACING.lg, marginBottom: 4 }}>
+          {children}
+        </View>
+      );
+    }
+    return super.paragraph(children, pstyle);
+  }
+
   strong(children: any, styles?: any): any {
     return (
       <Text
