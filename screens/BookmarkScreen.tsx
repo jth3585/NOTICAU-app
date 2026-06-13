@@ -11,6 +11,7 @@ import type { RootStackParamList } from '../lib/types';
 import { COLORS, FONT, RADIUS, SPACING, WEIGHT } from '../lib/theme';
 import { NoticeCard } from '../components/NoticeCard';
 import { BookmarkIcon } from '../components/ui/BookmarkIcon';
+import { FolderIcon, HashIcon, MailIcon } from '../components/ui/icons';
 
 export default function BookmarkScreen() {
   const navigation = useNavigation<NativeStackNavigationProp<RootStackParamList>>();
@@ -42,20 +43,20 @@ export default function BookmarkScreen() {
         contentContainerStyle={styles.folderRow}
       >
         <FolderCard
-          icon="📁"
+          Icon={FolderIcon}
           name="커스텀 폴더"
           caption="준비 중"
           disabled
           onPress={onCustomPress}
         />
         <FolderCard
-          icon="🔖"
+          Icon={HashIcon}
           name="키워드 매치"
           caption={`${keywordCount}개`}
           onPress={() => navigation.navigate('BookmarkFolder', { folder: 'keyword' })}
         />
         <FolderCard
-          icon="🔵"
+          Icon={MailIcon}
           name="읽지 않음"
           caption={`${unreadCount}개`}
           onPress={() => navigation.navigate('BookmarkFolder', { folder: 'unread' })}
@@ -71,41 +72,47 @@ export default function BookmarkScreen() {
       <View style={styles.header}>
         <Text style={styles.title}>북마크</Text>
       </View>
-      {loading ? (
-        <View style={styles.center}>
-          <Text style={styles.sub}>불러오는 중…</Text>
-        </View>
-      ) : notices.length === 0 ? (
-        <View style={styles.center}>
-          <BookmarkIcon size={40} filled={false} color={COLORS.textTertiary} />
-          <Text style={styles.emptyTitle}>아직 북마크한 공지가 없어요</Text>
-          <Text style={styles.sub}>공지 상세 화면에서 🔖 아이콘을 눌러보세요.</Text>
-        </View>
-      ) : (
-        <FlatList
-          data={notices}
-          keyExtractor={(n) => n.id}
-          ListHeaderComponent={Header}
-          contentContainerStyle={styles.list}
-          renderItem={({ item }) => (
-            <NoticeCard
-              notice={item}
-              isRead={isRead(item.id)}
-              isNew={!isRead(item.id) && !!lastSeenAt && (item.posted_at ?? '') > lastSeenAt}
-              unread={!isRead(item.id)}
-              onPress={() => navigation.navigate('Detail', { notice: item })}
-            />
-          )}
-        />
-      )}
+      <FlatList
+        data={notices}
+        keyExtractor={(n) => n.id}
+        ListHeaderComponent={Header}
+        contentContainerStyle={styles.list}
+        ListEmptyComponent={
+          loading ? (
+            <View style={styles.empty}>
+              <Text style={styles.sub}>불러오는 중…</Text>
+            </View>
+          ) : (
+            <View style={styles.empty}>
+              <BookmarkIcon size={40} filled={false} color={COLORS.textTertiary} />
+              <Text style={styles.emptyTitle}>아직 북마크한 공지가 없어요</Text>
+              <View style={styles.emptyHint}>
+                <Text style={styles.sub}>공지 상세 화면에서 </Text>
+                <BookmarkIcon size={14} filled={false} color={COLORS.textSecondary} />
+                <Text style={styles.sub}> 아이콘을 눌러보세요.</Text>
+              </View>
+            </View>
+          )
+        }
+        renderItem={({ item }) => (
+          <NoticeCard
+            notice={item}
+            isRead={isRead(item.id)}
+            isNew={!isRead(item.id) && !!lastSeenAt && (item.posted_at ?? '') > lastSeenAt}
+            unread={!isRead(item.id)}
+            onPress={() => navigation.navigate('Detail', { notice: item })}
+          />
+        )}
+      />
     </SafeAreaView>
   );
 }
 
 function FolderCard({
-  icon, name, caption, onPress, disabled = false,
+  Icon, name, caption, onPress, disabled = false,
 }: {
-  icon: string; name: string; caption: string; onPress: () => void; disabled?: boolean;
+  Icon: (props: { size?: number; color: string }) => React.ReactElement;
+  name: string; caption: string; onPress: () => void; disabled?: boolean;
 }) {
   return (
     <TouchableOpacity
@@ -113,7 +120,9 @@ function FolderCard({
       onPress={onPress}
       activeOpacity={0.7}
     >
-      <Text style={styles.folderIcon}>{icon}</Text>
+      <View style={styles.folderIcon}>
+        <Icon size={22} color={disabled ? COLORS.textTertiary : COLORS.accent} />
+      </View>
       <Text style={[styles.folderName, disabled && styles.folderTextDim]} numberOfLines={1}>{name}</Text>
       <Text style={[styles.folderCaption, disabled && styles.folderTextDim]}>{caption}</Text>
     </TouchableOpacity>
@@ -139,7 +148,8 @@ const styles = StyleSheet.create({
     gap: SPACING.xs,
   },
   folderCardDisabled: { backgroundColor: COLORS.surface, opacity: 0.5 },
-  folderIcon: { fontSize: 22, marginBottom: SPACING.xs },
+  folderIcon: { marginBottom: SPACING.xs },
+  emptyHint: { flexDirection: 'row', alignItems: 'center', flexWrap: 'wrap', justifyContent: 'center' },
   folderName: { fontSize: FONT.body, fontWeight: WEIGHT.semibold, color: COLORS.text },
   folderCaption: { fontSize: FONT.caption, color: COLORS.textSecondary },
   folderTextDim: { color: COLORS.textTertiary },
@@ -148,7 +158,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: SPACING.lg, marginTop: SPACING.xl, marginBottom: SPACING.md,
   },
   list: { paddingBottom: SPACING.xxl },
-  center: { flex: 1, justifyContent: 'center', alignItems: 'center', gap: SPACING.sm, paddingHorizontal: SPACING.xl },
+  empty: { alignItems: 'center', gap: SPACING.sm, paddingHorizontal: SPACING.xl, paddingTop: SPACING.xxl },
   emptyTitle: { fontSize: FONT.subtitle, fontWeight: WEIGHT.semibold, color: COLORS.text },
   sub: { fontSize: FONT.caption, color: COLORS.textSecondary, textAlign: 'center' },
 });
