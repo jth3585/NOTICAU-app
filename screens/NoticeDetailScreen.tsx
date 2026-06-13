@@ -55,11 +55,16 @@ export default function NoticeDetailScreen({ route, navigation }: Props) {
   // 상세 진입 시 자동 읽음 처리
   useEffect(() => { markAsRead(notice.id); }, [notice.id]);
 
-  // 공유: 제목 + 원문 링크
+  // 공유: 제목 + 출처 + 원문 링크 + 노티카우 출처 표기
   const onShare = async () => {
     const url = notice.source_url ?? '';
+    const lines = [notice.title];
+    if (src?.name) lines.push(`출처: ${src.name}`);
+    if (url) lines.push(url);
+    lines.push('');
+    lines.push('📚 노티카우(NOTICAU)에서 공유한 공지예요 · 중앙대 공지 모아보기');
     try {
-      await Share.share({ message: url ? `${notice.title}\n${url}` : notice.title });
+      await Share.share({ message: lines.join('\n'), title: notice.title });
     } catch { /* 사용자 취소 등 무시 */ }
   };
 
