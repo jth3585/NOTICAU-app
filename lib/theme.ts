@@ -17,6 +17,8 @@ export const COLORS = {
   accent: '#4A90E2',
   accentSoft: '#EAF2FC',
   accentText: '#2C6DBA',
+  // accent 기반 부드러운 그라데이션 (살짝 인디고 → accent → 딥블루). 대각선 사용 권장.
+  accentGradient: ['#6E8CEE', '#4A90E2', '#3A79CE'] as const,
 
   // D-day 빨강
   danger: '#FF3B30',

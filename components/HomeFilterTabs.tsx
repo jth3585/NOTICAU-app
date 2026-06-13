@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import { Dimensions, FlatList, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import { LinearGradient } from 'expo-linear-gradient';
 import type { Notice, UserKeyword } from '../lib/types';
 import { type HomeTab, firstMatchedKeyword } from '../lib/homeFeed';
 import { NoticeCard } from './NoticeCard';
@@ -37,14 +38,28 @@ export function HomeFilterTabs({ newList, keywordList, deadlineList, keywords, o
       <View style={styles.tabs}>
         {TABS.map((t) => {
           const active = t.key === tab;
+          if (active) {
+            return (
+              <TouchableOpacity key={t.key} onPress={() => setTab(t.key)} activeOpacity={0.85}>
+                <LinearGradient
+                  colors={COLORS.accentGradient}
+                  start={{ x: 0, y: 0 }}
+                  end={{ x: 1, y: 1 }}
+                  style={styles.tab}
+                >
+                  <Text style={[styles.tabText, styles.tabTextActive]}>{t.label}</Text>
+                </LinearGradient>
+              </TouchableOpacity>
+            );
+          }
           return (
             <TouchableOpacity
               key={t.key}
-              style={[styles.tab, active && styles.tabActive]}
+              style={[styles.tab, styles.tabInactive]}
               onPress={() => setTab(t.key)}
               activeOpacity={0.7}
             >
-              <Text style={[styles.tabText, active && styles.tabTextActive]}>{t.label}</Text>
+              <Text style={styles.tabText}>{t.label}</Text>
             </TouchableOpacity>
           );
         })}
@@ -83,9 +98,9 @@ const styles = StyleSheet.create({
     paddingHorizontal: SPACING.lg,
     paddingVertical: 10,
     borderRadius: RADIUS.pill,
-    backgroundColor: COLORS.surface,
+    overflow: 'hidden',
   },
-  tabActive: { backgroundColor: COLORS.accent },
+  tabInactive: { backgroundColor: COLORS.surface },
   tabText: { fontSize: FONT.body, color: COLORS.text, fontWeight: WEIGHT.semibold },
   tabTextActive: { color: '#fff', fontWeight: WEIGHT.bold },
   cards: { paddingLeft: SPACING.lg, paddingRight: SPACING.md, paddingBottom: SPACING.sm },
