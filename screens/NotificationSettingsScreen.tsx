@@ -56,7 +56,7 @@ export default function NotificationSettingsScreen() {
           </View>
         </View>
 
-        <Text style={styles.note}>· ON으로 두면 매일 오전 8시에 새 공지 요약을 받아요.</Text>
+        <Text style={styles.note}>· 켜 두면 매일 오전 8시에 새 공지 요약을 받아요.</Text>
         <Text style={styles.note}>· 키워드 즉시 알림은 키워드 관리에서 키워드별로 설정해요.</Text>
       </ScrollView>
     </SafeAreaView>

@@ -19,7 +19,7 @@ export default function DeleteAccountScreen() {
     const ok = await deleteAccount();
     if (!ok) {
       setBusy(false);
-      Alert.alert('탈퇴 실패', '잠시 후 다시 시도해주세요.');
+      Alert.alert('탈퇴하지 못했어요', '잠시 후 다시 시도해 주세요.');
       return;
     }
     // 새 익명 세션 발급 후 온보딩으로 초기화.
@@ -30,7 +30,7 @@ export default function DeleteAccountScreen() {
   const confirm = () => {
     Alert.alert(
       '정말 탈퇴하시겠어요?',
-      '북마크, 읽음 상태, 키워드, 프로필 등 모든 데이터가 즉시 삭제되며 복구할 수 없습니다.',
+      '북마크, 읽음 상태, 키워드, 프로필 등 모든 데이터가 즉시 삭제되고 되돌릴 수 없어요.',
       [
         { text: '취소', style: 'cancel' },
         { text: '탈퇴하기', style: 'destructive', onPress: runDelete },
@@ -48,13 +48,13 @@ export default function DeleteAccountScreen() {
 
       <ScrollView contentContainerStyle={styles.scroll}>
         <View style={styles.warnBox}>
-          <Text style={styles.warnTitle}>탈퇴하면 모든 데이터가 삭제됩니다</Text>
+          <Text style={styles.warnTitle}>탈퇴하면 모든 데이터가 사라져요</Text>
           <Text style={styles.warnItem}>· 북마크한 공지</Text>
           <Text style={styles.warnItem}>· 읽음 상태</Text>
           <Text style={styles.warnItem}>· 관심 키워드</Text>
           <Text style={styles.warnItem}>· 프로필 및 카테고리 설정</Text>
         </View>
-        <Text style={styles.note}>삭제된 데이터는 복구할 수 없습니다.</Text>
+        <Text style={styles.note}>삭제한 데이터는 되돌릴 수 없어요.</Text>
 
         <TouchableOpacity
           style={[styles.deleteBtn, busy && styles.deleteBtnDisabled]}
@@ -62,7 +62,7 @@ export default function DeleteAccountScreen() {
           disabled={busy}
           activeOpacity={0.8}
         >
-          <Text style={styles.deleteBtnText}>{busy ? '탈퇴 처리 중…' : '정말 탈퇴하기'}</Text>
+          <Text style={styles.deleteBtnText}>{busy ? '탈퇴하는 중…' : '정말 탈퇴하기'}</Text>
         </TouchableOpacity>
       </ScrollView>
     </SafeAreaView>

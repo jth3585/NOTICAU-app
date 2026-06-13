@@ -64,7 +64,7 @@ export default function CategoryPrefsScreen() {
         <Text style={styles.title}>카테고리 편집</Text>
         <View style={{ width: 40 }} />
       </View>
-      <Text style={styles.hint}>OFF 카테고리는 '전체' 피드에 표시되지 않습니다. 화살표로 순서를 바꿀 수 있어요.</Text>
+      <Text style={styles.hint}>켜둔 카테고리만 '전체' 피드에 보여요. 화살표로 순서를 바꿀 수 있어요.</Text>
       <ScrollView contentContainerStyle={styles.scroll}>
         <View style={styles.card}>
           {order.map((topic, i) => (

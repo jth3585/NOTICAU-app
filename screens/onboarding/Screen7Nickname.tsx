@@ -24,7 +24,7 @@ export default function Screen7Nickname({ navigation }: Props) {
     setError(null);
 
     const { data: { session } } = await supabase.auth.getSession();
-    if (!session) { setError('세션 오류. 앱을 재시작해 주세요.'); setSaving(false); return; }
+    if (!session) { setError('문제가 생겼어요. 앱을 다시 시작해 주세요.'); setSaving(false); return; }
 
     const { error: insertErr } = await supabase.from('profiles').insert({
       user_id: session.user.id,
@@ -39,7 +39,7 @@ export default function Screen7Nickname({ navigation }: Props) {
       onboarded_at: new Date().toISOString(),
     });
 
-    if (insertErr) { setError('저장 실패: ' + insertErr.message); setSaving(false); return; }
+    if (insertErr) { setError('저장하지 못했어요. 잠시 후 다시 시도해 주세요.'); setSaving(false); return; }
 
     navigation.getParent()?.reset({ index: 0, routes: [{ name: 'Tabs' }] });
   };
