@@ -1,10 +1,12 @@
 import { useCallback, useEffect, useState } from 'react';
 import { supabase } from './supabase';
 import type { Notice, Profile, UserKeyword } from './types';
-import { metaOf, ddayDiff } from './format';
+import { metaOf } from './format';
 import { isMismatch } from './matching';
 
 const NEW_WINDOW_MS = 24 * 60 * 60 * 1000; // "새공지" 윈도우 (최근 24h crawled)
+const KEYWORD_WINDOW_MS = 24 * 60 * 60 * 1000; // "키워드매치" 윈도우 (최근 24h crawled 중 매칭)
+const DEADLINE_WINDOW_MS = 24 * 60 * 60 * 1000; // "오늘마감" 윈도우 (now ~ now+24h 마감)
 
 export type HomeTab = 'new' | 'keyword' | 'deadline';
 
@@ -70,15 +72,23 @@ export function useHomeFeed() {
       .filter((n) => n.crawled_at && (now - Date.parse(n.crawled_at)) <= NEW_WINDOW_MS)
       .sort((a, b) => (b.crawled_at ?? '').localeCompare(a.crawled_at ?? ''));
 
+    // 키워드매치: 최근 24h 올라온 것 중 키워드 매칭
     const keywordList = keywords.length
-      ? base.filter((n) => keywordMatches(n, keywords))
-        .sort((a, b) => (b.posted_at ?? '').localeCompare(a.posted_at ?? ''))
+      ? base.filter((n) => n.crawled_at
+          && (now - Date.parse(n.crawled_at)) <= KEYWORD_WINDOW_MS
+          && keywordMatches(n, keywords))
+        .sort((a, b) => (b.crawled_at ?? '').localeCompare(a.crawled_at ?? ''))
       : [];
 
+    // 오늘마감: 남은 마감 시간이 0 ~ 24h 이내 (이미 지난 마감 제외)
     const deadlineList = base
-      .map((n) => ({ n, d: ddayDiff(metaOf(n)?.deadline_at ?? null) }))
-      .filter((x) => x.d !== null && x.d >= 0 && x.d <= 1)
-      .sort((a, b) => (a.d as number) - (b.d as number))
+      .map((n) => {
+        const dl = metaOf(n)?.deadline_at ?? null;
+        const ms = dl && !isNaN(Date.parse(dl)) ? Date.parse(dl) - now : null;
+        return { n, ms };
+      })
+      .filter((x) => x.ms !== null && x.ms >= 0 && x.ms <= DEADLINE_WINDOW_MS)
+      .sort((a, b) => (a.ms as number) - (b.ms as number))
       .map((x) => x.n);
 
     setData({

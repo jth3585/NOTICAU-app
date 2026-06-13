@@ -26,9 +26,9 @@ export function HomeFilterTabs({ newList, keywordList, deadlineList, keywords, o
 
   const list = tab === 'new' ? newList : tab === 'keyword' ? keywordList : deadlineList;
   const emptyText =
-    tab === 'new' ? '최근 새 공지가 없어요'
-    : tab === 'keyword' ? '키워드에 맞는 공지가 없어요'
-    : '오늘 마감인 공지가 없어요';
+    tab === 'new' ? '최근 24시간 내 새 공지가 없어요'
+    : tab === 'keyword' ? '최근 24시간 내 키워드 매칭 공지가 없어요'
+    : '24시간 내 마감인 공지가 없어요';
 
   return (
     <View>
