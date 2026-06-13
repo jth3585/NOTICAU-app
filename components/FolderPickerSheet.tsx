@@ -1,10 +1,10 @@
 import { useEffect, useState } from 'react';
 import {
-  Alert, KeyboardAvoidingView, Modal, Platform, ScrollView, StyleSheet,
-  Text, TextInput, TouchableOpacity, TouchableWithoutFeedback, View,
+  Alert, ScrollView, StyleSheet, Text, TextInput, TouchableOpacity, View,
 } from 'react-native';
 import { COLORS, FONT, RADIUS, SPACING, WEIGHT } from '../lib/theme';
 import { FOLDER_NAME_MAX, type Folder } from '../lib/folders';
+import { BottomSheet } from './ui/BottomSheet';
 import { CheckIcon, FolderIcon } from './ui/icons';
 
 type Props = {
@@ -40,58 +40,50 @@ export function FolderPickerSheet({ visible, folders, currentFolderId, onPick, o
   };
 
   return (
-    <Modal visible={visible} transparent animationType="slide" onRequestClose={onClose}>
-      <TouchableWithoutFeedback onPress={onClose}>
-        <View style={styles.overlay}>
-          <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
-            <TouchableWithoutFeedback>
-              <View style={styles.sheet}>
-                <Text style={styles.title}>폴더로 이동</Text>
-                <ScrollView style={styles.list} keyboardShouldPersistTaps="handled">
-                  <Row
-                    label="미분류"
-                    active={currentFolderId === null}
-                    onPress={() => onPick(null)}
-                  />
-                  {folders.map((f) => (
-                    <Row
-                      key={f.id}
-                      label={f.name}
-                      icon
-                      active={currentFolderId === f.id}
-                      onPress={() => onPick(f.id)}
-                    />
-                  ))}
-                </ScrollView>
+    <BottomSheet visible={visible} onClose={onClose} avoidKeyboard>
+      <View style={styles.sheet}>
+        <Text style={styles.title}>폴더로 이동</Text>
+        <ScrollView style={styles.list} keyboardShouldPersistTaps="handled">
+          <Row
+            label="미분류"
+            active={currentFolderId === null}
+            onPress={() => onPick(null)}
+          />
+          {folders.map((f) => (
+            <Row
+              key={f.id}
+              label={f.name}
+              icon
+              active={currentFolderId === f.id}
+              onPress={() => onPick(f.id)}
+            />
+          ))}
+        </ScrollView>
 
-                {creating ? (
-                  <View style={styles.createRow}>
-                    <TextInput
-                      style={styles.input}
-                      value={name}
-                      onChangeText={setName}
-                      placeholder="새 폴더 이름"
-                      placeholderTextColor={COLORS.textTertiary}
-                      maxLength={FOLDER_NAME_MAX}
-                      autoFocus
-                      returnKeyType="done"
-                      onSubmitEditing={submitCreate}
-                    />
-                    <TouchableOpacity style={styles.createBtn} onPress={submitCreate} activeOpacity={0.7}>
-                      <Text style={styles.createBtnText}>만들기</Text>
-                    </TouchableOpacity>
-                  </View>
-                ) : (
-                  <TouchableOpacity style={styles.newFolder} onPress={() => setCreating(true)} activeOpacity={0.7}>
-                    <Text style={styles.newFolderText}>＋ 새 폴더 만들기</Text>
-                  </TouchableOpacity>
-                )}
-              </View>
-            </TouchableWithoutFeedback>
-          </KeyboardAvoidingView>
-        </View>
-      </TouchableWithoutFeedback>
-    </Modal>
+        {creating ? (
+          <View style={styles.createRow}>
+            <TextInput
+              style={styles.input}
+              value={name}
+              onChangeText={setName}
+              placeholder="새 폴더 이름"
+              placeholderTextColor={COLORS.textTertiary}
+              maxLength={FOLDER_NAME_MAX}
+              autoFocus
+              returnKeyType="done"
+              onSubmitEditing={submitCreate}
+            />
+            <TouchableOpacity style={styles.createBtn} onPress={submitCreate} activeOpacity={0.7}>
+              <Text style={styles.createBtnText}>만들기</Text>
+            </TouchableOpacity>
+          </View>
+        ) : (
+          <TouchableOpacity style={styles.newFolder} onPress={() => setCreating(true)} activeOpacity={0.7}>
+            <Text style={styles.newFolderText}>＋ 새 폴더 만들기</Text>
+          </TouchableOpacity>
+        )}
+      </View>
+    </BottomSheet>
   );
 }
 
@@ -106,7 +98,6 @@ function Row({ label, active, onPress, icon = false }: { label: string; active: 
 }
 
 const styles = StyleSheet.create({
-  overlay: { flex: 1, backgroundColor: 'rgba(0,0,0,0.35)', justifyContent: 'flex-end' },
   sheet: {
     backgroundColor: COLORS.bg,
     borderTopLeftRadius: RADIUS.modal, borderTopRightRadius: RADIUS.modal,
