@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { FlatList, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import { Dimensions, FlatList, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import type { Notice, UserKeyword } from '../lib/types';
 import { type HomeTab, firstMatchedKeyword } from '../lib/homeFeed';
 import { NoticeCard } from './NoticeCard';
@@ -11,7 +11,9 @@ const TABS: { key: HomeTab; label: string }[] = [
   { key: 'deadline', label: '오늘마감' },
 ];
 
-const CARD_W = 280;
+// 원안 비율: 카드 1개 + 다음 카드 살짝 걸침 (화면 너비의 ~80%), 세로로 길게.
+const CARD_W = Math.round(Dimensions.get('window').width * 0.8);
+const CARD_MIN_H = 172;
 
 type Props = {
   newList: Notice[];
@@ -63,6 +65,8 @@ export function HomeFilterTabs({ newList, keywordList, deadlineList, keywords, o
             <NoticeCard
               notice={item}
               width={CARD_W}
+              minHeight={CARD_MIN_H}
+              titleLines={3}
               keywordTag={tab === 'keyword' ? (firstMatchedKeyword(item, keywords) ?? undefined) : undefined}
               onPress={() => onPressNotice(item)}
             />

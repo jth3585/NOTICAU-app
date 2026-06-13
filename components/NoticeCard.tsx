@@ -12,6 +12,8 @@ export function NoticeCard({
   isNew = false,
   unread = false,
   width,
+  minHeight,
+  titleLines = 2,
   keywordTag,
 }: {
   notice: Notice;
@@ -20,6 +22,8 @@ export function NoticeCard({
   isNew?: boolean;
   unread?: boolean;
   width?: number;      // 지정 시 가로 스크롤용 고정 너비 카드
+  minHeight?: number;  // 지정 시 카드 최소 높이 (세로로 길게)
+  titleLines?: number; // 제목 최대 줄 수 (기본 2)
   keywordTag?: string; // 지정 시 매칭 키워드 #태그 표시
 }) {
   const meta = metaOf(notice);
@@ -38,7 +42,11 @@ export function NoticeCard({
     <TouchableOpacity
       onPress={onPress}
       activeOpacity={0.6}
-      style={[styles.card, width != null && { width, marginHorizontal: 0, marginRight: SPACING.md, marginBottom: 0 }]}
+      style={[
+        styles.card,
+        width != null && { width, marginHorizontal: 0, marginRight: SPACING.md, marginBottom: 0 },
+        minHeight != null && { minHeight },
+      ]}
     >
       <View style={styles.topRow}>
         {topic ? <CategoryBadge topic={topic} /> : <View />}
@@ -53,7 +61,7 @@ export function NoticeCard({
         </View>
       </View>
 
-      <Text style={[styles.title, isRead && styles.titleRead]} numberOfLines={2} lineBreakStrategyIOS="hangul-word">
+      <Text style={[styles.title, isRead && styles.titleRead]} numberOfLines={titleLines} lineBreakStrategyIOS="hangul-word">
         {notice.title}
       </Text>
 
