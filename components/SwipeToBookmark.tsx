@@ -31,8 +31,10 @@ export function SwipeToBookmark({ alreadyBookmarked, onBookmark, onAlready, chil
       leftThreshold={60}
       dragOffsetFromLeftEdge={12}
       renderLeftActions={renderLeftActions}
-      onSwipeableWillOpen={(direction) => {
-        if (direction !== 'left' || handled.current) return;
+      // 좌측 액션만 있으므로 open = 북마크 액션. (RNGH는 우측 스와이프 open 시
+      // direction을 'right'로 넘기므로 방향 필터를 두지 않는다 — 이게 기존 버그의 원인이었음.)
+      onSwipeableWillOpen={() => {
+        if (handled.current) return;
         handled.current = true;
         if (alreadyBookmarked) onAlready();
         else onBookmark();
