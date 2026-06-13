@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
 import {
-  AppState, Dimensions, FlatList, Modal, RefreshControl, StyleSheet, Text, TextInput,
+  AppState, Dimensions, Modal, RefreshControl, SectionList, StyleSheet, Text, TextInput,
   TouchableOpacity, TouchableWithoutFeedback, View,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
@@ -176,53 +176,57 @@ export default function InboxScreen() {
 
   return (
     <SafeAreaView style={styles.container} edges={['top']}>
-      <Text style={styles.pageTitle}>전체 공지</Text>
-      {/* 검색바 + 정렬 아이콘 */}
-      <View style={styles.topBar}>
-        <View style={styles.searchRow}>
-          <View style={{ marginRight: SPACING.sm }}>
-            <SearchIcon size={16} color={COLORS.textTertiary} />
-          </View>
-          <TextInput
-            style={styles.searchInput}
-            placeholder="공지 검색"
-            placeholderTextColor={COLORS.textTertiary}
-            value={query}
-            onChangeText={setQuery}
-            returnKeyType="search"
-            clearButtonMode="while-editing"
-          />
-          {query.length > 0 ? (
-            <TouchableOpacity onPress={() => setQuery('')} hitSlop={8} style={{ paddingLeft: SPACING.sm }}>
-              <CloseIcon size={16} color={COLORS.textTertiary} />
-            </TouchableOpacity>
-          ) : null}
-        </View>
-
-        <TouchableOpacity
-          ref={sortBtnRef}
-          style={[styles.sortBtn, sortMode !== 'deadline' && styles.sortBtnActive]}
-          onPress={openSort}
-          hitSlop={6}
-        >
-          <SortIcon size={18} color={sortMode !== 'deadline' ? COLORS.accent : COLORS.textSecondary} />
-        </TouchableOpacity>
-      </View>
-
-      <FlatList
-        data={visible}
+      <SectionList
+        sections={[{ data: visible }]}
         keyExtractor={(item) => item.id}
         refreshControl={
           <RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={COLORS.accent} />
         }
+        keyboardShouldPersistTaps="handled"
+        stickySectionHeadersEnabled
+        // 제목 + 검색/정렬 → 스크롤하면 함께 사라짐
         ListHeaderComponent={
+          <View>
+            <Text style={styles.pageTitle}>전체 공지</Text>
+            <View style={styles.topBar}>
+              <View style={styles.searchRow}>
+                <View style={{ marginRight: SPACING.sm }}>
+                  <SearchIcon size={16} color={COLORS.textTertiary} />
+                </View>
+                <TextInput
+                  style={styles.searchInput}
+                  placeholder="공지 검색"
+                  placeholderTextColor={COLORS.textTertiary}
+                  value={query}
+                  onChangeText={setQuery}
+                  returnKeyType="search"
+                  clearButtonMode="while-editing"
+                />
+                {query.length > 0 ? (
+                  <TouchableOpacity onPress={() => setQuery('')} hitSlop={8} style={{ paddingLeft: SPACING.sm }}>
+                    <CloseIcon size={16} color={COLORS.textTertiary} />
+                  </TouchableOpacity>
+                ) : null}
+              </View>
+              <TouchableOpacity
+                ref={sortBtnRef}
+                style={[styles.sortBtn, sortMode !== 'deadline' && styles.sortBtnActive]}
+                onPress={openSort}
+                hitSlop={6}
+              >
+                <SortIcon size={18} color={sortMode !== 'deadline' ? COLORS.accent : COLORS.textSecondary} />
+              </TouchableOpacity>
+            </View>
+          </View>
+        }
+        // 카테고리 칩 → 상단 고정(sticky). 검색 중엔 숨김.
+        renderSectionHeader={() =>
           query ? null : (
             <View style={styles.listHeader}>
               <CategoryChips topics={chipTopics} selected={selected} onSelect={setSelected} />
             </View>
           )
         }
-        stickyHeaderIndices={query ? undefined : [0]}
         renderItem={({ item }) => (
           <SwipeToBookmark
             alreadyBookmarked={isBookmarked(item.id)}
