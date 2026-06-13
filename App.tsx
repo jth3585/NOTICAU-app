@@ -24,6 +24,7 @@ import DeleteAccountScreen from './screens/DeleteAccountScreen';
 import HomeScreen from './screens/HomeScreen';
 import InboxScreen from './screens/InboxScreen';
 import BookmarkScreen from './screens/BookmarkScreen';
+import BookmarkFolderScreen from './screens/BookmarkFolderScreen';
 import MyPageScreen from './screens/MyPageScreen';
 import NoticeDetailScreen from './screens/NoticeDetailScreen';
 
@@ -139,6 +140,7 @@ export default function App() {
           <Stack.Screen name="Onboarding" component={OnboardingNavigator} />
           <Stack.Screen name="Tabs" component={Tabs} />
           <Stack.Screen name="Detail" component={NoticeDetailScreen} />
+          <Stack.Screen name="BookmarkFolder" component={BookmarkFolderScreen} />
           <Stack.Screen name="ProfileEdit" component={ProfileEditScreen} />
           <Stack.Screen name="KeywordManage" component={KeywordManageScreen} />
           <Stack.Screen name="CategoryPrefs" component={CategoryPrefsScreen} />

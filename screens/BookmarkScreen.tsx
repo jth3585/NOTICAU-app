@@ -1,57 +1,75 @@
-import { useCallback, useEffect, useState } from 'react';
-import { FlatList, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import { useCallback } from 'react';
+import { Alert, FlatList, ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useFocusEffect, useNavigation } from '@react-navigation/native';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
-import { supabase } from '../lib/supabase';
-import { useBookmarkList } from '../lib/bookmarks';
+import { useBookmarkNotices, useUserKeywords } from '../lib/bookmarks';
 import { useReadSet } from '../lib/read';
 import { useLastSeenAt } from '../lib/new-badge';
-import type { Notice, RootStackParamList } from '../lib/types';
+import { keywordMatches } from '../lib/homeFeed';
+import type { RootStackParamList } from '../lib/types';
 import { COLORS, FONT, RADIUS, SPACING, WEIGHT } from '../lib/theme';
 import { NoticeCard } from '../components/NoticeCard';
 import { BookmarkIcon } from '../components/ui/BookmarkIcon';
 
 export default function BookmarkScreen() {
   const navigation = useNavigation<NativeStackNavigationProp<RootStackParamList>>();
-  const { bookmarkIds, loading: idsLoading, refresh } = useBookmarkList();
+  const { notices, loading, refresh } = useBookmarkNotices();
   const { isRead, refresh: refreshRead } = useReadSet();
   const { lastSeenAt } = useLastSeenAt();
-  const [notices, setNotices] = useState<Notice[]>([]);
-  const [fetching, setFetching] = useState(false);
-  // 최초 1회 로드 여부. 이후 포커스 갱신은 기존 목록을 유지한 채 백그라운드로만 처리(stale-while-revalidate).
-  const [loadedOnce, setLoadedOnce] = useState(false);
+  const keywords = useUserKeywords();
 
-  // 탭 포커스 시 목록 새로고침
   useFocusEffect(useCallback(() => { refresh(); refreshRead(); }, [refresh, refreshRead]));
 
-  useEffect(() => {
-    if (idsLoading) return;
-    if (bookmarkIds.length === 0) { setNotices([]); setLoadedOnce(true); return; }
-    setFetching(true);
-    supabase
-      .from('notices')
-      .select('*, notice_meta(*), sources(parser_key, name)')
-      .in('id', bookmarkIds)
-      .order('posted_at', { ascending: false })
-      .then(({ data }) => {
-        setNotices((data as Notice[]) ?? []);
-        setFetching(false);
-        setLoadedOnce(true);
-      });
-  }, [bookmarkIds, idsLoading]);
-
-  // 풀스크린 로더는 첫 로드에만. 재포커스 갱신 중엔 기존 notices를 그대로 보여줌.
-  const loading = !loadedOnce && (idsLoading || fetching);
   const unreadCount = notices.filter((n) => !isRead(n.id)).length;
+  const keywordCount = keywords.length ? notices.filter((n) => keywordMatches(n, keywords)).length : 0;
+
+  const onCustomPress = () =>
+    Alert.alert('준비 중', '커스텀 폴더는 곧 추가될 기능이에요.');
+
+  const Header = (
+    <View>
+      <View style={styles.collectionRow}>
+        <Text style={styles.collectionTitle}>내 컬렉션</Text>
+        <TouchableOpacity onPress={onCustomPress} hitSlop={10} activeOpacity={0.7}>
+          <Text style={styles.plus}>＋</Text>
+        </TouchableOpacity>
+      </View>
+
+      <ScrollView
+        horizontal
+        showsHorizontalScrollIndicator={false}
+        contentContainerStyle={styles.folderRow}
+      >
+        <FolderCard
+          icon="📁"
+          name="커스텀 폴더"
+          caption="준비 중"
+          disabled
+          onPress={onCustomPress}
+        />
+        <FolderCard
+          icon="🔖"
+          name="키워드 매치"
+          caption={`${keywordCount}개`}
+          onPress={() => navigation.navigate('BookmarkFolder', { folder: 'keyword' })}
+        />
+        <FolderCard
+          icon="🔵"
+          name="읽지 않음"
+          caption={`${unreadCount}개`}
+          onPress={() => navigation.navigate('BookmarkFolder', { folder: 'unread' })}
+        />
+      </ScrollView>
+
+      <Text style={styles.sectionTitle}>최근 추가 북마크</Text>
+    </View>
+  );
 
   return (
     <SafeAreaView style={styles.container} edges={['top']}>
       <View style={styles.header}>
         <Text style={styles.title}>북마크</Text>
-        {unreadCount > 0 ? (
-          <Text style={styles.unreadSummary}>안 읽은 북마크 {unreadCount}개</Text>
-        ) : null}
       </View>
       {loading ? (
         <View style={styles.center}>
@@ -67,15 +85,16 @@ export default function BookmarkScreen() {
         <FlatList
           data={notices}
           keyExtractor={(n) => n.id}
+          ListHeaderComponent={Header}
           contentContainerStyle={styles.list}
           renderItem={({ item }) => (
-              <NoticeCard
-                notice={item}
-                isRead={isRead(item.id)}
-                isNew={!isRead(item.id) && !!lastSeenAt && (item.posted_at ?? '') > lastSeenAt}
-                unread={!isRead(item.id)}
-                onPress={() => navigation.navigate('Detail', { notice: item })}
-              />
+            <NoticeCard
+              notice={item}
+              isRead={isRead(item.id)}
+              isNew={!isRead(item.id) && !!lastSeenAt && (item.posted_at ?? '') > lastSeenAt}
+              unread={!isRead(item.id)}
+              onPress={() => navigation.navigate('Detail', { notice: item })}
+            />
           )}
         />
       )}
@@ -83,14 +102,53 @@ export default function BookmarkScreen() {
   );
 }
 
+function FolderCard({
+  icon, name, caption, onPress, disabled = false,
+}: {
+  icon: string; name: string; caption: string; onPress: () => void; disabled?: boolean;
+}) {
+  return (
+    <TouchableOpacity
+      style={[styles.folderCard, disabled && styles.folderCardDisabled]}
+      onPress={onPress}
+      activeOpacity={0.7}
+    >
+      <Text style={styles.folderIcon}>{icon}</Text>
+      <Text style={[styles.folderName, disabled && styles.folderTextDim]} numberOfLines={1}>{name}</Text>
+      <Text style={[styles.folderCaption, disabled && styles.folderTextDim]}>{caption}</Text>
+    </TouchableOpacity>
+  );
+}
+
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: COLORS.bg },
   header: { paddingHorizontal: SPACING.lg, paddingVertical: SPACING.md },
   title: { fontSize: FONT.display, fontWeight: WEIGHT.bold, color: COLORS.text },
-  unreadSummary: { fontSize: FONT.caption, color: COLORS.accentText, marginTop: 2, fontWeight: WEIGHT.semibold },
-  list: { paddingHorizontal: SPACING.lg, paddingBottom: SPACING.xxl },
+  collectionRow: {
+    flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between',
+    paddingHorizontal: SPACING.lg, marginBottom: SPACING.md,
+  },
+  collectionTitle: { fontSize: FONT.title, fontWeight: WEIGHT.bold, color: COLORS.text },
+  plus: { fontSize: 24, color: COLORS.accent, fontWeight: WEIGHT.bold, lineHeight: 26 },
+  folderRow: { flexDirection: 'row', gap: SPACING.md, paddingHorizontal: SPACING.lg },
+  folderCard: {
+    width: 130,
+    backgroundColor: COLORS.surface,
+    borderRadius: RADIUS.card,
+    padding: SPACING.lg,
+    gap: SPACING.xs,
+  },
+  folderCardDisabled: { backgroundColor: COLORS.surface, opacity: 0.5 },
+  folderIcon: { fontSize: 22, marginBottom: SPACING.xs },
+  folderName: { fontSize: FONT.body, fontWeight: WEIGHT.semibold, color: COLORS.text },
+  folderCaption: { fontSize: FONT.caption, color: COLORS.textSecondary },
+  folderTextDim: { color: COLORS.textTertiary },
+  sectionTitle: {
+    fontSize: FONT.subtitle, fontWeight: WEIGHT.bold, color: COLORS.text,
+    paddingHorizontal: SPACING.lg, marginTop: SPACING.xl, marginBottom: SPACING.md,
+  },
+  list: { paddingBottom: SPACING.xxl },
   center: { flex: 1, justifyContent: 'center', alignItems: 'center', gap: SPACING.sm, paddingHorizontal: SPACING.xl },
-  emptyIcon: { fontSize: 40 },
   emptyTitle: { fontSize: FONT.subtitle, fontWeight: WEIGHT.semibold, color: COLORS.text },
   sub: { fontSize: FONT.caption, color: COLORS.textSecondary, textAlign: 'center' },
 });
