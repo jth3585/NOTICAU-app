@@ -56,7 +56,9 @@ const styles = StyleSheet.create({
     gap: SPACING.xs,
     backgroundColor: COLORS.accent,
     borderRadius: RADIUS.card,
+    // 카드와 동일한 좌우/하단 마진 (특히 marginRight 없으면 닫힐 때 우측 16px이 튀어나옴)
     marginLeft: SPACING.lg,
+    marginRight: SPACING.lg,
     marginBottom: SPACING.md,
     paddingHorizontal: SPACING.lg,
   },
