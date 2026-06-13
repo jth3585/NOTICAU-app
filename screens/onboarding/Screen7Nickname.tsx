@@ -49,7 +49,7 @@ export default function Screen7Nickname({ navigation }: Props) {
   return (
     <OnboardingLayout
       step={7}
-      title="호칭을 입력해 주세요"
+      title="어떻게 불러드릴까요?"
       subtitle="홈 화면 인사에 쓰여요. 입력하지 않아도 괜찮아요."
       onBack={() => navigation.goBack()}
       onNext={() => finish(trimmed)}
