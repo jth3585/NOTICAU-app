@@ -335,7 +335,7 @@ const styles = StyleSheet.create({
   popover: {
     position: 'absolute',
     minWidth: 132,
-    backgroundColor: COLORS.bg,
+    backgroundColor: COLORS.surface,
     borderRadius: RADIUS.box,
     paddingVertical: SPACING.xs,
     borderWidth: StyleSheet.hairlineWidth,
@@ -353,7 +353,7 @@ const styles = StyleSheet.create({
     right: 12,
     width: 12,
     height: 12,
-    backgroundColor: COLORS.bg,
+    backgroundColor: COLORS.surface,
     borderLeftWidth: StyleSheet.hairlineWidth,
     borderTopWidth: StyleSheet.hairlineWidth,
     borderColor: COLORS.border,

@@ -51,7 +51,7 @@ export function AddBookmarksModal({ visible, candidates, folderNameOf, onAdd, on
 
 const styles = StyleSheet.create({
   sheet: {
-    backgroundColor: COLORS.bg,
+    backgroundColor: COLORS.surface,
     borderTopLeftRadius: RADIUS.modal, borderTopRightRadius: RADIUS.modal,
     padding: SPACING.lg, paddingBottom: SPACING.xxl,
   },

@@ -1,6 +1,6 @@
 import { StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import type { Notice } from '../lib/types';
-import { COLORS, FONT, RADIUS, SPACING, WEIGHT } from '../lib/theme';
+import { COLORS, FONT, RADIUS, SHADOW, SPACING, WEIGHT } from '../lib/theme';
 import { formatDateShort, formatDday, metaOf, sourceOf } from '../lib/format';
 import { CategoryBadge } from './ui/CategoryBadge';
 import { SourceBadge } from './ui/SourceBadge';
@@ -91,6 +91,7 @@ const styles = StyleSheet.create({
     padding: SPACING.lg,
     marginHorizontal: SPACING.lg,
     marginBottom: SPACING.md,
+    ...SHADOW.card,
   },
   topRow: {
     flexDirection: 'row',

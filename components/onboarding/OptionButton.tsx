@@ -30,7 +30,7 @@ const styles = StyleSheet.create({
     borderRadius: RADIUS.card,
     paddingVertical: SPACING.md + 2,
     paddingHorizontal: SPACING.lg,
-    backgroundColor: COLORS.bg,
+    backgroundColor: COLORS.surface,
   },
   btnSelected: {
     borderColor: COLORS.accent,

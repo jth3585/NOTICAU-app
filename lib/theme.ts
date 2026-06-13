@@ -2,9 +2,9 @@
 // 도메인 상수는 constants.ts. 토큰은 전부 여기서.
 
 export const COLORS = {
-  // 베이스
-  bg: '#FFFFFF',
-  surface: '#F7F8FA', // 카드 배경
+  // 베이스 (쿨 양각: 배경은 연한 쿨 그레이, 카드는 순백 + 그림자로 떠보이게)
+  bg: '#F5F7FA', // 베이스 배경 (연한 쿨 그레이)
+  surface: '#FFFFFF', // 카드 배경 (양각, SHADOW.card과 함께)
   surface2: '#EFF1F4', // 강조 박스 배경
   border: '#E5E7EB',
 
@@ -66,4 +66,15 @@ export const RADIUS = {
   box: 12, // 작은 박스
   card: 16, // 카드 (메인)
   modal: 20, // 모달, 큰 박스
+} as const;
+
+// 카드 양각용 미세 그림자 (iOS shadow + Android elevation)
+export const SHADOW = {
+  card: {
+    shadowColor: '#1A1D21',
+    shadowOpacity: 0.06,
+    shadowRadius: 8,
+    shadowOffset: { width: 0, height: 2 },
+    elevation: 2,
+  },
 } as const;

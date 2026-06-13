@@ -99,7 +99,7 @@ function Row({ label, active, onPress, icon = false }: { label: string; active: 
 
 const styles = StyleSheet.create({
   sheet: {
-    backgroundColor: COLORS.bg,
+    backgroundColor: COLORS.surface,
     borderTopLeftRadius: RADIUS.modal, borderTopRightRadius: RADIUS.modal,
     padding: SPACING.lg, paddingBottom: SPACING.xxl, gap: SPACING.sm,
   },

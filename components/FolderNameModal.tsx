@@ -70,7 +70,7 @@ export function FolderNameModal({ visible, title, initialValue = '', submitLabel
 
 const styles = StyleSheet.create({
   overlay: { flex: 1, backgroundColor: 'rgba(0,0,0,0.35)', justifyContent: 'center', paddingHorizontal: SPACING.xl },
-  card: { backgroundColor: COLORS.bg, borderRadius: RADIUS.modal, padding: SPACING.lg, gap: SPACING.md },
+  card: { backgroundColor: COLORS.surface, borderRadius: RADIUS.modal, padding: SPACING.lg, gap: SPACING.md },
   title: { fontSize: FONT.subtitle, fontWeight: WEIGHT.bold, color: COLORS.text },
   input: {
     borderWidth: 1, borderColor: COLORS.border, borderRadius: RADIUS.box,

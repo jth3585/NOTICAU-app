@@ -10,7 +10,7 @@ import { useLastSeenAt } from '../lib/new-badge';
 import { lightHaptic } from '../lib/haptics';
 import { keywordMatches } from '../lib/homeFeed';
 import type { RootStackParamList } from '../lib/types';
-import { COLORS, FONT, RADIUS, SPACING, WEIGHT } from '../lib/theme';
+import { COLORS, FONT, RADIUS, SHADOW, SPACING, WEIGHT } from '../lib/theme';
 import { NoticeCard } from '../components/NoticeCard';
 import { BookmarkIcon } from '../components/ui/BookmarkIcon';
 import { FolderNameModal } from '../components/FolderNameModal';
@@ -239,6 +239,7 @@ const styles = StyleSheet.create({
     borderRadius: RADIUS.card,
     padding: SPACING.lg,
     gap: SPACING.xs,
+    ...SHADOW.card,
   },
   folderCardDisabled: { backgroundColor: COLORS.surface, opacity: 0.5 },
   addCard: {
