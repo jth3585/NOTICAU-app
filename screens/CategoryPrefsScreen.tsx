@@ -1,12 +1,15 @@
 import { useEffect, useState } from 'react';
-import { ScrollView, StyleSheet, Switch, Text, TouchableOpacity, View } from 'react-native';
+import { StyleSheet, Switch, Text, TouchableOpacity, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useNavigation } from '@react-navigation/native';
+import ReorderableList, {
+  useReorderableDrag, reorderItems, type ReorderableListReorderEvent,
+} from 'react-native-reorderable-list';
 import { supabase } from '../lib/supabase';
-import { COLORS, FONT, RADIUS, SPACING, WEIGHT } from '../lib/theme';
+import { COLORS, FONT, RADIUS, SHADOW, SPACING, WEIGHT } from '../lib/theme';
 import { BackButton } from '../components/ui/BackButton';
 import { CategoryBadge } from '../components/ui/CategoryBadge';
-import { ChevronUpIcon, ChevronDownIcon } from '../components/ui/icons';
+import { GripIcon } from '../components/ui/icons';
 import { orderedCategories, CATEGORIES } from '../lib/categories';
 
 export default function CategoryPrefsScreen() {
@@ -40,12 +43,8 @@ export default function CategoryPrefsScreen() {
     );
   };
 
-  // 위/아래로 한 칸 이동 + 전체 순서(sort_order) 저장
-  const move = async (index: number, dir: -1 | 1) => {
-    const target = index + dir;
-    if (target < 0 || target >= order.length) return;
-    const next = [...order];
-    [next[index], next[target]] = [next[target], next[index]];
+  const onReorder = async ({ from, to }: ReorderableListReorderEvent) => {
+    const next = reorderItems(order, from, to);
     setOrder(next);
     if (!userId) return;
     const now = new Date().toISOString();
@@ -64,32 +63,38 @@ export default function CategoryPrefsScreen() {
         <Text style={styles.title}>카테고리 편집</Text>
         <View style={{ width: 40 }} />
       </View>
-      <Text style={styles.hint}>켜둔 카테고리만 '전체' 피드에 보여요. 화살표로 순서를 바꿀 수 있어요.</Text>
-      <ScrollView contentContainerStyle={styles.scroll}>
-        <View style={styles.card}>
-          {order.map((topic, i) => (
-            <View key={topic} style={[styles.row, i < order.length - 1 && styles.rowBorder]}>
-              <CategoryBadge topic={topic} size="md" />
-              <View style={styles.rowRight}>
-                <TouchableOpacity onPress={() => move(i, -1)} disabled={i === 0} hitSlop={6} style={styles.arrow}>
-                  <ChevronUpIcon size={20} color={i === 0 ? COLORS.border : COLORS.textSecondary} />
-                </TouchableOpacity>
-                <TouchableOpacity onPress={() => move(i, 1)} disabled={i === order.length - 1} hitSlop={6} style={styles.arrow}>
-                  <ChevronDownIcon size={20} color={i === order.length - 1 ? COLORS.border : COLORS.textSecondary} />
-                </TouchableOpacity>
-                <Switch
-                  value={isEnabled(topic)}
-                  onValueChange={() => toggle(topic)}
-                  trackColor={{ true: COLORS.accent }}
-                  thumbColor="#fff"
-                  style={styles.switch}
-                />
-              </View>
-            </View>
-          ))}
-        </View>
-      </ScrollView>
+      <Text style={styles.hint}>켜둔 카테고리만 '전체' 피드에 보여요. 왼쪽 손잡이를 끌어 순서를 바꿀 수 있어요.</Text>
+      <ReorderableList
+        data={order}
+        onReorder={onReorder}
+        keyExtractor={(t) => t}
+        contentContainerStyle={styles.listContent}
+        renderItem={({ item }) => (
+          <CategoryRow topic={item} enabled={isEnabled(item)} onToggle={() => toggle(item)} />
+        )}
+      />
     </SafeAreaView>
+  );
+}
+
+function CategoryRow({ topic, enabled, onToggle }: { topic: string; enabled: boolean; onToggle: () => void }) {
+  const drag = useReorderableDrag();
+  return (
+    <View style={styles.row}>
+      <View style={styles.rowLeft}>
+        <TouchableOpacity onLongPress={drag} delayLongPress={120} hitSlop={10} style={styles.grip} activeOpacity={0.6}>
+          <GripIcon size={20} color={COLORS.textTertiary} />
+        </TouchableOpacity>
+        <CategoryBadge topic={topic} size="md" />
+      </View>
+      <Switch
+        value={enabled}
+        onValueChange={onToggle}
+        trackColor={{ true: COLORS.accent }}
+        thumbColor="#fff"
+        style={styles.switch}
+      />
+    </View>
   );
 }
 
@@ -98,11 +103,15 @@ const styles = StyleSheet.create({
   header: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingHorizontal: SPACING.lg, paddingVertical: SPACING.md },
   title: { fontSize: FONT.subtitle, fontWeight: WEIGHT.bold, color: COLORS.text },
   hint: { fontSize: FONT.caption, color: COLORS.textSecondary, paddingHorizontal: SPACING.lg, marginBottom: SPACING.md },
-  scroll: { paddingHorizontal: SPACING.lg, paddingBottom: SPACING.xxl },
-  card: { backgroundColor: COLORS.surface, borderRadius: RADIUS.card, overflow: 'hidden' },
-  row: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingHorizontal: SPACING.lg, paddingVertical: SPACING.md + 4 },
-  rowBorder: { borderBottomWidth: StyleSheet.hairlineWidth, borderBottomColor: COLORS.border },
-  rowRight: { flexDirection: 'row', alignItems: 'center', gap: SPACING.xs },
-  arrow: { padding: 2 },
-  switch: { transform: [{ scale: 0.8 }], marginLeft: SPACING.xs },
+  listContent: { paddingHorizontal: SPACING.lg, paddingBottom: SPACING.xxl },
+  row: {
+    flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between',
+    backgroundColor: COLORS.surface, borderRadius: RADIUS.card,
+    paddingHorizontal: SPACING.lg, paddingVertical: SPACING.md + 2,
+    marginBottom: SPACING.sm,
+    ...SHADOW.card,
+  },
+  rowLeft: { flexDirection: 'row', alignItems: 'center', gap: SPACING.md },
+  grip: { padding: 2 },
+  switch: { transform: [{ scale: 0.8 }] },
 });

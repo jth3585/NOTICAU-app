@@ -112,6 +112,20 @@ export function ClockIcon({ size = 22, color }: IconProps) {
   );
 }
 
+// ⠿ 드래그 손잡이 (grip, 점 6개)
+export function GripIcon({ size = 22, color }: IconProps) {
+  return (
+    <Svg width={size} height={size} viewBox="0 0 24 24" fill={color}>
+      <Circle cx="9" cy="5" r="1.5" />
+      <Circle cx="9" cy="12" r="1.5" />
+      <Circle cx="9" cy="19" r="1.5" />
+      <Circle cx="15" cy="5" r="1.5" />
+      <Circle cx="15" cy="12" r="1.5" />
+      <Circle cx="15" cy="19" r="1.5" />
+    </Svg>
+  );
+}
+
 // 🗑 휴지통 (삭제)
 export function TrashIcon({ size = 22, color }: IconProps) {
   return (
