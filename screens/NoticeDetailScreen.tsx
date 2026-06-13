@@ -62,7 +62,7 @@ export default function NoticeDetailScreen({ route, navigation }: Props) {
     if (src?.name) lines.push(`출처: ${src.name}`);
     if (url) lines.push(url);
     lines.push('');
-    lines.push('📚 노티카우(NOTICAU)에서 공유한 공지예요 · 중앙대 공지 모아보기');
+    lines.push('powered by NOTICAU · 중앙대 공지 큐레이션');
     try {
       await Share.share({ message: lines.join('\n'), title: notice.title });
     } catch { /* 사용자 취소 등 무시 */ }
