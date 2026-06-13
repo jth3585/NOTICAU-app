@@ -55,6 +55,7 @@ export default function BookmarkFolderScreen({ route }: Props) {
         <ScrollView
           horizontal
           showsHorizontalScrollIndicator={false}
+          style={styles.chipsScroll}
           contentContainerStyle={styles.chips}
         >
           <Chip label="전체" active={selectedKeyword === null} onPress={() => setSelectedKeyword(null)} />
@@ -118,7 +119,8 @@ const styles = StyleSheet.create({
   backText: { fontSize: FONT.body, color: COLORS.textSecondary, fontWeight: WEIGHT.semibold },
   title: { fontSize: FONT.display, fontWeight: WEIGHT.bold, color: COLORS.text },
   desc: { fontSize: FONT.caption, color: COLORS.textSecondary, marginTop: 2 },
-  chips: { paddingHorizontal: SPACING.lg, paddingBottom: SPACING.md, gap: SPACING.sm },
+  chipsScroll: { flexGrow: 0 },
+  chips: { paddingHorizontal: SPACING.lg, paddingBottom: SPACING.md, gap: SPACING.sm, alignItems: 'center' },
   chip: {
     paddingHorizontal: SPACING.md,
     paddingVertical: SPACING.xs,
