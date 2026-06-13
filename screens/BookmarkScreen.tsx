@@ -230,7 +230,7 @@ const styles = StyleSheet.create({
     flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between',
     paddingHorizontal: SPACING.lg, paddingTop: SPACING.md, marginBottom: SPACING.md,
   },
-  collectionTitle: { fontSize: FONT.title, fontWeight: WEIGHT.bold, color: COLORS.text },
+  collectionTitle: { fontSize: FONT.display, fontWeight: WEIGHT.bold, color: COLORS.text },
   plus: { fontSize: 24, color: COLORS.text, fontWeight: WEIGHT.bold, lineHeight: 26 },
   folderRow: { flexDirection: 'row', gap: SPACING.md, paddingHorizontal: SPACING.lg },
   folderCard: {
@@ -261,7 +261,8 @@ const styles = StyleSheet.create({
   folderCaption: { fontSize: FONT.caption, color: COLORS.textSecondary },
   folderTextDim: { color: COLORS.textTertiary },
   sectionTitle: {
-    fontSize: FONT.subtitle, fontWeight: WEIGHT.bold, color: COLORS.text,
+    fontSize: FONT.caption, fontWeight: WEIGHT.bold, color: COLORS.textTertiary,
+    textTransform: 'uppercase', letterSpacing: 0.8,
     paddingHorizontal: SPACING.lg, marginTop: SPACING.xl, marginBottom: SPACING.md,
   },
   list: { paddingBottom: SPACING.xxl },

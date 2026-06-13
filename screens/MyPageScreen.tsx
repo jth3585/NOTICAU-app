@@ -6,7 +6,7 @@ import { useCallback } from 'react';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { supabase } from '../lib/supabase';
 import type { RootStackParamList } from '../lib/types';
-import { COLORS, FONT, RADIUS, SPACING, WEIGHT } from '../lib/theme';
+import { COLORS, FONT, RADIUS, SHADOW, SPACING, WEIGHT } from '../lib/theme';
 
 type Nav = NativeStackNavigationProp<RootStackParamList>;
 
@@ -79,7 +79,7 @@ export default function MyPageScreen() {
         <View style={styles.menuGroup}>
           <MenuItem label="프로필 수정" onPress={() => navigation.navigate('ProfileEdit')} />
           <MenuItem label="키워드 관리" onPress={() => navigation.navigate('KeywordManage')} />
-          <MenuItem label="카테고리 필터" onPress={() => navigation.navigate('CategoryPrefs')} />
+          <MenuItem label="카테고리 필터" onPress={() => navigation.navigate('CategoryPrefs')} last />
         </View>
 
         {/* 앱 정보 */}
@@ -87,22 +87,22 @@ export default function MyPageScreen() {
         <View style={styles.menuGroup}>
           <MenuItem label="알림 설정" onPress={() => navigation.navigate('NotificationSettings')} />
           <MenuItem label="이용약관" onPress={() => navigation.navigate('Terms')} />
-          <MenuItem label="개인정보 처리방침" onPress={() => navigation.navigate('Privacy')} />
+          <MenuItem label="개인정보 처리방침" onPress={() => navigation.navigate('Privacy')} last />
         </View>
 
         {/* 계정 */}
         <Text style={styles.groupLabel}>계정</Text>
         <View style={styles.menuGroup}>
-          <MenuItem label="회원 탈퇴" onPress={() => navigation.navigate('DeleteAccount')} danger />
+          <MenuItem label="회원 탈퇴" onPress={() => navigation.navigate('DeleteAccount')} danger last />
         </View>
       </ScrollView>
     </SafeAreaView>
   );
 }
 
-function MenuItem({ label, onPress, disabled, danger }: { label: string; onPress?: () => void; disabled?: boolean; danger?: boolean }) {
+function MenuItem({ label, onPress, disabled, danger, last }: { label: string; onPress?: () => void; disabled?: boolean; danger?: boolean; last?: boolean }) {
   return (
-    <TouchableOpacity style={styles.menuItem} onPress={onPress} disabled={disabled} activeOpacity={0.6}>
+    <TouchableOpacity style={[styles.menuItem, last && styles.menuItemLast]} onPress={onPress} disabled={disabled} activeOpacity={0.6}>
       <Text style={[styles.menuLabel, disabled && styles.menuDisabled, danger && styles.menuDanger]}>{label}</Text>
       <Text style={[styles.chevron, disabled && styles.menuDisabled]}>›</Text>
     </TouchableOpacity>
@@ -119,6 +119,7 @@ const styles = StyleSheet.create({
     borderRadius: RADIUS.card,
     padding: SPACING.lg,
     marginBottom: SPACING.xl,
+    ...SHADOW.card,
   },
   profileRow: { flexDirection: 'row', alignItems: 'center', gap: SPACING.md },
   avatar: {
@@ -133,18 +134,19 @@ const styles = StyleSheet.create({
   profileMeta: { fontSize: FONT.caption, color: COLORS.textSecondary, marginTop: 2 },
   chevron: { fontSize: 20, color: COLORS.textTertiary },
 
-  groupLabel: { fontSize: FONT.caption, fontWeight: WEIGHT.semibold, color: COLORS.textTertiary, marginBottom: SPACING.sm, textTransform: 'uppercase', letterSpacing: 0.6 },
+  groupLabel: { fontSize: FONT.caption, fontWeight: WEIGHT.bold, color: COLORS.textTertiary, marginBottom: SPACING.sm, textTransform: 'uppercase', letterSpacing: 0.8 },
   menuGroup: {
     backgroundColor: COLORS.surface,
     borderRadius: RADIUS.card,
     marginBottom: SPACING.xl,
-    overflow: 'hidden',
+    ...SHADOW.card,
   },
   menuItem: {
     flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between',
     paddingHorizontal: SPACING.lg, paddingVertical: SPACING.md + 2,
     borderBottomWidth: StyleSheet.hairlineWidth, borderBottomColor: COLORS.border,
   },
+  menuItemLast: { borderBottomWidth: 0 },
   menuLabel: { fontSize: FONT.body, color: COLORS.text },
   menuDisabled: { color: COLORS.textTertiary },
   menuDanger: { color: COLORS.danger },

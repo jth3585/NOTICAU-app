@@ -172,6 +172,7 @@ export default function InboxScreen() {
 
   return (
     <SafeAreaView style={styles.container} edges={['top']}>
+      <Text style={styles.pageTitle}>전체 공지</Text>
       {/* 검색바 + 정렬 아이콘 */}
       <View style={styles.topBar}>
         <View style={styles.searchRow}>
@@ -285,6 +286,7 @@ function Centered({ children }: { children: ReactNode }) {
 
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: COLORS.bg },
+  pageTitle: { fontSize: FONT.display, fontWeight: WEIGHT.bold, color: COLORS.text, paddingHorizontal: SPACING.lg, paddingTop: SPACING.sm, paddingBottom: SPACING.md },
   centered: { alignItems: 'center', justifyContent: 'center' },
   topBar: {
     flexDirection: 'row',
