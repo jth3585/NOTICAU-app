@@ -57,11 +57,11 @@ export function HomeCuration({ notices, loadingMore, allSeen, onLoadMore, onPres
 }
 
 const styles = StyleSheet.create({
-  section: { paddingTop: SPACING.md },
+  section: { paddingTop: SPACING.xl },
   label: {
     fontSize: FONT.caption, fontWeight: WEIGHT.bold, color: COLORS.textTertiary,
     textTransform: 'uppercase', letterSpacing: 0.8,
-    paddingHorizontal: SPACING.lg, paddingBottom: SPACING.md,
+    paddingHorizontal: SPACING.lg, paddingBottom: SPACING.lg,
   },
   moreBtnRow: {
     marginHorizontal: SPACING.lg,

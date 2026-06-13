@@ -78,7 +78,7 @@ export function HomeFilterTabs({ newList, keywordList, deadlineList, keywords, o
 }
 
 const styles = StyleSheet.create({
-  tabs: { flexDirection: 'row', gap: SPACING.sm, paddingHorizontal: SPACING.lg, paddingBottom: SPACING.md },
+  tabs: { flexDirection: 'row', gap: SPACING.sm, paddingHorizontal: SPACING.lg, paddingBottom: SPACING.lg },
   tab: {
     paddingHorizontal: SPACING.lg,
     paddingVertical: 10,

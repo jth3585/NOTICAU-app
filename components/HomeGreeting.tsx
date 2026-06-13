@@ -36,7 +36,7 @@ export function HomeGreeting({ nickname, deadlineSoonCount, newCount }: Props) {
 }
 
 const styles = StyleSheet.create({
-  wrap: { paddingHorizontal: SPACING.lg, paddingTop: SPACING.md, paddingBottom: SPACING.md },
+  wrap: { paddingHorizontal: SPACING.lg, paddingTop: SPACING.lg, paddingBottom: SPACING.xl },
   title: { fontSize: FONT.display, fontWeight: WEIGHT.bold, color: COLORS.text, lineHeight: 34 },
-  sub: { fontSize: FONT.body, color: COLORS.textSecondary, marginTop: SPACING.xs },
+  sub: { fontSize: FONT.body, color: COLORS.textSecondary, marginTop: SPACING.sm },
 });
