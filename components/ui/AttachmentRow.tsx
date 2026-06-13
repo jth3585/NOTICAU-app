@@ -1,6 +1,7 @@
-import { StyleSheet, Text, TouchableOpacity } from 'react-native';
+import { StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import * as WebBrowser from 'expo-web-browser';
 import { COLORS, FONT, RADIUS, SPACING, WEIGHT } from '../../lib/theme';
+import { PaperclipIcon } from './icons';
 
 // 원문 공지 페이지(sourceUrl)를 InApp 브라우저로 열어 사용자가 직접 다운로드.
 // 학교 PHP 첨부 URL은 CMS 세션 없이는 작동 안 하므로 원문 페이지로 우회.
@@ -45,7 +46,9 @@ export function AttachmentRow({ url, label, sourceUrl }: { url: string; label?: 
       onPress={() => openSource(sourceUrl, url)}
       activeOpacity={0.6}
     >
-      <Text style={styles.icon}>📎</Text>
+      <View style={styles.icon}>
+        <PaperclipIcon size={16} color={COLORS.textSecondary} />
+      </View>
       <Text style={styles.name} numberOfLines={1}>
         {name}
       </Text>
@@ -61,7 +64,7 @@ const styles = StyleSheet.create({
     paddingVertical: SPACING.sm,
     gap: SPACING.sm,
   },
-  icon: { fontSize: FONT.body },
+  icon: { width: 16, alignItems: 'center' },
   name: { flex: 1, fontSize: FONT.body, color: COLORS.text },
   ext: {
     fontSize: FONT.micro,

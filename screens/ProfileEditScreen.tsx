@@ -7,6 +7,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { useNavigation } from '@react-navigation/native';
 import { supabase } from '../lib/supabase';
 import { COLORS, FONT, RADIUS, SPACING, WEIGHT } from '../lib/theme';
+import { CheckIcon, ChevronLeftIcon } from '../components/ui/icons';
 
 type Profile = {
   grade: number;
@@ -177,8 +178,9 @@ export default function ProfileEditScreen() {
               : <SheetOption label="학과 정보 준비 중 — 단대만 저장" selected={false}
                   onPress={() => { autosave({ dept_secondary: secondaryCollegeCode }); setSheet(null); setSecondaryCollegeCode(null); }} />
             }
-            <TouchableOpacity style={styles.sheetDone} onPress={() => setSecondaryCollegeCode(null)}>
-              <Text style={[styles.sheetDoneText, { color: COLORS.textSecondary }]}>← 단과대학 다시 선택</Text>
+            <TouchableOpacity style={[styles.sheetDone, styles.sheetDoneRow]} onPress={() => setSecondaryCollegeCode(null)}>
+              <ChevronLeftIcon size={16} color={COLORS.textSecondary} />
+              <Text style={[styles.sheetDoneText, { color: COLORS.textSecondary }]}>단과대학 다시 선택</Text>
             </TouchableOpacity>
           </>
         )}
@@ -271,7 +273,7 @@ function SheetOption({ label, selected, onPress }: { label: string; selected: bo
   return (
     <TouchableOpacity style={styles.sheetOption} onPress={onPress}>
       <Text style={[styles.sheetOptionText, selected && styles.sheetOptionActive]}>{label}</Text>
-      {selected ? <Text style={styles.sheetOptionActive}>✓</Text> : null}
+      {selected ? <CheckIcon size={18} color={COLORS.accent} /> : null}
     </TouchableOpacity>
   );
 }
@@ -299,5 +301,6 @@ const styles = StyleSheet.create({
   sheetOptionText: { fontSize: FONT.body, color: COLORS.text },
   sheetOptionActive: { color: COLORS.accent, fontWeight: WEIGHT.semibold },
   sheetDone: { marginTop: SPACING.md, alignItems: 'center', paddingVertical: SPACING.sm },
+  sheetDoneRow: { flexDirection: 'row', justifyContent: 'center', gap: SPACING.xs },
   sheetDoneText: { fontSize: FONT.body, fontWeight: WEIGHT.semibold, color: COLORS.accentText },
 });

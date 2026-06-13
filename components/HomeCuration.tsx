@@ -2,6 +2,8 @@ import { ActivityIndicator, FlatList, StyleSheet, Text, TouchableOpacity, View }
 import type { Notice } from '../lib/types';
 import { NoticeCard } from './NoticeCard';
 import { COLORS, FONT, RADIUS, SPACING, WEIGHT } from '../lib/theme';
+import { SparkleIcon } from './ui/SparkleIcon';
+import { ChevronRightIcon } from './ui/icons';
 
 const CARD_W = 280;
 
@@ -21,7 +23,10 @@ export function HomeCuration({ notices, loadingMore, allSeen, onLoadMore, onPres
 
       {allSeen ? (
         <View style={styles.doneCard}>
-          <Text style={styles.doneTitle}>오늘 다 확인했어요 ✨</Text>
+          <View style={styles.doneTitleRow}>
+            <Text style={styles.doneTitle}>오늘 다 확인했어요</Text>
+            <SparkleIcon size={16} color={COLORS.accent} />
+          </View>
           <Text style={styles.doneSub}>매일 새 추천이 준비돼요</Text>
           <TouchableOpacity style={styles.moreBtn} onPress={onLoadMore} disabled={loadingMore} activeOpacity={0.75}>
             {loadingMore ? <ActivityIndicator color="#fff" /> : <Text style={styles.moreBtnText}>추천 더보기</Text>}
@@ -44,7 +49,14 @@ export function HomeCuration({ notices, loadingMore, allSeen, onLoadMore, onPres
           )}
           ListFooterComponent={
             <TouchableOpacity style={styles.moreCard} onPress={onLoadMore} disabled={loadingMore} activeOpacity={0.7}>
-              {loadingMore ? <ActivityIndicator color={COLORS.accent} /> : <Text style={styles.moreCardText}>더보기 →</Text>}
+              {loadingMore ? (
+                <ActivityIndicator color={COLORS.accent} />
+              ) : (
+                <View style={styles.moreCardInner}>
+                  <Text style={styles.moreCardText}>더보기</Text>
+                  <ChevronRightIcon size={16} color={COLORS.accentText} />
+                </View>
+              )}
             </TouchableOpacity>
           }
         />
@@ -68,6 +80,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
   },
+  moreCardInner: { flexDirection: 'row', alignItems: 'center', gap: SPACING.xs },
   moreCardText: { fontSize: FONT.body, color: COLORS.accentText, fontWeight: WEIGHT.semibold },
   doneCard: {
     marginHorizontal: SPACING.lg,
@@ -77,6 +90,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     gap: SPACING.xs,
   },
+  doneTitleRow: { flexDirection: 'row', alignItems: 'center', gap: SPACING.xs },
   doneTitle: { fontSize: FONT.subtitle, fontWeight: WEIGHT.bold, color: COLORS.text },
   doneSub: { fontSize: FONT.caption, color: COLORS.textSecondary },
   moreBtn: {

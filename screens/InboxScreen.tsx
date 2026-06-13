@@ -16,6 +16,7 @@ import { CategoryChips } from '../components/CategoryChips';
 import { NoticeCard } from '../components/NoticeCard';
 import { SearchIcon } from '../components/ui/SearchIcon';
 import { SortIcon } from '../components/ui/SortIcon';
+import { CloseIcon, CheckIcon } from '../components/ui/icons';
 import { useReadSet } from '../lib/read';
 import { useLastSeenAt, touchLastSeenAt } from '../lib/new-badge';
 
@@ -172,7 +173,7 @@ export default function InboxScreen() {
           />
           {query.length > 0 ? (
             <TouchableOpacity onPress={() => setQuery('')} hitSlop={8} style={{ paddingLeft: SPACING.sm }}>
-              <Text style={styles.clearBtn}>✕</Text>
+              <CloseIcon size={16} color={COLORS.textTertiary} />
             </TouchableOpacity>
           ) : null}
         </View>
@@ -239,7 +240,7 @@ export default function InboxScreen() {
                       <Text style={[styles.popOptionText, sortMode === mode && styles.popOptionActive]}>
                         {SORT_LABELS[mode]}
                       </Text>
-                      {sortMode === mode ? <Text style={styles.checkmark}>✓</Text> : null}
+                      {sortMode === mode ? <CheckIcon size={16} color={COLORS.accent} /> : null}
                     </TouchableOpacity>
                   ))}
                 </View>
@@ -286,7 +287,6 @@ const styles = StyleSheet.create({
     color: COLORS.text,
     padding: 0,
   },
-  clearBtn: { fontSize: FONT.caption, color: COLORS.textTertiary },
   sortBtn: {
     width: 40,
     height: 40,
@@ -352,10 +352,5 @@ const styles = StyleSheet.create({
   popOptionActive: {
     color: COLORS.accent,
     fontWeight: WEIGHT.semibold,
-  },
-  checkmark: {
-    fontSize: FONT.body,
-    color: COLORS.accent,
-    fontWeight: WEIGHT.bold,
   },
 });

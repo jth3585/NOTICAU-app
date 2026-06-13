@@ -5,9 +5,11 @@ import { createNativeStackNavigator } from '@react-navigation/native-stack';
 import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 import { StatusBar } from 'expo-status-bar';
-import { StyleSheet, Text, View } from 'react-native';
+import { StyleSheet, View } from 'react-native';
 import type { RootStackParamList, TabParamList } from './lib/types';
 import { COLORS, FONT, WEIGHT } from './lib/theme';
+import { HomeIcon, ClipboardListIcon, UserIcon } from './components/ui/icons';
+import { BookmarkIcon } from './components/ui/BookmarkIcon';
 import { ensureAnonSession } from './lib/auth';
 import { migrateLocalToDB } from './lib/migrate';
 import { setupPushNotifications } from './lib/push';
@@ -35,10 +37,10 @@ const MIN_SPLASH_MS = 1500; // 콜드 스타트 스플래시 최소 표시 시�
 const Stack = createNativeStackNavigator<RootStackParamList>();
 const Tab = createBottomTabNavigator<TabParamList>();
 
-function TabIcon({ emoji, focused }: { emoji: string; focused: boolean }) {
-  return (
-    <Text style={{ fontSize: 20, opacity: focused ? 1 : 0.45 }}>{emoji}</Text>
-  );
+type TabIconComponent = (props: { size?: number; color: string }) => React.ReactElement;
+
+function TabIcon({ Icon, focused }: { Icon: TabIconComponent; focused: boolean }) {
+  return <Icon size={22} color={focused ? COLORS.accent : COLORS.textTertiary} />;
 }
 
 function Tabs() {
@@ -57,7 +59,7 @@ function Tabs() {
         component={HomeScreen}
         options={{
           tabBarLabel: '홈',
-          tabBarIcon: ({ focused }) => <TabIcon emoji="🏠" focused={focused} />,
+          tabBarIcon: ({ focused }) => <TabIcon Icon={HomeIcon} focused={focused} />,
         }}
       />
       <Tab.Screen
@@ -65,7 +67,7 @@ function Tabs() {
         component={InboxScreen}
         options={{
           tabBarLabel: '전체 공지',
-          tabBarIcon: ({ focused }) => <TabIcon emoji="📋" focused={focused} />,
+          tabBarIcon: ({ focused }) => <TabIcon Icon={ClipboardListIcon} focused={focused} />,
         }}
       />
       <Tab.Screen
@@ -73,7 +75,9 @@ function Tabs() {
         component={BookmarkScreen}
         options={{
           tabBarLabel: '북마크',
-          tabBarIcon: ({ focused }) => <TabIcon emoji="🔖" focused={focused} />,
+          tabBarIcon: ({ focused }) => (
+            <BookmarkIcon size={22} color={focused ? COLORS.accent : COLORS.textTertiary} />
+          ),
         }}
       />
       <Tab.Screen
@@ -81,7 +85,7 @@ function Tabs() {
         component={MyPageScreen}
         options={{
           tabBarLabel: '마이페이지',
-          tabBarIcon: ({ focused }) => <TabIcon emoji="👤" focused={focused} />,
+          tabBarIcon: ({ focused }) => <TabIcon Icon={UserIcon} focused={focused} />,
         }}
       />
     </Tab.Navigator>

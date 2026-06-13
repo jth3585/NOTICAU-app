@@ -7,6 +7,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { useNavigation } from '@react-navigation/native';
 import { supabase } from '../lib/supabase';
 import { COLORS, FONT, RADIUS, SPACING, WEIGHT } from '../lib/theme';
+import { CloseIcon } from '../components/ui/icons';
 
 type Keyword = { id: string; keyword: string; notify: boolean };
 
@@ -127,7 +128,7 @@ export default function KeywordManageScreen() {
                     style={{ transform: [{ scale: 0.75 }] }}
                   />
                   <TouchableOpacity onPress={() => handleDelete(item.id)} hitSlop={8}>
-                    <Text style={styles.deleteBtn}>✕</Text>
+                    <CloseIcon size={16} color={COLORS.textTertiary} />
                   </TouchableOpacity>
                 </View>
               </View>
@@ -159,7 +160,6 @@ const styles = StyleSheet.create({
   keywordText: { fontSize: FONT.body, color: COLORS.text, flex: 1 },
   keywordActions: { flexDirection: 'row', alignItems: 'center', gap: SPACING.sm },
   notifyLabel: { fontSize: FONT.caption, color: COLORS.textSecondary },
-  deleteBtn: { fontSize: FONT.caption, color: COLORS.textTertiary, paddingHorizontal: SPACING.xs },
   empty: { flex: 1, justifyContent: 'center', alignItems: 'center', gap: SPACING.sm, padding: SPACING.xl },
   emptyText: { fontSize: FONT.subtitle, fontWeight: WEIGHT.semibold, color: COLORS.text },
   emptyHint: { fontSize: FONT.body, color: COLORS.textSecondary, textAlign: 'center' },
