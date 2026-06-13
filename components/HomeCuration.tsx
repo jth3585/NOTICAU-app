@@ -1,11 +1,9 @@
-import { ActivityIndicator, FlatList, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import { ActivityIndicator, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import type { Notice } from '../lib/types';
 import { NoticeCard } from './NoticeCard';
 import { COLORS, FONT, RADIUS, SPACING, WEIGHT } from '../lib/theme';
 import { SparkleIcon } from './ui/SparkleIcon';
 import { ChevronRightIcon } from './ui/icons';
-
-const CARD_W = 280;
 
 type Props = {
   notices: Notice[];
@@ -33,33 +31,26 @@ export function HomeCuration({ notices, loadingMore, allSeen, onLoadMore, onPres
           </TouchableOpacity>
         </View>
       ) : (
-        <FlatList
-          horizontal
-          data={notices}
-          keyExtractor={(n) => n.id}
-          showsHorizontalScrollIndicator={false}
-          contentContainerStyle={styles.cards}
-          renderItem={({ item }) => (
+        <View>
+          {notices.map((item) => (
             <NoticeCard
+              key={item.id}
               notice={item}
-              width={CARD_W}
               isNew={isNew(item.posted_at)}
               onPress={() => onPressNotice(item)}
             />
-          )}
-          ListFooterComponent={
-            <TouchableOpacity style={styles.moreCard} onPress={onLoadMore} disabled={loadingMore} activeOpacity={0.7}>
-              {loadingMore ? (
-                <ActivityIndicator color={COLORS.accent} />
-              ) : (
-                <View style={styles.moreCardInner}>
-                  <Text style={styles.moreCardText}>더보기</Text>
-                  <ChevronRightIcon size={16} color={COLORS.accentText} />
-                </View>
-              )}
-            </TouchableOpacity>
-          }
-        />
+          ))}
+          <TouchableOpacity style={styles.moreBtnRow} onPress={onLoadMore} disabled={loadingMore} activeOpacity={0.7}>
+            {loadingMore ? (
+              <ActivityIndicator color={COLORS.accent} />
+            ) : (
+              <View style={styles.moreCardInner}>
+                <Text style={styles.moreCardText}>더보기</Text>
+                <ChevronRightIcon size={16} color={COLORS.accentText} />
+              </View>
+            )}
+          </TouchableOpacity>
+        </View>
       )}
     </View>
   );
@@ -72,9 +63,10 @@ const styles = StyleSheet.create({
     textTransform: 'uppercase', letterSpacing: 0.8,
     paddingHorizontal: SPACING.lg, paddingBottom: SPACING.md,
   },
-  cards: { paddingLeft: SPACING.lg, paddingRight: SPACING.md, paddingBottom: SPACING.sm },
-  moreCard: {
-    width: 110,
+  moreBtnRow: {
+    marginHorizontal: SPACING.lg,
+    marginTop: SPACING.xs,
+    paddingVertical: SPACING.md,
     backgroundColor: COLORS.surface,
     borderRadius: RADIUS.card,
     alignItems: 'center',
