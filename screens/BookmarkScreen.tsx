@@ -135,9 +135,6 @@ export default function BookmarkScreen() {
 
   return (
     <SafeAreaView style={styles.container} edges={['top']}>
-      <View style={styles.header}>
-        <Text style={styles.title}>북마크</Text>
-      </View>
       <FlatList
         data={notices}
         keyExtractor={(n) => n.id}
@@ -216,14 +213,12 @@ function FolderCard({
 
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: COLORS.bg },
-  header: { paddingHorizontal: SPACING.lg, paddingVertical: SPACING.md },
-  title: { fontSize: FONT.display, fontWeight: WEIGHT.bold, color: COLORS.text },
   collectionRow: {
     flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between',
-    paddingHorizontal: SPACING.lg, marginBottom: SPACING.md,
+    paddingHorizontal: SPACING.lg, paddingTop: SPACING.md, marginBottom: SPACING.md,
   },
   collectionTitle: { fontSize: FONT.title, fontWeight: WEIGHT.bold, color: COLORS.text },
-  plus: { fontSize: 24, color: COLORS.accent, fontWeight: WEIGHT.bold, lineHeight: 26 },
+  plus: { fontSize: 24, color: COLORS.text, fontWeight: WEIGHT.bold, lineHeight: 26 },
   folderRow: { flexDirection: 'row', gap: SPACING.md, paddingHorizontal: SPACING.lg },
   folderCard: {
     width: 130,
