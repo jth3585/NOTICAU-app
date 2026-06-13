@@ -80,14 +80,14 @@ export function HomeFilterTabs({ newList, keywordList, deadlineList, keywords, o
 const styles = StyleSheet.create({
   tabs: { flexDirection: 'row', gap: SPACING.sm, paddingHorizontal: SPACING.lg, paddingBottom: SPACING.md },
   tab: {
-    paddingHorizontal: SPACING.md,
-    paddingVertical: SPACING.xs,
+    paddingHorizontal: SPACING.lg,
+    paddingVertical: 10,
     borderRadius: RADIUS.pill,
     backgroundColor: COLORS.surface,
   },
   tabActive: { backgroundColor: COLORS.accent },
-  tabText: { fontSize: FONT.caption, color: COLORS.textSecondary, fontWeight: WEIGHT.semibold },
-  tabTextActive: { color: '#fff' },
+  tabText: { fontSize: FONT.body, color: COLORS.text, fontWeight: WEIGHT.semibold },
+  tabTextActive: { color: '#fff', fontWeight: WEIGHT.bold },
   cards: { paddingLeft: SPACING.lg, paddingRight: SPACING.md, paddingBottom: SPACING.sm },
   empty: {
     marginHorizontal: SPACING.lg,
