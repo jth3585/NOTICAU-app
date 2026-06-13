@@ -11,12 +11,19 @@ type Props = {
   title: string;
   initialValue?: string;
   submitLabel: string;
+  placeholder?: string;
+  maxLength?: number;
+  allowEmpty?: boolean; // true면 빈 값 제출 허용 (예: 호칭 비우기)
   onSubmit: (name: string) => void;
   onClose: () => void;
 };
 
-// 폴더 생성/이름변경 공용 입력 모달 (Alert.prompt는 iOS 전용이라 크로스플랫폼 모달로).
-export function FolderNameModal({ visible, title, initialValue = '', submitLabel, onSubmit, onClose }: Props) {
+// 이름 입력 공용 모달 (폴더 생성/이름변경, 호칭 등). Alert.prompt는 iOS 전용이라 크로스플랫폼 모달로.
+export function FolderNameModal({
+  visible, title, initialValue = '', submitLabel,
+  placeholder = '폴더 이름', maxLength = FOLDER_NAME_MAX, allowEmpty = false,
+  onSubmit, onClose,
+}: Props) {
   const [value, setValue] = useState(initialValue);
 
   // 열릴 때마다 초기값으로 리셋
@@ -25,7 +32,7 @@ export function FolderNameModal({ visible, title, initialValue = '', submitLabel
   }, [visible, initialValue]);
 
   const trimmed = value.trim();
-  const canSubmit = trimmed.length > 0;
+  const canSubmit = allowEmpty || trimmed.length > 0;
 
   return (
     <Modal visible={visible} transparent animationType="fade" onRequestClose={onClose}>
@@ -39,9 +46,9 @@ export function FolderNameModal({ visible, title, initialValue = '', submitLabel
                   style={styles.input}
                   value={value}
                   onChangeText={setValue}
-                  placeholder="폴더 이름"
+                  placeholder={placeholder}
                   placeholderTextColor={COLORS.textTertiary}
-                  maxLength={FOLDER_NAME_MAX}
+                  maxLength={maxLength}
                   autoFocus
                   returnKeyType="done"
                   onSubmitEditing={() => { if (canSubmit) onSubmit(trimmed); }}

@@ -8,6 +8,9 @@ import { useNavigation } from '@react-navigation/native';
 import { supabase } from '../lib/supabase';
 import { COLORS, FONT, RADIUS, SPACING, WEIGHT } from '../lib/theme';
 import { CheckIcon, ChevronLeftIcon } from '../components/ui/icons';
+import { FolderNameModal } from '../components/FolderNameModal';
+
+const NICKNAME_MAX = 10;
 
 type Profile = {
   grade: number;
@@ -17,6 +20,7 @@ type Profile = {
   dept_secondary: string | null;
   enrollment_status: string[];
   is_dormitory: boolean;
+  nickname: string | null;
 };
 type Row = { code: string; name: string };
 
@@ -38,6 +42,7 @@ export default function ProfileEditScreen() {
   const [depts, setDepts] = useState<Row[]>([]);
   const [secondaryDepts, setSecondaryDepts] = useState<Row[]>([]);
   const [sheet, setSheet] = useState<string | null>(null);
+  const [nickOpen, setNickOpen] = useState(false);
   const [secondaryCollegeCode, setSecondaryCollegeCode] = useState<string | null>(null);
   const [secondaryDeptName, setSecondaryDeptName] = useState<string>('');
   const userIdRef = useRef<string | null>(null);
@@ -114,6 +119,7 @@ export default function ProfileEditScreen() {
 
       <ScrollView contentContainerStyle={styles.scroll}>
         <Group label="기본 정보">
+          <Row_ label="호칭" value={profile.nickname || '미설정'} onPress={() => setNickOpen(true)} />
           <Row_ label="학년" value={`${profile.grade}학년`} onPress={() => setSheet('grade')} />
           <Row_ label="캠퍼스" value={CAMPUS_LABEL[profile.campus] ?? profile.campus} onPress={() => setSheet('campus')} />
         </Group>
@@ -127,6 +133,18 @@ export default function ProfileEditScreen() {
           <Row_ label="기숙사" value={profile.is_dormitory ? '예' : '아니요'} onPress={() => setSheet('dorm')} />
         </Group>
       </ScrollView>
+
+      <FolderNameModal
+        visible={nickOpen}
+        title="어떻게 불러드릴까요?"
+        initialValue={profile.nickname ?? ''}
+        placeholder={`호칭 (최대 ${NICKNAME_MAX}자)`}
+        maxLength={NICKNAME_MAX}
+        allowEmpty
+        submitLabel="저장"
+        onSubmit={(v) => { autosave({ nickname: v.trim() || null }); setNickOpen(false); }}
+        onClose={() => setNickOpen(false)}
+      />
 
       {/* --- 시트들 --- */}
       <Sheet open={sheet === 'grade'} onClose={() => setSheet(null)} title="학년">
