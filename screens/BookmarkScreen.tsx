@@ -54,8 +54,8 @@ export default function BookmarkScreen() {
       ? await createFolder(name)
       : await renameFolder(current.folder.id, name);
     if (!res.ok) {
-      if (res.error === 'duplicate') Alert.alert('이름 중복', '같은 이름의 폴더가 이미 있어요.');
-      else Alert.alert('오류', '잠시 후 다시 시도해 주세요.');
+      if (res.error === 'duplicate') Alert.alert('이미 있는 폴더 이름이에요', '다른 이름으로 만들어 주세요.');
+      else Alert.alert('문제가 생겼어요', '잠시 후 다시 시도해 주세요.');
       return; // 모달 유지
     }
     setModal(null);
@@ -86,8 +86,8 @@ export default function BookmarkScreen() {
         text: '삭제',
         style: 'destructive',
         onPress: () => Alert.alert(
-          '폴더 삭제',
-          '폴더만 삭제되고 북마크는 미분류로 유지됩니다.',
+          '폴더를 삭제할까요?',
+          '폴더만 삭제되고 북마크는 그대로 남아요.',
           [
             { text: '취소', style: 'cancel' },
             { text: '삭제', style: 'destructive', onPress: async () => { await deleteFolder(folder.id); refreshFolders(); refresh(); } },

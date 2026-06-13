@@ -30,8 +30,8 @@ export function FolderPickerSheet({ visible, folders, currentFolderId, onPick, o
     if (!clean) return;
     const res = await onCreate(clean);
     if (!res.ok) {
-      Alert.alert(res.error === 'duplicate' ? '이름 중복' : '오류',
-        res.error === 'duplicate' ? '같은 이름의 폴더가 이미 있어요.' : '잠시 후 다시 시도해 주세요.');
+      Alert.alert(res.error === 'duplicate' ? '이미 있는 폴더 이름이에요' : '문제가 생겼어요',
+        res.error === 'duplicate' ? '다른 이름으로 만들어 주세요.' : '잠시 후 다시 시도해 주세요.');
       return;
     }
     setCreating(false);
