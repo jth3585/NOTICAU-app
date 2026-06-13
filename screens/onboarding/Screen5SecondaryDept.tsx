@@ -93,7 +93,7 @@ export default function Screen5SecondaryDept({ navigation }: Props) {
               ))
             : (
               <View style={styles.empty}>
-                <Text style={styles.emptyText}>현재 학과 정보 준비 중입니다.</Text>
+                <Text style={styles.emptyText}>현재 학과 정보를 준비 중이에요.</Text>
               </View>
             )
           }

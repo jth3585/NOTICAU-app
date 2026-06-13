@@ -37,7 +37,7 @@ export default function Screen4Dept({ navigation, route }: Props) {
     <OnboardingLayout step={4} title="학과를 선택해 주세요" onBack={() => navigation.goBack()}>
       {loaded && depts.length === 0 ? (
         <View style={styles.empty}>
-          <Text style={styles.emptyText}>현재 학과 정보 준비 중입니다.</Text>
+          <Text style={styles.emptyText}>현재 학과 정보를 준비 중이에요.</Text>
           <TouchableOpacity style={styles.skipBtn} onPress={handleSkip}>
             <Text style={styles.skipText}>건너뛰기</Text>
           </TouchableOpacity>

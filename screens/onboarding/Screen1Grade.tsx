@@ -17,7 +17,7 @@ export default function Screen1Grade({ navigation }: Props) {
   };
 
   return (
-    <OnboardingLayout step={1} title="몇 학년이세요?">
+    <OnboardingLayout step={1} title="학년을 선택해 주세요">
       {GRADES.map((g) => (
         <OptionButton
           key={g}

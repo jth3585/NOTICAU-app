@@ -35,7 +35,7 @@ export default function Screen6Enrollment({ navigation }: Props) {
     <OnboardingLayout
       step={6}
       title="현재 상태를 선택해 주세요"
-      subtitle="복수 선택 가능합니다"
+      subtitle="여러 개 선택할 수 있어요"
       onBack={() => navigation.goBack()}
       onNext={handleNext}
       nextLabel="다음"
