@@ -3,10 +3,11 @@ import { FlatList, ScrollView, StyleSheet, Text, TouchableOpacity, View } from '
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useFocusEffect, useNavigation } from '@react-navigation/native';
 import type { NativeStackNavigationProp, NativeStackScreenProps } from '@react-navigation/native-stack';
-import { useBookmarkNotices, useUserKeywords, type BookmarkNotice } from '../lib/bookmarks';
+import { useBookmarkNotices, useUserKeywords, removeBookmark, type BookmarkNotice } from '../lib/bookmarks';
 import { useFolders, createFolder, setBookmarkFolder } from '../lib/folders';
 import { useReadSet } from '../lib/read';
 import { useLastSeenAt } from '../lib/new-badge';
+import { lightHaptic } from '../lib/haptics';
 import { keywordMatches, firstMatchedKeyword } from '../lib/homeFeed';
 import type { RootStackParamList } from '../lib/types';
 import { COLORS, FONT, RADIUS, SPACING, WEIGHT } from '../lib/theme';
@@ -14,6 +15,7 @@ import { NoticeCard } from '../components/NoticeCard';
 import { BookmarkIcon } from '../components/ui/BookmarkIcon';
 import { FolderPickerSheet } from '../components/FolderPickerSheet';
 import { AddBookmarksModal } from '../components/AddBookmarksModal';
+import { SwipeToRemoveBookmark } from '../components/SwipeToRemoveBookmark';
 
 type Props = NativeStackScreenProps<RootStackParamList, 'BookmarkFolder'>;
 
@@ -34,6 +36,13 @@ export default function BookmarkFolderScreen({ route }: Props) {
   const [selectedKeyword, setSelectedKeyword] = useState<string | null>(null);
   const [pickerNotice, setPickerNotice] = useState<BookmarkNotice | null>(null);
   const [addOpen, setAddOpen] = useState(false);
+  const [removedIds, setRemovedIds] = useState<Set<string>>(new Set());
+
+  const onRemoveBookmark = useCallback((id: string) => {
+    lightHaptic();
+    setRemovedIds((prev) => new Set(prev).add(id)); // optimistic
+    removeBookmark(id).then(() => refresh());
+  }, [refresh]);
 
   const isCustom = folder === 'custom';
   const customFolderId = params.folder === 'custom' ? params.folderId : null;
@@ -73,16 +82,17 @@ export default function BookmarkFolderScreen({ route }: Props) {
       : FOLDER_META[folder];
 
   const list = useMemo(() => {
+    const avail = notices.filter((n) => !removedIds.has(n.id)); // optimistic 삭제 반영
     if (folder === 'custom') {
-      return notices.filter((n) => n.bookmark_folder_id === params.folderId);
+      return avail.filter((n) => n.bookmark_folder_id === params.folderId);
     }
-    if (folder === 'unread') return notices.filter((n) => !isRead(n.id));
+    if (folder === 'unread') return avail.filter((n) => !isRead(n.id));
     // keyword 폴더
-    const matched = keywords.length ? notices.filter((n) => keywordMatches(n, keywords)) : [];
+    const matched = keywords.length ? avail.filter((n) => keywordMatches(n, keywords)) : [];
     if (!selectedKeyword) return matched;
     const kw = [{ id: '', user_id: '', keyword: selectedKeyword, notify: false }];
     return matched.filter((n) => keywordMatches(n, kw));
-  }, [folder, params, notices, isRead, keywords, selectedKeyword]);
+  }, [folder, params, notices, removedIds, isRead, keywords, selectedKeyword]);
 
   const emptyText =
     folder === 'custom' ? '이 폴더에 북마크가 없어요'
@@ -136,15 +146,17 @@ export default function BookmarkFolderScreen({ route }: Props) {
           keyExtractor={(n) => n.id}
           contentContainerStyle={styles.listContent}
           renderItem={({ item }: { item: BookmarkNotice }) => (
-            <NoticeCard
-              notice={item}
-              isRead={isRead(item.id)}
-              isNew={!isRead(item.id) && !!lastSeenAt && (item.posted_at ?? '') > lastSeenAt}
-              unread={!isRead(item.id)}
-              keywordTag={folder === 'keyword' ? (firstMatchedKeyword(item, keywords) ?? undefined) : undefined}
-              onPress={() => navigation.navigate('Detail', { notice: item })}
-              onLongPress={() => setPickerNotice(item)}
-            />
+            <SwipeToRemoveBookmark onRemove={() => onRemoveBookmark(item.id)}>
+              <NoticeCard
+                notice={item}
+                isRead={isRead(item.id)}
+                isNew={!isRead(item.id) && !!lastSeenAt && (item.posted_at ?? '') > lastSeenAt}
+                unread={!isRead(item.id)}
+                keywordTag={folder === 'keyword' ? (firstMatchedKeyword(item, keywords) ?? undefined) : undefined}
+                onPress={() => navigation.navigate('Detail', { notice: item })}
+                onLongPress={() => setPickerNotice(item)}
+              />
+            </SwipeToRemoveBookmark>
           )}
         />
       )}

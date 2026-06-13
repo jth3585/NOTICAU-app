@@ -41,7 +41,7 @@ export async function addBookmark(noticeId: string): Promise<void> {
   );
 }
 
-async function removeBookmark(noticeId: string): Promise<void> {
+export async function removeBookmark(noticeId: string): Promise<void> {
   const { data: { session } } = await supabase.auth.getSession();
   if (!session) return;
   await supabase

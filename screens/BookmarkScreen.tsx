@@ -3,10 +3,11 @@ import { Alert, FlatList, ScrollView, StyleSheet, Text, TouchableOpacity, View }
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useFocusEffect, useNavigation } from '@react-navigation/native';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
-import { useBookmarkNotices, useUserKeywords, type BookmarkNotice } from '../lib/bookmarks';
+import { useBookmarkNotices, useUserKeywords, removeBookmark, type BookmarkNotice } from '../lib/bookmarks';
 import { useFolders, createFolder, renameFolder, deleteFolder, setBookmarkFolder, type Folder } from '../lib/folders';
 import { useReadSet } from '../lib/read';
 import { useLastSeenAt } from '../lib/new-badge';
+import { lightHaptic } from '../lib/haptics';
 import { keywordMatches } from '../lib/homeFeed';
 import type { RootStackParamList } from '../lib/types';
 import { COLORS, FONT, RADIUS, SPACING, WEIGHT } from '../lib/theme';
@@ -14,6 +15,7 @@ import { NoticeCard } from '../components/NoticeCard';
 import { BookmarkIcon } from '../components/ui/BookmarkIcon';
 import { FolderNameModal } from '../components/FolderNameModal';
 import { FolderPickerSheet } from '../components/FolderPickerSheet';
+import { SwipeToRemoveBookmark } from '../components/SwipeToRemoveBookmark';
 import { FolderIcon, HashIcon, MailIcon } from '../components/ui/icons';
 
 export default function BookmarkScreen() {
@@ -28,11 +30,20 @@ export default function BookmarkScreen() {
   const [modal, setModal] = useState<{ mode: 'create' } | { mode: 'rename'; folder: Folder } | null>(null);
   // 북마크 → 폴더 이동 선택 시트 대상
   const [pickerNotice, setPickerNotice] = useState<BookmarkNotice | null>(null);
+  // 스와이프 삭제 optimistic 제거 id
+  const [removedIds, setRemovedIds] = useState<Set<string>>(new Set());
+
+  const onRemoveBookmark = useCallback((id: string) => {
+    lightHaptic();
+    setRemovedIds((prev) => new Set(prev).add(id)); // optimistic: 목록에서 즉시 제거
+    removeBookmark(id).then(() => { refresh(); refreshFolders(); });
+  }, [refresh, refreshFolders]);
 
   useFocusEffect(useCallback(() => {
     refresh(); refreshRead(); refreshFolders();
   }, [refresh, refreshRead, refreshFolders]));
 
+  const visibleNotices = notices.filter((n) => !removedIds.has(n.id));
   const unreadCount = notices.filter((n) => !isRead(n.id)).length;
   const keywordCount = keywords.length ? notices.filter((n) => keywordMatches(n, keywords)).length : 0;
 
@@ -136,7 +147,7 @@ export default function BookmarkScreen() {
   return (
     <SafeAreaView style={styles.container} edges={['top']}>
       <FlatList
-        data={notices}
+        data={visibleNotices}
         keyExtractor={(n) => n.id}
         ListHeaderComponent={Header}
         contentContainerStyle={styles.list}
@@ -158,14 +169,16 @@ export default function BookmarkScreen() {
           )
         }
         renderItem={({ item }) => (
-          <NoticeCard
-            notice={item}
-            isRead={isRead(item.id)}
-            isNew={!isRead(item.id) && !!lastSeenAt && (item.posted_at ?? '') > lastSeenAt}
-            unread={!isRead(item.id)}
-            onPress={() => navigation.navigate('Detail', { notice: item })}
-            onLongPress={() => setPickerNotice(item)}
-          />
+          <SwipeToRemoveBookmark onRemove={() => onRemoveBookmark(item.id)}>
+            <NoticeCard
+              notice={item}
+              isRead={isRead(item.id)}
+              isNew={!isRead(item.id) && !!lastSeenAt && (item.posted_at ?? '') > lastSeenAt}
+              unread={!isRead(item.id)}
+              onPress={() => navigation.navigate('Detail', { notice: item })}
+              onLongPress={() => setPickerNotice(item)}
+            />
+          </SwipeToRemoveBookmark>
         )}
       />
       <FolderPickerSheet
