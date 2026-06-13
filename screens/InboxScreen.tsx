@@ -10,6 +10,7 @@ import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { supabase } from '../lib/supabase';
 import type { Notice, RootStackParamList } from '../lib/types';
 import { CHIP_TOPICS } from '../lib/constants';
+import { orderedCategories } from '../lib/categories';
 import { COLORS, FONT, RADIUS, SPACING, TEXT, WEIGHT } from '../lib/theme';
 import { isPostedToday, metaOf, sortNotices, type SortMode } from '../lib/format';
 import { CategoryChips } from '../components/CategoryChips';
@@ -69,21 +70,24 @@ export default function InboxScreen() {
     softHaptic();
   }, []);
 
-  // 카테고리 OFF 프리프 (topic → false인 것들)
+  // 카테고리 OFF 프리프 (topic → false인 것들) + 사용자 정렬 칩 순서
   const [disabledTopics, setDisabledTopics] = useState<Set<string>>(new Set());
+  const [chipTopics, setChipTopics] = useState<string[]>([...CHIP_TOPICS]);
 
   useFocusEffect(useCallback(() => {
     refreshRead();
     refreshBookmarks();
-    // 카테고리 프리프 새로고침 (CategoryPrefsScreen에서 변경 후 돌아올 때)
+    // 카테고리 프리프 새로고침 (CategoryPrefsScreen에서 변경/정렬 후 돌아올 때)
     (async () => {
       const { data: { session } } = await supabase.auth.getSession();
       if (!session) return;
       const { data } = await supabase.from('user_category_prefs')
-        .select('topic,is_enabled').eq('user_id', session.user.id);
+        .select('topic,is_enabled,sort_order').eq('user_id', session.user.id);
+      const rows = (data ?? []) as any[];
       const disabled = new Set<string>();
-      (data ?? []).forEach((r: any) => { if (!r.is_enabled) disabled.add(r.topic); });
+      rows.forEach((r) => { if (!r.is_enabled) disabled.add(r.topic); });
       setDisabledTopics(disabled);
+      setChipTopics(['전체', ...orderedCategories(rows)]);
     })();
   }, [refreshRead, refreshBookmarks]));
 
@@ -214,7 +218,7 @@ export default function InboxScreen() {
         ListHeaderComponent={
           query ? null : (
             <View style={styles.listHeader}>
-              <CategoryChips topics={CHIP_TOPICS} selected={selected} onSelect={setSelected} />
+              <CategoryChips topics={chipTopics} selected={selected} onSelect={setSelected} />
             </View>
           )
         }

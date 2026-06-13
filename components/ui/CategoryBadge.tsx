@@ -1,13 +1,13 @@
 import { StyleSheet, Text, View } from 'react-native';
 import { COLORS, FONT, RADIUS, SPACING, WEIGHT } from '../../lib/theme';
 
-export function CategoryBadge({ topic }: { topic: string }) {
+export function CategoryBadge({ topic, size = 'sm' }: { topic: string; size?: 'sm' | 'md' }) {
   const c = COLORS.categories[topic as keyof typeof COLORS.categories];
   const main = c?.main ?? COLORS.textSecondary;
   const soft = c?.soft ?? COLORS.surface2;
   return (
-    <View style={[styles.badge, { backgroundColor: soft }]}>
-      <Text style={[styles.text, { color: main }]} numberOfLines={1}>
+    <View style={[styles.badge, size === 'md' && styles.badgeMd, { backgroundColor: soft }]}>
+      <Text style={[styles.text, size === 'md' && styles.textMd, { color: main }]} numberOfLines={1}>
         {topic}
       </Text>
     </View>
@@ -19,7 +19,12 @@ const styles = StyleSheet.create({
     borderRadius: RADIUS.badge,
     paddingVertical: SPACING.xs,
     paddingHorizontal: SPACING.sm,
-    alignSelf: 'flex-start',
+  },
+  badgeMd: {
+    paddingVertical: SPACING.sm - 2,
+    paddingHorizontal: SPACING.md,
+    borderRadius: RADIUS.box,
   },
   text: { fontSize: FONT.micro, fontWeight: WEIGHT.semibold },
+  textMd: { fontSize: FONT.body },
 });

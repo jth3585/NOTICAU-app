@@ -160,3 +160,21 @@ export function ChevronLeftIcon({ size = 22, color }: IconProps) {
     </Base>
   );
 }
+
+// ↑ 위 (chevron)
+export function ChevronUpIcon({ size = 22, color }: IconProps) {
+  return (
+    <Base size={size}>
+      <Polyline points="18 15 12 9 6 15" stroke={color} />
+    </Base>
+  );
+}
+
+// ↓ 아래 (chevron)
+export function ChevronDownIcon({ size = 22, color }: IconProps) {
+  return (
+    <Base size={size}>
+      <Polyline points="6 9 12 15 18 9" stroke={color} />
+    </Base>
+  );
+}
