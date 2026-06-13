@@ -4,6 +4,7 @@ import { NavigationContainer } from '@react-navigation/native';
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
 import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
+import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import { StatusBar } from 'expo-status-bar';
 import { StyleSheet, View } from 'react-native';
 import type { RootStackParamList, TabParamList } from './lib/types';
@@ -134,27 +135,29 @@ export default function App() {
   }
 
   return (
-    <SafeAreaProvider>
-      <StatusBar style="dark" />
-      <NavigationContainer>
-        <Stack.Navigator
-          screenOptions={{ headerShown: false }}
-          initialRouteName={hasProfile ? 'Tabs' : 'Onboarding'}
-        >
-          <Stack.Screen name="Onboarding" component={OnboardingNavigator} />
-          <Stack.Screen name="Tabs" component={Tabs} />
-          <Stack.Screen name="Detail" component={NoticeDetailScreen} />
-          <Stack.Screen name="BookmarkFolder" component={BookmarkFolderScreen} />
-          <Stack.Screen name="ProfileEdit" component={ProfileEditScreen} />
-          <Stack.Screen name="KeywordManage" component={KeywordManageScreen} />
-          <Stack.Screen name="CategoryPrefs" component={CategoryPrefsScreen} />
-          <Stack.Screen name="NotificationSettings" component={NotificationSettingsScreen} />
-          <Stack.Screen name="Terms" component={TermsScreen} />
-          <Stack.Screen name="Privacy" component={PrivacyScreen} />
-          <Stack.Screen name="DeleteAccount" component={DeleteAccountScreen} />
-        </Stack.Navigator>
-      </NavigationContainer>
-    </SafeAreaProvider>
+    <GestureHandlerRootView style={{ flex: 1 }}>
+      <SafeAreaProvider>
+        <StatusBar style="dark" />
+        <NavigationContainer>
+          <Stack.Navigator
+            screenOptions={{ headerShown: false }}
+            initialRouteName={hasProfile ? 'Tabs' : 'Onboarding'}
+          >
+            <Stack.Screen name="Onboarding" component={OnboardingNavigator} />
+            <Stack.Screen name="Tabs" component={Tabs} />
+            <Stack.Screen name="Detail" component={NoticeDetailScreen} />
+            <Stack.Screen name="BookmarkFolder" component={BookmarkFolderScreen} />
+            <Stack.Screen name="ProfileEdit" component={ProfileEditScreen} />
+            <Stack.Screen name="KeywordManage" component={KeywordManageScreen} />
+            <Stack.Screen name="CategoryPrefs" component={CategoryPrefsScreen} />
+            <Stack.Screen name="NotificationSettings" component={NotificationSettingsScreen} />
+            <Stack.Screen name="Terms" component={TermsScreen} />
+            <Stack.Screen name="Privacy" component={PrivacyScreen} />
+            <Stack.Screen name="DeleteAccount" component={DeleteAccountScreen} />
+          </Stack.Navigator>
+        </NavigationContainer>
+      </SafeAreaProvider>
+    </GestureHandlerRootView>
   );
 }
 

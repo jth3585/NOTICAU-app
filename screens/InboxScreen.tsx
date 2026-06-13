@@ -14,10 +14,13 @@ import { COLORS, FONT, RADIUS, SPACING, WEIGHT } from '../lib/theme';
 import { isPostedToday, metaOf, sortNotices, type SortMode } from '../lib/format';
 import { CategoryChips } from '../components/CategoryChips';
 import { NoticeCard } from '../components/NoticeCard';
+import { SwipeToBookmark } from '../components/SwipeToBookmark';
 import { SearchIcon } from '../components/ui/SearchIcon';
 import { SortIcon } from '../components/ui/SortIcon';
 import { CloseIcon, CheckIcon } from '../components/ui/icons';
 import { useReadSet } from '../lib/read';
+import { useBookmarkSet, addBookmark } from '../lib/bookmarks';
+import { lightHaptic, softHaptic } from '../lib/haptics';
 import { useLastSeenAt, touchLastSeenAt } from '../lib/new-badge';
 
 const SORT_LABELS: Record<SortMode, string> = {
@@ -52,13 +55,26 @@ export default function InboxScreen() {
 
   // 읽음 / NEW
   const { isRead, refresh: refreshRead } = useReadSet();
+  const { isBookmarked, markBookmarked, refresh: refreshBookmarks } = useBookmarkSet();
   const { lastSeenAt } = useLastSeenAt();
+
+  // 스와이프 → 북마크 추가 (토글 아님). 이미 북마크면 피드백만.
+  const onSwipeBookmark = useCallback((id: string) => {
+    lightHaptic();
+    markBookmarked(id); // optimistic
+    addBookmark(id);
+  }, [markBookmarked]);
+
+  const onSwipeAlready = useCallback(() => {
+    softHaptic();
+  }, []);
 
   // 카테고리 OFF 프리프 (topic → false인 것들)
   const [disabledTopics, setDisabledTopics] = useState<Set<string>>(new Set());
 
   useFocusEffect(useCallback(() => {
     refreshRead();
+    refreshBookmarks();
     // 카테고리 프리프 새로고침 (CategoryPrefsScreen에서 변경 후 돌아올 때)
     (async () => {
       const { data: { session } } = await supabase.auth.getSession();
@@ -69,7 +85,7 @@ export default function InboxScreen() {
       (data ?? []).forEach((r: any) => { if (!r.is_enabled) disabled.add(r.topic); });
       setDisabledTopics(disabled);
     })();
-  }, [refreshRead]));
+  }, [refreshRead, refreshBookmarks]));
 
   useEffect(() => {
     const sub = AppState.addEventListener('change', (state) => {
@@ -203,12 +219,18 @@ export default function InboxScreen() {
         }
         stickyHeaderIndices={query ? undefined : [0]}
         renderItem={({ item }) => (
-          <NoticeCard
-            notice={item}
-            isRead={isRead(item.id)}
-            isNew={isNew(item)}
-            onPress={() => navigation.navigate('Detail', { notice: item })}
-          />
+          <SwipeToBookmark
+            alreadyBookmarked={isBookmarked(item.id)}
+            onBookmark={() => onSwipeBookmark(item.id)}
+            onAlready={onSwipeAlready}
+          >
+            <NoticeCard
+              notice={item}
+              isRead={isRead(item.id)}
+              isNew={isNew(item)}
+              onPress={() => navigation.navigate('Detail', { notice: item })}
+            />
+          </SwipeToBookmark>
         )}
         ListEmptyComponent={
           <Text style={styles.empty}>

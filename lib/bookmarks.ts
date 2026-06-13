@@ -27,7 +27,7 @@ async function fetchBookmarkRows(): Promise<BookmarkRow[]> {
   return (data as BookmarkRow[]) ?? [];
 }
 
-async function addBookmark(noticeId: string): Promise<void> {
+export async function addBookmark(noticeId: string): Promise<void> {
   const { data: { session } } = await supabase.auth.getSession();
   if (!session) return;
   await supabase.from('user_feed_state').upsert(
@@ -67,6 +67,37 @@ export function useBookmark(noticeId: string) {
   }, [bookmarked, noticeId]);
 
   return { bookmarked, toggle, loading };
+}
+
+// 북마크된 notice_id Set 훅 (리스트에서 "이미 북마크됨" 판별용). useReadSet과 동형.
+export function useBookmarkSet() {
+  const [bookmarkSet, setBookmarkSet] = useState<Set<string>>(new Set());
+  const mountedRef = useRef(true);
+
+  const refresh = useCallback(async () => {
+    const ids = await fetchBookmarkIds();
+    if (mountedRef.current) setBookmarkSet(new Set(ids));
+  }, []);
+
+  useEffect(() => {
+    mountedRef.current = true;
+    refresh();
+    return () => { mountedRef.current = false; };
+  }, [refresh]);
+
+  // 낙관적 로컬 추가 (서버 반영 후 refresh로 정합성 보정).
+  const markBookmarked = useCallback((id: string) => {
+    setBookmarkSet((prev) => {
+      if (prev.has(id)) return prev;
+      const next = new Set(prev);
+      next.add(id);
+      return next;
+    });
+  }, []);
+
+  const isBookmarked = useCallback((id: string) => bookmarkSet.has(id), [bookmarkSet]);
+
+  return { bookmarkSet, isBookmarked, markBookmarked, refresh };
 }
 
 export type BookmarkNotice = Notice & { bookmarked_at: string | null; bookmark_read: boolean };
