@@ -8,6 +8,7 @@ import { SourceBadge } from './ui/SourceBadge';
 export function NoticeCard({
   notice,
   onPress,
+  onLongPress,
   isRead = false,
   isNew = false,
   unread = false,
@@ -18,6 +19,7 @@ export function NoticeCard({
 }: {
   notice: Notice;
   onPress: () => void;
+  onLongPress?: () => void; // 지정 시 길게 누르기 (예: 폴더로 이동)
   isRead?: boolean;
   isNew?: boolean;
   unread?: boolean;
@@ -41,6 +43,8 @@ export function NoticeCard({
   return (
     <TouchableOpacity
       onPress={onPress}
+      onLongPress={onLongPress}
+      delayLongPress={300}
       activeOpacity={0.6}
       style={[
         styles.card,

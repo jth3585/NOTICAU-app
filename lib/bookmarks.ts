@@ -13,14 +13,19 @@ async function fetchBookmarkIds(): Promise<string[]> {
   return data?.map((r: any) => r.notice_id as string) ?? [];
 }
 
-type BookmarkRow = { notice_id: string; bookmarked_at: string | null; read_at: string | null };
+type BookmarkRow = {
+  notice_id: string;
+  bookmarked_at: string | null;
+  read_at: string | null;
+  bookmark_folder_id: string | null;
+};
 
 async function fetchBookmarkRows(): Promise<BookmarkRow[]> {
   const { data: { session } } = await supabase.auth.getSession();
   if (!session) return [];
   const { data } = await supabase
     .from('user_feed_state')
-    .select('notice_id, bookmarked_at, read_at')
+    .select('notice_id, bookmarked_at, read_at, bookmark_folder_id')
     .eq('user_id', session.user.id)
     .not('bookmarked_at', 'is', null)
     .order('bookmarked_at', { ascending: false });
@@ -100,7 +105,11 @@ export function useBookmarkSet() {
   return { bookmarkSet, isBookmarked, markBookmarked, refresh };
 }
 
-export type BookmarkNotice = Notice & { bookmarked_at: string | null; bookmark_read: boolean };
+export type BookmarkNotice = Notice & {
+  bookmarked_at: string | null;
+  bookmark_read: boolean;
+  bookmark_folder_id: string | null;
+};
 
 // 전체 북마크를 공지 본문까지 채워 반환 (BookmarkScreen/폴더 화면용).
 // bookmarked_at desc 정렬. bookmark_read = read_at != null (폴더 필터/안읽음 표시용).
@@ -125,7 +134,12 @@ export function useBookmarkNotices() {
     const enriched = ((data as Notice[]) ?? [])
       .map((n) => {
         const row = byId.get(n.id);
-        return { ...n, bookmarked_at: row?.bookmarked_at ?? null, bookmark_read: row?.read_at != null };
+        return {
+          ...n,
+          bookmarked_at: row?.bookmarked_at ?? null,
+          bookmark_read: row?.read_at != null,
+          bookmark_folder_id: row?.bookmark_folder_id ?? null,
+        };
       })
       // bookmarked_at desc (rows 순서 보존)
       .sort((a, b) => (b.bookmarked_at ?? '').localeCompare(a.bookmarked_at ?? ''));

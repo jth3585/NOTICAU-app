@@ -69,7 +69,9 @@ export type RootStackParamList = {
   Onboarding: undefined;
   Tabs: undefined;
   Detail: { notice: Notice };
-  BookmarkFolder: { folder: 'unread' | 'keyword' };
+  BookmarkFolder:
+    | { folder: 'unread' | 'keyword' }
+    | { folder: 'custom'; folderId: string; folderName: string };
   ProfileEdit: undefined;
   KeywordManage: undefined;
   CategoryPrefs: undefined;

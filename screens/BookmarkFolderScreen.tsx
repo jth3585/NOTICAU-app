@@ -3,14 +3,17 @@ import { FlatList, ScrollView, StyleSheet, Text, TouchableOpacity, View } from '
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useFocusEffect, useNavigation } from '@react-navigation/native';
 import type { NativeStackNavigationProp, NativeStackScreenProps } from '@react-navigation/native-stack';
-import { useBookmarkNotices, useUserKeywords } from '../lib/bookmarks';
+import { useBookmarkNotices, useUserKeywords, type BookmarkNotice } from '../lib/bookmarks';
+import { useFolders, createFolder, setBookmarkFolder } from '../lib/folders';
 import { useReadSet } from '../lib/read';
 import { useLastSeenAt } from '../lib/new-badge';
 import { keywordMatches, firstMatchedKeyword } from '../lib/homeFeed';
-import type { Notice, RootStackParamList } from '../lib/types';
+import type { RootStackParamList } from '../lib/types';
 import { COLORS, FONT, RADIUS, SPACING, WEIGHT } from '../lib/theme';
 import { NoticeCard } from '../components/NoticeCard';
 import { BookmarkIcon } from '../components/ui/BookmarkIcon';
+import { FolderPickerSheet } from '../components/FolderPickerSheet';
+import { AddBookmarksModal } from '../components/AddBookmarksModal';
 
 type Props = NativeStackScreenProps<RootStackParamList, 'BookmarkFolder'>;
 
@@ -20,26 +23,71 @@ const FOLDER_META = {
 } as const;
 
 export default function BookmarkFolderScreen({ route }: Props) {
-  const folder = route.params.folder;
+  const params = route.params;
+  const folder = params.folder;
   const navigation = useNavigation<NativeStackNavigationProp<RootStackParamList>>();
   const { notices, loading, refresh } = useBookmarkNotices();
   const { isRead, refresh: refreshRead } = useReadSet();
   const { lastSeenAt } = useLastSeenAt();
   const keywords = useUserKeywords();
+  const { folders, refresh: refreshFolders } = useFolders();
   const [selectedKeyword, setSelectedKeyword] = useState<string | null>(null);
+  const [pickerNotice, setPickerNotice] = useState<BookmarkNotice | null>(null);
+  const [addOpen, setAddOpen] = useState(false);
 
-  useFocusEffect(useCallback(() => { refresh(); refreshRead(); }, [refresh, refreshRead]));
+  const isCustom = folder === 'custom';
+  const customFolderId = params.folder === 'custom' ? params.folderId : null;
 
-  const meta = FOLDER_META[folder];
+  useFocusEffect(useCallback(() => {
+    refresh(); refreshRead(); refreshFolders();
+  }, [refresh, refreshRead, refreshFolders]));
+
+  const folderNameOf = useCallback(
+    (id: string | null) => folders.find((f) => f.id === id)?.name ?? null,
+    [folders],
+  );
+
+  const onPickFolder = useCallback(async (folderId: string | null) => {
+    const target = pickerNotice;
+    setPickerNotice(null);
+    if (!target) return;
+    await setBookmarkFolder(target.id, folderId);
+    refresh();
+  }, [pickerNotice, refresh]);
+
+  const onCreateFromPicker = useCallback(async (name: string) => {
+    const res = await createFolder(name);
+    if (res.ok) refreshFolders();
+    return res.ok ? { ok: true as const, folderId: res.folder?.id } : { ok: false as const, error: res.error };
+  }, [refreshFolders]);
+
+  const onAddToFolder = useCallback(async (noticeId: string) => {
+    if (!customFolderId) return;
+    await setBookmarkFolder(noticeId, customFolderId);
+    refresh();
+  }, [customFolderId, refresh]);
+
+  const meta =
+    folder === 'custom'
+      ? { title: params.folderName, desc: '내가 만든 폴더' }
+      : FOLDER_META[folder];
 
   const list = useMemo(() => {
+    if (folder === 'custom') {
+      return notices.filter((n) => n.bookmark_folder_id === params.folderId);
+    }
     if (folder === 'unread') return notices.filter((n) => !isRead(n.id));
     // keyword 폴더
     const matched = keywords.length ? notices.filter((n) => keywordMatches(n, keywords)) : [];
     if (!selectedKeyword) return matched;
     const kw = [{ id: '', user_id: '', keyword: selectedKeyword, notify: false }];
     return matched.filter((n) => keywordMatches(n, kw));
-  }, [folder, notices, isRead, keywords, selectedKeyword]);
+  }, [folder, params, notices, isRead, keywords, selectedKeyword]);
+
+  const emptyText =
+    folder === 'custom' ? '이 폴더에 북마크가 없어요'
+    : folder === 'unread' ? '안 읽은 북마크가 없어요'
+    : '키워드에 맞는 북마크가 없어요';
 
   return (
     <SafeAreaView style={styles.container} edges={['top']}>
@@ -49,6 +97,11 @@ export default function BookmarkFolderScreen({ route }: Props) {
         </TouchableOpacity>
         <Text style={styles.title}>{meta.title}</Text>
         <Text style={styles.desc}>{meta.desc}</Text>
+        {isCustom ? (
+          <TouchableOpacity style={styles.addBtn} onPress={() => setAddOpen(true)} activeOpacity={0.7}>
+            <Text style={styles.addBtnText}>＋ 북마크 담기</Text>
+          </TouchableOpacity>
+        ) : null}
       </View>
 
       {folder === 'keyword' && keywords.length > 0 ? (
@@ -75,16 +128,14 @@ export default function BookmarkFolderScreen({ route }: Props) {
       ) : list.length === 0 ? (
         <View style={styles.center}>
           <BookmarkIcon size={40} filled={false} color={COLORS.textTertiary} />
-          <Text style={styles.emptyTitle}>
-            {folder === 'unread' ? '안 읽은 북마크가 없어요' : '키워드에 맞는 북마크가 없어요'}
-          </Text>
+          <Text style={styles.emptyTitle}>{emptyText}</Text>
         </View>
       ) : (
         <FlatList
           data={list}
           keyExtractor={(n) => n.id}
           contentContainerStyle={styles.listContent}
-          renderItem={({ item }: { item: Notice }) => (
+          renderItem={({ item }: { item: BookmarkNotice }) => (
             <NoticeCard
               notice={item}
               isRead={isRead(item.id)}
@@ -92,10 +143,29 @@ export default function BookmarkFolderScreen({ route }: Props) {
               unread={!isRead(item.id)}
               keywordTag={folder === 'keyword' ? (firstMatchedKeyword(item, keywords) ?? undefined) : undefined}
               onPress={() => navigation.navigate('Detail', { notice: item })}
+              onLongPress={() => setPickerNotice(item)}
             />
           )}
         />
       )}
+
+      <FolderPickerSheet
+        visible={pickerNotice !== null}
+        folders={folders}
+        currentFolderId={pickerNotice?.bookmark_folder_id ?? null}
+        onPick={onPickFolder}
+        onCreate={onCreateFromPicker}
+        onClose={() => setPickerNotice(null)}
+      />
+      {isCustom ? (
+        <AddBookmarksModal
+          visible={addOpen}
+          candidates={notices.filter((n) => n.bookmark_folder_id !== customFolderId)}
+          folderNameOf={folderNameOf}
+          onAdd={onAddToFolder}
+          onClose={() => setAddOpen(false)}
+        />
+      ) : null}
     </SafeAreaView>
   );
 }
@@ -119,6 +189,12 @@ const styles = StyleSheet.create({
   backText: { fontSize: FONT.body, color: COLORS.textSecondary, fontWeight: WEIGHT.semibold },
   title: { fontSize: FONT.display, fontWeight: WEIGHT.bold, color: COLORS.text },
   desc: { fontSize: FONT.caption, color: COLORS.textSecondary, marginTop: 2 },
+  addBtn: {
+    alignSelf: 'flex-start', marginTop: SPACING.sm,
+    backgroundColor: COLORS.accentSoft, borderRadius: RADIUS.pill,
+    paddingHorizontal: SPACING.md, paddingVertical: SPACING.xs,
+  },
+  addBtnText: { fontSize: FONT.caption, color: COLORS.accentText, fontWeight: WEIGHT.semibold },
   chipsScroll: { flexGrow: 0 },
   chips: { paddingHorizontal: SPACING.lg, paddingBottom: SPACING.md, gap: SPACING.sm, alignItems: 'center' },
   chip: {

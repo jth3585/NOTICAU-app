@@ -1,9 +1,10 @@
-import { useCallback } from 'react';
+import { useCallback, useState } from 'react';
 import { Alert, FlatList, ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useFocusEffect, useNavigation } from '@react-navigation/native';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
-import { useBookmarkNotices, useUserKeywords } from '../lib/bookmarks';
+import { useBookmarkNotices, useUserKeywords, type BookmarkNotice } from '../lib/bookmarks';
+import { useFolders, createFolder, renameFolder, deleteFolder, setBookmarkFolder, type Folder } from '../lib/folders';
 import { useReadSet } from '../lib/read';
 import { useLastSeenAt } from '../lib/new-badge';
 import { keywordMatches } from '../lib/homeFeed';
@@ -11,28 +12,86 @@ import type { RootStackParamList } from '../lib/types';
 import { COLORS, FONT, RADIUS, SPACING, WEIGHT } from '../lib/theme';
 import { NoticeCard } from '../components/NoticeCard';
 import { BookmarkIcon } from '../components/ui/BookmarkIcon';
+import { FolderNameModal } from '../components/FolderNameModal';
+import { FolderPickerSheet } from '../components/FolderPickerSheet';
 import { FolderIcon, HashIcon, MailIcon } from '../components/ui/icons';
 
 export default function BookmarkScreen() {
   const navigation = useNavigation<NativeStackNavigationProp<RootStackParamList>>();
   const { notices, loading, refresh } = useBookmarkNotices();
+  const { folders, counts, refresh: refreshFolders } = useFolders();
   const { isRead, refresh: refreshRead } = useReadSet();
   const { lastSeenAt } = useLastSeenAt();
   const keywords = useUserKeywords();
 
-  useFocusEffect(useCallback(() => { refresh(); refreshRead(); }, [refresh, refreshRead]));
+  // 폴더 생성/이름변경 모달 상태
+  const [modal, setModal] = useState<{ mode: 'create' } | { mode: 'rename'; folder: Folder } | null>(null);
+  // 북마크 → 폴더 이동 선택 시트 대상
+  const [pickerNotice, setPickerNotice] = useState<BookmarkNotice | null>(null);
+
+  useFocusEffect(useCallback(() => {
+    refresh(); refreshRead(); refreshFolders();
+  }, [refresh, refreshRead, refreshFolders]));
 
   const unreadCount = notices.filter((n) => !isRead(n.id)).length;
   const keywordCount = keywords.length ? notices.filter((n) => keywordMatches(n, keywords)).length : 0;
 
-  const onCustomPress = () =>
-    Alert.alert('준비 중', '커스텀 폴더는 곧 추가될 기능이에요.');
+  const submitModal = useCallback(async (name: string) => {
+    const current = modal;
+    if (!current) return;
+    const res = current.mode === 'create'
+      ? await createFolder(name)
+      : await renameFolder(current.folder.id, name);
+    if (!res.ok) {
+      if (res.error === 'duplicate') Alert.alert('이름 중복', '같은 이름의 폴더가 이미 있어요.');
+      else Alert.alert('오류', '잠시 후 다시 시도해 주세요.');
+      return; // 모달 유지
+    }
+    setModal(null);
+    refreshFolders();
+  }, [modal, refreshFolders]);
+
+  const onPickFolder = useCallback(async (folderId: string | null) => {
+    const target = pickerNotice;
+    setPickerNotice(null);
+    if (!target) return;
+    await setBookmarkFolder(target.id, folderId);
+    refresh();
+    refreshFolders();
+  }, [pickerNotice, refresh, refreshFolders]);
+
+  const onCreateFromPicker = useCallback(async (name: string) => {
+    const res = await createFolder(name);
+    if (res.ok) refreshFolders();
+    return res.ok
+      ? { ok: true as const, folderId: res.folder?.id }
+      : { ok: false as const, error: res.error };
+  }, [refreshFolders]);
+
+  const onFolderLongPress = useCallback((folder: Folder) => {
+    Alert.alert(folder.name, undefined, [
+      { text: '이름 변경', onPress: () => setModal({ mode: 'rename', folder }) },
+      {
+        text: '삭제',
+        style: 'destructive',
+        onPress: () => Alert.alert(
+          '폴더 삭제',
+          '폴더만 삭제되고 북마크는 미분류로 유지됩니다.',
+          [
+            { text: '취소', style: 'cancel' },
+            { text: '삭제', style: 'destructive', onPress: async () => { await deleteFolder(folder.id); refreshFolders(); refresh(); } },
+          ],
+        ),
+      },
+      { text: '취소', style: 'cancel' },
+    ]);
+  }, [refreshFolders, refresh]);
 
   const Header = (
     <View>
       <View style={styles.collectionRow}>
         <Text style={styles.collectionTitle}>내 컬렉션</Text>
-        <TouchableOpacity onPress={onCustomPress} hitSlop={10} activeOpacity={0.7}>
+        <TouchableOpacity onPress={() => setModal({ mode: 'create' })} hitSlop={10} activeOpacity={0.7}>
           <Text style={styles.plus}>＋</Text>
         </TouchableOpacity>
       </View>
@@ -42,13 +101,6 @@ export default function BookmarkScreen() {
         showsHorizontalScrollIndicator={false}
         contentContainerStyle={styles.folderRow}
       >
-        <FolderCard
-          Icon={FolderIcon}
-          name="커스텀 폴더"
-          caption="준비 중"
-          disabled
-          onPress={onCustomPress}
-        />
         <FolderCard
           Icon={HashIcon}
           name="키워드 매치"
@@ -61,6 +113,20 @@ export default function BookmarkScreen() {
           caption={`${unreadCount}개`}
           onPress={() => navigation.navigate('BookmarkFolder', { folder: 'unread' })}
         />
+        {folders.map((f) => (
+          <FolderCard
+            key={f.id}
+            Icon={FolderIcon}
+            name={f.name}
+            caption={`${counts.get(f.id) ?? 0}개`}
+            onPress={() => navigation.navigate('BookmarkFolder', { folder: 'custom', folderId: f.id, folderName: f.name })}
+            onLongPress={() => onFolderLongPress(f)}
+          />
+        ))}
+        <TouchableOpacity style={styles.addCard} onPress={() => setModal({ mode: 'create' })} activeOpacity={0.7}>
+          <Text style={styles.addPlus}>＋</Text>
+          <Text style={styles.addText}>새 폴더</Text>
+        </TouchableOpacity>
       </ScrollView>
 
       <Text style={styles.sectionTitle}>최근 추가 북마크</Text>
@@ -101,23 +167,42 @@ export default function BookmarkScreen() {
             isNew={!isRead(item.id) && !!lastSeenAt && (item.posted_at ?? '') > lastSeenAt}
             unread={!isRead(item.id)}
             onPress={() => navigation.navigate('Detail', { notice: item })}
+            onLongPress={() => setPickerNotice(item)}
           />
         )}
+      />
+      <FolderPickerSheet
+        visible={pickerNotice !== null}
+        folders={folders}
+        currentFolderId={pickerNotice?.bookmark_folder_id ?? null}
+        onPick={onPickFolder}
+        onCreate={onCreateFromPicker}
+        onClose={() => setPickerNotice(null)}
+      />
+      <FolderNameModal
+        visible={modal !== null}
+        title={modal?.mode === 'rename' ? '폴더 이름 변경' : '새 폴더'}
+        initialValue={modal?.mode === 'rename' ? modal.folder.name : ''}
+        submitLabel={modal?.mode === 'rename' ? '변경' : '생성'}
+        onSubmit={submitModal}
+        onClose={() => setModal(null)}
       />
     </SafeAreaView>
   );
 }
 
 function FolderCard({
-  Icon, name, caption, onPress, disabled = false,
+  Icon, name, caption, onPress, onLongPress, disabled = false,
 }: {
   Icon: (props: { size?: number; color: string }) => React.ReactElement;
-  name: string; caption: string; onPress: () => void; disabled?: boolean;
+  name: string; caption: string; onPress: () => void; onLongPress?: () => void; disabled?: boolean;
 }) {
   return (
     <TouchableOpacity
       style={[styles.folderCard, disabled && styles.folderCardDisabled]}
       onPress={onPress}
+      onLongPress={onLongPress}
+      delayLongPress={300}
       activeOpacity={0.7}
     >
       <View style={styles.folderIcon}>
@@ -148,6 +233,19 @@ const styles = StyleSheet.create({
     gap: SPACING.xs,
   },
   folderCardDisabled: { backgroundColor: COLORS.surface, opacity: 0.5 },
+  addCard: {
+    width: 88,
+    backgroundColor: COLORS.bg,
+    borderRadius: RADIUS.card,
+    borderWidth: 1,
+    borderColor: COLORS.border,
+    borderStyle: 'dashed',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 2,
+  },
+  addPlus: { fontSize: 22, color: COLORS.textTertiary, fontWeight: WEIGHT.bold },
+  addText: { fontSize: FONT.caption, color: COLORS.textTertiary, fontWeight: WEIGHT.semibold },
   folderIcon: { marginBottom: SPACING.xs },
   emptyHint: { flexDirection: 'row', alignItems: 'center', flexWrap: 'wrap', justifyContent: 'center' },
   folderName: { fontSize: FONT.body, fontWeight: WEIGHT.semibold, color: COLORS.text },
