@@ -25,7 +25,7 @@ export function HomeGreeting({ nickname, deadlineSoonCount, newCount }: Props) {
     ? `오늘 마감인 공지 ${deadlineSoonCount}건 있어요`
     : newCount > 0
       ? `오늘 새 공지 ${newCount}건이에요`
-      : '확인 안 한 공지가 없어요';
+      : '모든 공지를 확인했어요';
 
   return (
     <View style={styles.wrap}>

@@ -23,8 +23,8 @@ export default function HomeScreen() {
   } = useDigest();
   const { lastSeenAt } = useLastSeenAt();
 
-  // 탭 포커스 시 읽음 상태만 재동기 (캐시 유지)
-  useFocusEffect(useCallback(() => { syncReadIds(); }, [syncReadIds]));
+  // 탭 포커스 시 읽음 상태 재동기 + 호칭 재조회 (프로필 수정 즉시 반영, 캐시 유지)
+  useFocusEffect(useCallback(() => { syncReadIds(); feed.refreshProfile(); }, [syncReadIds, feed.refreshProfile]));
 
   const isNew = useCallback((postedAt: string | null) => {
     if (!lastSeenAt || !postedAt) return false;

@@ -108,5 +108,14 @@ export function useHomeFeed() {
     setRefreshing(false);
   }, [load]);
 
-  return { ...data, loading, refreshing, refresh };
+  // 호칭만 가볍게 재조회 (프로필 수정 후 홈 포커스 시 즉시 반영, 전체 reload 없이).
+  const refreshProfile = useCallback(async () => {
+    const { data: { session } } = await supabase.auth.getSession();
+    if (!session) return;
+    const { data: prof } = await supabase
+      .from('profiles').select('nickname').eq('user_id', session.user.id).maybeSingle();
+    setData((prev) => ({ ...prev, nickname: (prof as any)?.nickname ?? null }));
+  }, []);
+
+  return { ...data, loading, refreshing, refresh, refreshProfile };
 }
