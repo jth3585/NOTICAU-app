@@ -11,6 +11,8 @@ type Props = {
   children: React.ReactNode;
 };
 
+const ACTION_W = 96;
+
 // 카드를 좌→우(오른쪽)로 스와이프하면 좌측에 북마크 액션 영역이 드러나고,
 // 임계값을 넘기면 북마크 추가(또는 이미 북마크면 피드백만) 후 원위치 복귀.
 export function SwipeToBookmark({ alreadyBookmarked, onBookmark, onAlready, children }: Props) {
@@ -20,24 +22,27 @@ export function SwipeToBookmark({ alreadyBookmarked, onBookmark, onAlready, chil
   const renderLeftActions = () => (
     <View style={[styles.action, alreadyBookmarked && styles.actionMuted]}>
       <BookmarkIcon size={20} filled color="#fff" />
-      <Text style={styles.actionText}>{alreadyBookmarked ? '이미 북마크됨' : '북마크'}</Text>
+      <Text style={styles.actionText} numberOfLines={1}>
+        {alreadyBookmarked ? '이미 북마크됨' : '북마크'}
+      </Text>
     </View>
   );
 
   return (
     <ReanimatedSwipeable
       ref={ref}
-      friction={2}
-      leftThreshold={56}
-      // 오른쪽으로만 스와이프(좌측 액션). 왼쪽 스와이프(우측 액션)는 비활성.
+      friction={1}
+      leftThreshold={ACTION_W * 0.55}
+      overshootLeft={false}
+      dragOffsetFromLeftEdge={12}
       renderLeftActions={renderLeftActions}
       onSwipeableWillOpen={(direction) => {
         if (direction !== 'left' || handled.current) return;
         handled.current = true;
         if (alreadyBookmarked) onAlready();
         else onBookmark();
-        // 액션을 잠깐 보여준 뒤 원위치로 닫기
-        requestAnimationFrame(() => ref.current?.close());
+        // 액션을 잠깐 보여준 뒤 부드럽게 원위치로
+        setTimeout(() => ref.current?.close(), 220);
       }}
       onSwipeableClose={() => { handled.current = false; }}
     >
@@ -48,16 +53,16 @@ export function SwipeToBookmark({ alreadyBookmarked, onBookmark, onAlready, chil
 
 const styles = StyleSheet.create({
   action: {
-    flex: 1,
+    width: ACTION_W,
     flexDirection: 'row',
     alignItems: 'center',
     gap: SPACING.xs,
+    paddingLeft: SPACING.lg,
     backgroundColor: COLORS.accent,
     borderRadius: RADIUS.card,
     marginLeft: SPACING.lg,
     marginBottom: SPACING.md,
-    paddingHorizontal: SPACING.lg,
   },
   actionMuted: { backgroundColor: COLORS.textTertiary },
-  actionText: { color: '#fff', fontSize: FONT.caption, fontWeight: WEIGHT.bold },
+  actionText: { color: '#fff', fontSize: FONT.micro, fontWeight: WEIGHT.bold },
 });
