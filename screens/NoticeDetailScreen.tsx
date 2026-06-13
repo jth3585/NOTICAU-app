@@ -19,6 +19,7 @@ import * as WebBrowser from 'expo-web-browser';
 import type { NativeStackScreenProps } from '@react-navigation/native-stack';
 import type { RootStackParamList } from '../lib/types';
 import { COLORS, FONT, RADIUS, SPACING, WEIGHT } from '../lib/theme';
+import { BackButton } from '../components/ui/BackButton';
 import { formatDateFull, metaOf, sourceOf } from '../lib/format';
 import { CategoryBadge } from '../components/ui/CategoryBadge';
 import { SourceBadge } from '../components/ui/SourceBadge';
@@ -82,9 +83,7 @@ export default function NoticeDetailScreen({ route, navigation }: Props) {
   return (
     <SafeAreaView style={styles.container} edges={['top']}>
       <View style={styles.header}>
-        <TouchableOpacity onPress={() => navigation.goBack()} hitSlop={8}>
-          <Text style={styles.back}>‹ 뒤로</Text>
-        </TouchableOpacity>
+        <BackButton onPress={() => navigation.goBack()} />
         <View style={styles.headerMeta}>
           {topic ? <CategoryBadge topic={topic} /> : null}
           <SourceBadge parserKey={src?.parser_key ?? null} />

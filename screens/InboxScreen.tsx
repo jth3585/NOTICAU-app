@@ -10,7 +10,7 @@ import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { supabase } from '../lib/supabase';
 import type { Notice, RootStackParamList } from '../lib/types';
 import { CHIP_TOPICS } from '../lib/constants';
-import { COLORS, FONT, RADIUS, SPACING, WEIGHT } from '../lib/theme';
+import { COLORS, FONT, RADIUS, SPACING, TEXT, WEIGHT } from '../lib/theme';
 import { isPostedToday, metaOf, sortNotices, type SortMode } from '../lib/format';
 import { CategoryChips } from '../components/CategoryChips';
 import { NoticeCard } from '../components/NoticeCard';
@@ -167,8 +167,8 @@ export default function InboxScreen() {
     return sortNotices(f, sortMode);
   }, [notices, selected, sortMode, query, searchResults, disabledTopics]);
 
-  if (loading) return <Centered>Loading...</Centered>;
-  if (error) return <Centered>Error: {error}</Centered>;
+  if (loading) return <Centered>불러오는 중…</Centered>;
+  if (error) return <Centered>공지를 불러오지 못했어요</Centered>;
 
   return (
     <SafeAreaView style={styles.container} edges={['top']}>
@@ -286,7 +286,7 @@ function Centered({ children }: { children: ReactNode }) {
 
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: COLORS.bg },
-  pageTitle: { fontSize: FONT.display, fontWeight: WEIGHT.bold, color: COLORS.text, paddingHorizontal: SPACING.lg, paddingTop: SPACING.sm, paddingBottom: SPACING.md },
+  pageTitle: { ...TEXT.pageTitle, paddingHorizontal: SPACING.lg, paddingTop: SPACING.sm, paddingBottom: SPACING.md },
   centered: { alignItems: 'center', justifyContent: 'center' },
   topBar: {
     flexDirection: 'row',

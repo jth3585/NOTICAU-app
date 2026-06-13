@@ -6,7 +6,8 @@ import { useCallback } from 'react';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { supabase } from '../lib/supabase';
 import type { RootStackParamList } from '../lib/types';
-import { COLORS, FONT, RADIUS, SHADOW, SPACING, WEIGHT } from '../lib/theme';
+import { COLORS, FONT, RADIUS, SHADOW, SPACING, TEXT, WEIGHT } from '../lib/theme';
+import { ChevronRightIcon } from '../components/ui/icons';
 
 type Nav = NativeStackNavigationProp<RootStackParamList>;
 
@@ -69,7 +70,7 @@ export default function MyPageScreen() {
                   {profile.is_dormitory ? ' · 기숙사' : ''}
                 </Text>
               </View>
-              <Text style={styles.chevron}>›</Text>
+              <ChevronRightIcon size={18} color={COLORS.textTertiary} />
             </View>
           </TouchableOpacity>
         )}
@@ -104,7 +105,7 @@ function MenuItem({ label, onPress, disabled, danger, last }: { label: string; o
   return (
     <TouchableOpacity style={[styles.menuItem, last && styles.menuItemLast]} onPress={onPress} disabled={disabled} activeOpacity={0.6}>
       <Text style={[styles.menuLabel, disabled && styles.menuDisabled, danger && styles.menuDanger]}>{label}</Text>
-      <Text style={[styles.chevron, disabled && styles.menuDisabled]}>›</Text>
+      <ChevronRightIcon size={18} color={COLORS.textTertiary} />
     </TouchableOpacity>
   );
 }
@@ -112,7 +113,7 @@ function MenuItem({ label, onPress, disabled, danger, last }: { label: string; o
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: COLORS.bg },
   scroll: { paddingHorizontal: SPACING.lg, paddingBottom: SPACING.xxl },
-  pageTitle: { fontSize: FONT.display, fontWeight: WEIGHT.bold, color: COLORS.text, paddingTop: SPACING.sm, marginBottom: SPACING.lg },
+  pageTitle: { ...TEXT.pageTitle, paddingTop: SPACING.sm, marginBottom: SPACING.lg },
 
   profileCard: {
     backgroundColor: COLORS.surface,
@@ -134,7 +135,7 @@ const styles = StyleSheet.create({
   profileMeta: { fontSize: FONT.caption, color: COLORS.textSecondary, marginTop: 2 },
   chevron: { fontSize: 20, color: COLORS.textTertiary },
 
-  groupLabel: { fontSize: FONT.caption, fontWeight: WEIGHT.bold, color: COLORS.textTertiary, marginBottom: SPACING.sm, textTransform: 'uppercase', letterSpacing: 0.8 },
+  groupLabel: { ...TEXT.sectionLabel, marginBottom: SPACING.sm },
   menuGroup: {
     backgroundColor: COLORS.surface,
     borderRadius: RADIUS.card,

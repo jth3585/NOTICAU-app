@@ -8,6 +8,7 @@ import { useNavigation } from '@react-navigation/native';
 import { supabase } from '../lib/supabase';
 import { COLORS, FONT, RADIUS, SPACING, WEIGHT } from '../lib/theme';
 import { CloseIcon } from '../components/ui/icons';
+import { BackButton } from '../components/ui/BackButton';
 
 type Keyword = { id: string; keyword: string; notify: boolean };
 
@@ -67,9 +68,7 @@ export default function KeywordManageScreen() {
   return (
     <SafeAreaView style={styles.container} edges={['top', 'bottom']}>
       <View style={styles.header}>
-        <TouchableOpacity onPress={() => navigation.goBack()} hitSlop={8}>
-          <Text style={styles.back}>‹ 뒤로</Text>
-        </TouchableOpacity>
+        <BackButton onPress={() => navigation.goBack()} />
         <Text style={styles.title}>키워드 관리</Text>
         <View style={{ width: 40 }} />
       </View>

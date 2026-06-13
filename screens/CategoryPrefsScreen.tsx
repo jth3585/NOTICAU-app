@@ -4,6 +4,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { useNavigation } from '@react-navigation/native';
 import { supabase } from '../lib/supabase';
 import { COLORS, FONT, RADIUS, SPACING, WEIGHT } from '../lib/theme';
+import { BackButton } from '../components/ui/BackButton';
 import { CategoryBadge } from '../components/ui/CategoryBadge';
 import { CHIP_TOPICS } from '../lib/constants';
 
@@ -42,9 +43,7 @@ export default function CategoryPrefsScreen() {
   return (
     <SafeAreaView style={styles.container} edges={['top']}>
       <View style={styles.header}>
-        <TouchableOpacity onPress={() => navigation.goBack()} hitSlop={8}>
-          <Text style={styles.back}>‹ 뒤로</Text>
-        </TouchableOpacity>
+        <BackButton onPress={() => navigation.goBack()} />
         <Text style={styles.title}>카테고리 필터</Text>
         <View style={{ width: 40 }} />
       </View>

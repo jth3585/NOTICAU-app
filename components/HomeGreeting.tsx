@@ -1,5 +1,5 @@
 import { StyleSheet, Text, View } from 'react-native';
-import { COLORS, FONT, SPACING, WEIGHT } from '../lib/theme';
+import { COLORS, FONT, SPACING, TEXT, WEIGHT } from '../lib/theme';
 
 // KST(UTC+9) 기준 시간대 인사
 function timeGreeting(kstHour: number): string {
@@ -37,6 +37,6 @@ export function HomeGreeting({ nickname, deadlineSoonCount, newCount }: Props) {
 
 const styles = StyleSheet.create({
   wrap: { paddingHorizontal: SPACING.lg, paddingTop: SPACING.lg, paddingBottom: SPACING.xl },
-  title: { fontSize: FONT.display, fontWeight: WEIGHT.bold, color: COLORS.text, lineHeight: 34 },
+  title: { ...TEXT.pageTitle, lineHeight: 34 },
   sub: { fontSize: FONT.body, color: COLORS.textSecondary, marginTop: SPACING.sm },
 });

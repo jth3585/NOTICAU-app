@@ -7,8 +7,9 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { useNavigation } from '@react-navigation/native';
 import { supabase } from '../lib/supabase';
 import { COLORS, FONT, RADIUS, SPACING, WEIGHT } from '../lib/theme';
-import { CheckIcon, ChevronLeftIcon } from '../components/ui/icons';
+import { CheckIcon, ChevronLeftIcon, ChevronRightIcon } from '../components/ui/icons';
 import { FolderNameModal } from '../components/FolderNameModal';
+import { BackButton } from '../components/ui/BackButton';
 
 const NICKNAME_MAX = 10;
 
@@ -103,16 +104,14 @@ export default function ProfileEditScreen() {
 
   if (!profile) return (
     <SafeAreaView style={styles.container} edges={['top']}>
-      <Text style={{ color: COLORS.textSecondary, padding: SPACING.lg }}>로딩 중…</Text>
+      <Text style={{ color: COLORS.textSecondary, padding: SPACING.lg }}>불러오는 중…</Text>
     </SafeAreaView>
   );
 
   return (
     <SafeAreaView style={styles.container} edges={['top', 'bottom']}>
       <View style={styles.header}>
-        <TouchableOpacity onPress={() => navigation.goBack()} hitSlop={8}>
-          <Text style={styles.back}>‹ 뒤로</Text>
-        </TouchableOpacity>
+        <BackButton onPress={() => navigation.goBack()} />
         <Text style={styles.title}>프로필 수정</Text>
         <View style={{ width: 40 }} />
       </View>
@@ -244,7 +243,7 @@ function Row_({ label, value, onPress }: { label: string; value: string; onPress
       <Text style={styles.rowLabel}>{label}</Text>
       <View style={styles.rowRight}>
         <Text style={styles.rowValue} numberOfLines={1}>{value}</Text>
-        {onPress ? <Text style={styles.rowChevron}>›</Text> : null}
+        {onPress ? <ChevronRightIcon size={16} color={COLORS.textTertiary} /> : null}
       </View>
     </TouchableOpacity>
   );

@@ -4,6 +4,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { useNavigation } from '@react-navigation/native';
 import { supabase } from '../lib/supabase';
 import { COLORS, FONT, RADIUS, SPACING, WEIGHT } from '../lib/theme';
+import { BackButton } from '../components/ui/BackButton';
 
 export default function NotificationSettingsScreen() {
   const navigation = useNavigation();
@@ -35,9 +36,7 @@ export default function NotificationSettingsScreen() {
   return (
     <SafeAreaView style={styles.container} edges={['top']}>
       <View style={styles.header}>
-        <TouchableOpacity onPress={() => navigation.goBack()} hitSlop={8}>
-          <Text style={styles.back}>‹ 뒤로</Text>
-        </TouchableOpacity>
+        <BackButton onPress={() => navigation.goBack()} />
         <Text style={styles.title}>알림 설정</Text>
         <View style={{ width: 40 }} />
       </View>

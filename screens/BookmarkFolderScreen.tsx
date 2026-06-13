@@ -16,6 +16,7 @@ import { BookmarkIcon } from '../components/ui/BookmarkIcon';
 import { FolderPickerSheet } from '../components/FolderPickerSheet';
 import { AddBookmarksModal } from '../components/AddBookmarksModal';
 import { SwipeToRemoveBookmark } from '../components/SwipeToRemoveBookmark';
+import { BackButton } from '../components/ui/BackButton';
 
 type Props = NativeStackScreenProps<RootStackParamList, 'BookmarkFolder'>;
 
@@ -102,9 +103,7 @@ export default function BookmarkFolderScreen({ route }: Props) {
   return (
     <SafeAreaView style={styles.container} edges={['top']}>
       <View style={styles.header}>
-        <TouchableOpacity onPress={() => navigation.goBack()} hitSlop={12} style={styles.back}>
-          <Text style={styles.backText}>‹ 뒤로</Text>
-        </TouchableOpacity>
+        <BackButton onPress={() => navigation.goBack()} />
         <Text style={styles.title}>{meta.title}</Text>
         <Text style={styles.desc}>{meta.desc}</Text>
         {isCustom ? (

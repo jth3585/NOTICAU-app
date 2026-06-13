@@ -6,6 +6,7 @@ import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { deleteAccount, ensureAnonSession } from '../lib/auth';
 import type { RootStackParamList } from '../lib/types';
 import { COLORS, FONT, RADIUS, SPACING, WEIGHT } from '../lib/theme';
+import { BackButton } from '../components/ui/BackButton';
 
 type Nav = NativeStackNavigationProp<RootStackParamList>;
 
@@ -40,9 +41,7 @@ export default function DeleteAccountScreen() {
   return (
     <SafeAreaView style={styles.container} edges={['top']}>
       <View style={styles.header}>
-        <TouchableOpacity onPress={() => navigation.goBack()} hitSlop={8} disabled={busy}>
-          <Text style={styles.back}>‹ 뒤로</Text>
-        </TouchableOpacity>
+        <BackButton onPress={() => navigation.goBack()} disabled={busy} />
         <Text style={styles.title}>회원 탈퇴</Text>
         <View style={{ width: 40 }} />
       </View>

@@ -68,6 +68,17 @@ export const RADIUS = {
   modal: 20, // 모달, 큰 박스
 } as const;
 
+// 공용 타이포 토큰 (탭/화면 간 일관성). 스타일에 스프레드해서 사용.
+export const TEXT = {
+  // 화면 최상단 페이지 타이틀
+  pageTitle: { fontSize: FONT.display, fontWeight: WEIGHT.bold, color: COLORS.text },
+  // 섹션/그룹 구분 라벨 (작은 회색 대문자형)
+  sectionLabel: {
+    fontSize: FONT.caption, fontWeight: WEIGHT.bold, color: COLORS.textTertiary,
+    textTransform: 'uppercase', letterSpacing: 0.8,
+  },
+} as const;
+
 // 카드 양각용 미세 그림자 (iOS shadow + Android elevation)
 export const SHADOW = {
   card: {

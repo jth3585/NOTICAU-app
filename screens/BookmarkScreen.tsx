@@ -10,7 +10,7 @@ import { useLastSeenAt } from '../lib/new-badge';
 import { lightHaptic } from '../lib/haptics';
 import { keywordMatches } from '../lib/homeFeed';
 import type { RootStackParamList } from '../lib/types';
-import { COLORS, FONT, RADIUS, SHADOW, SPACING, WEIGHT } from '../lib/theme';
+import { COLORS, FONT, RADIUS, SHADOW, SPACING, TEXT, WEIGHT } from '../lib/theme';
 import { NoticeCard } from '../components/NoticeCard';
 import { BookmarkIcon } from '../components/ui/BookmarkIcon';
 import { FolderNameModal } from '../components/FolderNameModal';
@@ -230,7 +230,7 @@ const styles = StyleSheet.create({
     flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between',
     paddingHorizontal: SPACING.lg, paddingTop: SPACING.md, marginBottom: SPACING.md,
   },
-  collectionTitle: { fontSize: FONT.display, fontWeight: WEIGHT.bold, color: COLORS.text },
+  collectionTitle: { ...TEXT.pageTitle },
   plus: { fontSize: 24, color: COLORS.text, fontWeight: WEIGHT.bold, lineHeight: 26 },
   folderRow: { flexDirection: 'row', gap: SPACING.md, paddingHorizontal: SPACING.lg },
   folderCard: {
@@ -261,8 +261,7 @@ const styles = StyleSheet.create({
   folderCaption: { fontSize: FONT.caption, color: COLORS.textSecondary },
   folderTextDim: { color: COLORS.textTertiary },
   sectionTitle: {
-    fontSize: FONT.caption, fontWeight: WEIGHT.bold, color: COLORS.textTertiary,
-    textTransform: 'uppercase', letterSpacing: 0.8,
+    ...TEXT.sectionLabel,
     paddingHorizontal: SPACING.lg, marginTop: SPACING.xl, marginBottom: SPACING.md,
   },
   list: { paddingBottom: SPACING.xxl },

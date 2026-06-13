@@ -1,7 +1,7 @@
 import { ActivityIndicator, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import type { Notice } from '../lib/types';
 import { NoticeCard } from './NoticeCard';
-import { COLORS, FONT, RADIUS, SPACING, WEIGHT } from '../lib/theme';
+import { COLORS, FONT, RADIUS, SPACING, TEXT, WEIGHT } from '../lib/theme';
 import { SparkleIcon } from './ui/SparkleIcon';
 import { ChevronRightIcon } from './ui/icons';
 
@@ -59,8 +59,7 @@ export function HomeCuration({ notices, loadingMore, allSeen, onLoadMore, onPres
 const styles = StyleSheet.create({
   section: { paddingTop: SPACING.xl },
   label: {
-    fontSize: FONT.caption, fontWeight: WEIGHT.bold, color: COLORS.textTertiary,
-    textTransform: 'uppercase', letterSpacing: 0.8,
+    ...TEXT.sectionLabel,
     paddingHorizontal: SPACING.lg, paddingBottom: SPACING.lg,
   },
   moreBtnRow: {
