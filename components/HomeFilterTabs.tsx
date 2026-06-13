@@ -11,9 +11,9 @@ const TABS: { key: HomeTab; label: string }[] = [
   { key: 'deadline', label: '오늘마감' },
 ];
 
-// 원안 비율: 카드 1개 + 다음 카드 살짝 걸침 (화면 너비의 ~80%), 세로로 길게.
-const CARD_W = Math.round(Dimensions.get('window').width * 0.8);
-const CARD_MIN_H = 172;
+// 레퍼런스 비율: 좁고 세로로 긴 포트레이트 카드. 다음 카드가 우측에 크게 걸쳐 가로 스크롤 암시.
+const CARD_W = Math.round(Dimensions.get('window').width * 0.62);
+const CARD_MIN_H = Math.round(CARD_W * 1.08); // 세로로 긴 비율
 
 type Props = {
   newList: Notice[];
@@ -66,7 +66,7 @@ export function HomeFilterTabs({ newList, keywordList, deadlineList, keywords, o
               notice={item}
               width={CARD_W}
               minHeight={CARD_MIN_H}
-              titleLines={3}
+              titleLines={4}
               keywordTag={tab === 'keyword' ? (firstMatchedKeyword(item, keywords) ?? undefined) : undefined}
               onPress={() => onPressNotice(item)}
             />

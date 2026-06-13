@@ -116,7 +116,9 @@ const styles = StyleSheet.create({
     marginBottom: SPACING.sm,
   },
   titleRead: { color: COLORS.textSecondary },
-  bottom: { fontSize: FONT.caption },
+  // marginTop:auto → 카드에 여유 높이(minHeight)가 있을 때만 메타를 바닥에 고정.
+  // 높이가 콘텐츠에 맞는 일반 카드에서는 무효과.
+  bottom: { fontSize: FONT.caption, marginTop: 'auto' },
   dday: { fontSize: FONT.caption, fontWeight: WEIGHT.semibold },
   dim: { fontSize: FONT.caption, color: COLORS.textSecondary },
   kwTag: { fontSize: FONT.caption, color: COLORS.accentText, fontWeight: WEIGHT.semibold },
