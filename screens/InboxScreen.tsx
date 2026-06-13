@@ -294,24 +294,24 @@ function Centered({ children }: { children: ReactNode }) {
 
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: COLORS.bg },
-  pageTitle: { ...TEXT.pageTitle, paddingHorizontal: SPACING.lg, paddingTop: SPACING.sm, paddingBottom: SPACING.md },
+  pageTitle: { ...TEXT.pageTitle, paddingHorizontal: SPACING.lg, paddingTop: SPACING.sm, paddingBottom: SPACING.sm },
   centered: { alignItems: 'center', justifyContent: 'center' },
   topBar: {
     flexDirection: 'row',
     alignItems: 'center',
     paddingHorizontal: SPACING.lg,
-    paddingTop: SPACING.sm,
-    paddingBottom: SPACING.sm,
+    paddingTop: SPACING.xs,
+    paddingBottom: SPACING.md,
     gap: SPACING.sm,
   },
   searchRow: {
     flex: 1,
+    height: 44,
     flexDirection: 'row',
     alignItems: 'center',
     backgroundColor: COLORS.surface,
     borderRadius: RADIUS.box,
     paddingHorizontal: SPACING.md,
-    paddingVertical: SPACING.sm,
   },
   searchInput: {
     flex: 1,
@@ -320,8 +320,8 @@ const styles = StyleSheet.create({
     padding: 0,
   },
   sortBtn: {
-    width: 40,
-    height: 40,
+    width: 44,
+    height: 44,
     backgroundColor: COLORS.surface,
     borderRadius: RADIUS.box,
     alignItems: 'center',

@@ -47,8 +47,8 @@ const styles = StyleSheet.create({
   },
   chip: {
     borderRadius: RADIUS.pill,
-    paddingHorizontal: SPACING.md,
-    paddingVertical: SPACING.xs + 2,
+    paddingHorizontal: SPACING.md + 2,
+    paddingVertical: SPACING.sm,
     borderWidth: 1,
   },
   chipActive: { backgroundColor: COLORS.text, borderColor: COLORS.text },
