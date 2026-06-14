@@ -237,6 +237,7 @@ export default function InboxScreen() {
               notice={item}
               isRead={isRead(item.id)}
               isNew={isNew(item)}
+              dimOnPress={false}
               onPress={() => navigation.navigate('Detail', { notice: item })}
             />
           </SwipeToBookmark>

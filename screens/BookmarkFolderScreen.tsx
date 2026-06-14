@@ -151,6 +151,7 @@ export default function BookmarkFolderScreen({ route }: Props) {
                 isRead={isRead(item.id)}
                 isNew={!isRead(item.id) && !!lastSeenAt && (item.posted_at ?? '') > lastSeenAt}
                 unread={!isRead(item.id)}
+                dimOnPress={false}
                 keywordTag={folder === 'keyword' ? (firstMatchedKeyword(item, keywords) ?? undefined) : undefined}
                 onPress={() => navigation.navigate('Detail', { notice: item })}
                 onLongPress={() => setPickerNotice(item)}

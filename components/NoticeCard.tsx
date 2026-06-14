@@ -16,6 +16,7 @@ export function NoticeCard({
   minHeight,
   titleLines = 2,
   keywordTag,
+  dimOnPress = true,
 }: {
   notice: Notice;
   onPress: () => void;
@@ -27,6 +28,7 @@ export function NoticeCard({
   minHeight?: number;  // 지정 시 카드 최소 높이 (세로로 길게)
   titleLines?: number; // 제목 최대 줄 수 (기본 2)
   keywordTag?: string; // 지정 시 매칭 키워드 #태그 표시
+  dimOnPress?: boolean; // 누름 시 카드 dim. 스와이프 래핑 시 false(뒤 액션 비침 방지)
 }) {
   const meta = metaOf(notice);
   const src = sourceOf(notice);
@@ -45,8 +47,8 @@ export function NoticeCard({
       onPress={onPress}
       onLongPress={onLongPress}
       delayLongPress={300}
-      // 스와이프 시작 시 카드가 반투명해지며 뒤 액션이 비치는 문제 방지(누름 dim 제거).
-      activeOpacity={1}
+      // 스와이프 래핑 카드는 dim 끔(누르면 반투명해져 뒤 액션이 비치는 문제 방지).
+      activeOpacity={dimOnPress ? 0.6 : 1}
       style={[
         styles.card,
         width != null && { width, marginHorizontal: 0, marginRight: SPACING.md, marginBottom: 0 },

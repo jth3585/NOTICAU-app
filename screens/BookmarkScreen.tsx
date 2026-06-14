@@ -175,6 +175,7 @@ export default function BookmarkScreen() {
               isRead={isRead(item.id)}
               isNew={!isRead(item.id) && !!lastSeenAt && (item.posted_at ?? '') > lastSeenAt}
               unread={!isRead(item.id)}
+              dimOnPress={false}
               onPress={() => navigation.navigate('Detail', { notice: item })}
               onLongPress={() => setPickerNotice(item)}
             />
