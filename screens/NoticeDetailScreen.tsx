@@ -27,7 +27,7 @@ import { DeadlineBox } from '../components/ui/DeadlineBox';
 import { SectionHeader } from '../components/ui/SectionHeader';
 import { AttachmentRow } from '../components/ui/AttachmentRow';
 import { InfoBox } from '../components/ui/InfoBox';
-import { SparkleIcon } from '../components/ui/SparkleIcon';
+import { AiSummaryLabel } from '../components/ui/AiSummaryLabel';
 import ImageViewing from 'react-native-image-viewing';
 import { useBookmark } from '../lib/bookmarks';
 import { BookmarkIcon } from '../components/ui/BookmarkIcon';
@@ -200,8 +200,7 @@ function BodyBlock({
         {summary && summaryElements.length > 0 ? (
           <InfoBox tone="gradient">
             <View style={styles.summaryLabelRow}>
-              <SparkleIcon size={14} color={COLORS.accent} />
-              <Text style={styles.summaryLabelText}>AI 요약</Text>
+              <AiSummaryLabel />
             </View>
             {summaryElements}
           </InfoBox>
