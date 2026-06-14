@@ -3,6 +3,7 @@ import { Dimensions, FlatList, StyleSheet, Text, TouchableOpacity, View } from '
 import { LinearGradient } from 'expo-linear-gradient';
 import type { Notice, UserKeyword } from '../lib/types';
 import { type HomeTab, firstMatchedKeyword } from '../lib/homeFeed';
+import { metaOf, formatTimeRemaining } from '../lib/format';
 import { NoticeCard } from './NoticeCard';
 import { COLORS, FONT, RADIUS, SPACING, WEIGHT } from '../lib/theme';
 
@@ -83,6 +84,7 @@ export function HomeFilterTabs({ newList, keywordList, deadlineList, keywords, o
               minHeight={CARD_MIN_H}
               titleLines={4}
               keywordTag={tab === 'keyword' ? (firstMatchedKeyword(item, keywords) ?? undefined) : undefined}
+              countdown={tab === 'deadline' ? (formatTimeRemaining(metaOf(item)?.deadline_at ?? null) ?? undefined) : undefined}
               onPress={() => onPressNotice(item)}
             />
           )}

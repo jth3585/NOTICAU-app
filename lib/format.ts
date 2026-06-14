@@ -53,6 +53,18 @@ export function formatDday(deadlineAt: string | null): Dday | null {
   return { label: `D-${diff}`, overdue: false, urgent: diff <= 3 };
 }
 
+// 마감까지 남은 시간 "N시간 M분 남음" (오늘마감 탭용). 1분 미만이면 '곧 마감', 지났으면 null.
+export function formatTimeRemaining(deadlineAt: string | null): string | null {
+  if (!deadlineAt || isNaN(Date.parse(deadlineAt))) return null;
+  const ms = Date.parse(deadlineAt) - Date.now();
+  if (ms <= 0) return null;
+  const totalMin = Math.floor(ms / 60000);
+  if (totalMin < 1) return '곧 마감';
+  const h = Math.floor(totalMin / 60);
+  const m = totalMin % 60;
+  return h > 0 ? `${h}시간 ${m}분 남음` : `${m}분 남음`;
+}
+
 // KST 기준 마감일까지 남은 일수 (오늘=0, 내일=1, 지남=음수). 없으면 null.
 export function ddayDiff(deadlineAt: string | null): number | null {
   if (!deadlineAt || isNaN(Date.parse(deadlineAt))) return null;

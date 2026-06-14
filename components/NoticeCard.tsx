@@ -16,6 +16,7 @@ export function NoticeCard({
   minHeight,
   titleLines = 2,
   keywordTag,
+  countdown,
   dimOnPress = true,
 }: {
   notice: Notice;
@@ -28,6 +29,7 @@ export function NoticeCard({
   minHeight?: number;  // 지정 시 카드 최소 높이 (세로로 길게)
   titleLines?: number; // 제목 최대 줄 수 (기본 2)
   keywordTag?: string; // 지정 시 매칭 키워드 #태그 표시
+  countdown?: string;  // 지정 시 D-day 대신 "N시간 M분 남음" 표시 (오늘마감 탭)
   dimOnPress?: boolean; // 누름 시 카드 dim. 스와이프 래핑 시 false(뒤 액션 비침 방지)
 }) {
   const meta = metaOf(notice);
@@ -73,7 +75,12 @@ export function NoticeCard({
       </Text>
 
       <Text style={styles.bottom}>
-        {dday ? (
+        {countdown ? (
+          <>
+            <Text style={[styles.dday, { color: COLORS.danger }]}>{countdown}</Text>
+            <Text style={styles.dim}> · {postedMD}</Text>
+          </>
+        ) : dday ? (
           <>
             <Text style={[styles.dday, { color: ddayColor }]}>{dday.label}</Text>
             <Text style={styles.dim}> · {postedMD}</Text>
