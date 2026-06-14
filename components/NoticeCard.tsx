@@ -45,7 +45,8 @@ export function NoticeCard({
       onPress={onPress}
       onLongPress={onLongPress}
       delayLongPress={300}
-      activeOpacity={0.6}
+      // 스와이프 시작 시 카드가 반투명해지며 뒤 액션이 비치는 문제 방지(누름 dim 제거).
+      activeOpacity={1}
       style={[
         styles.card,
         width != null && { width, marginHorizontal: 0, marginRight: SPACING.md, marginBottom: 0 },
