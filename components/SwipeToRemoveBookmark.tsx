@@ -28,6 +28,8 @@ export function SwipeToRemoveBookmark({ onRemove, children }: Props) {
       friction={1.5}
       leftThreshold={60}
       dragOffsetFromLeftEdge={12}
+      // 복귀 스프링을 부드럽게 (기본 damping 1000 과감쇠 → 딱 붙는 느낌 제거)
+      animationOptions={{ mass: 1, damping: 24, stiffness: 180, overshootClamping: false }}
       renderLeftActions={renderLeftActions}
       onSwipeableWillOpen={() => {
         if (handled.current) return;

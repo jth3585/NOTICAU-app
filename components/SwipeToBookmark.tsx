@@ -30,6 +30,8 @@ export function SwipeToBookmark({ alreadyBookmarked, onBookmark, onAlready, chil
       friction={1.5}
       leftThreshold={60}
       dragOffsetFromLeftEdge={12}
+      // 복귀 스프링을 부드럽게 (기본 damping 1000 과감쇠 → 딱 붙는 느낌 제거)
+      animationOptions={{ mass: 1, damping: 24, stiffness: 180, overshootClamping: false }}
       renderLeftActions={renderLeftActions}
       // 좌측 액션만 있으므로 open = 북마크 액션. (RNGH는 우측 스와이프 open 시
       // direction을 'right'로 넘기므로 방향 필터를 두지 않는다 — 이게 기존 버그의 원인이었음.)
