@@ -1,10 +1,16 @@
 import { StyleSheet, View } from 'react-native';
+import { LinearGradient } from 'expo-linear-gradient';
 import { COLORS, RADIUS } from '../../lib/theme';
 
 export function ProgressBar({ step, total = 7 }: { step: number; total?: number }) {
   return (
     <View style={styles.track}>
-      <View style={[styles.fill, { width: `${(step / total) * 100}%` as any }]} />
+      <LinearGradient
+        colors={COLORS.accentGradient}
+        start={{ x: 0, y: 0 }}
+        end={{ x: 1, y: 0 }}
+        style={[styles.fill, { width: `${(step / total) * 100}%` as any }]}
+      />
     </View>
   );
 }
@@ -18,7 +24,6 @@ const styles = StyleSheet.create({
   },
   fill: {
     height: '100%',
-    backgroundColor: COLORS.accent,
     borderRadius: RADIUS.pill,
   },
 });
