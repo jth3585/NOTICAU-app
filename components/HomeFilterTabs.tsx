@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { Dimensions, FlatList, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import type { Notice, UserKeyword } from '../lib/types';
@@ -27,6 +27,14 @@ type Props = {
 
 export function HomeFilterTabs({ newList, keywordList, deadlineList, keywords, onPressNotice }: Props) {
   const [tab, setTab] = useState<HomeTab>('new');
+
+  // 오늘마감 탭에서 남은 시간 실시간 갱신 (30초마다 재계산). 분 표시라 30초면 충분.
+  const [, setTick] = useState(0);
+  useEffect(() => {
+    if (tab !== 'deadline') return;
+    const id = setInterval(() => setTick((t) => t + 1), 30000);
+    return () => clearInterval(id);
+  }, [tab]);
 
   const list = tab === 'new' ? newList : tab === 'keyword' ? keywordList : deadlineList;
   const emptyText =
