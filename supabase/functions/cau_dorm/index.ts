@@ -22,6 +22,8 @@ const FETCH_TIMEOUT_MS = 30_000;
 const MAX_RETRIES = 2;
 const RETRY_BACKOFF_MS = [1_000, 3_000];
 const POLITE_DELAY_MS = 500;
+const BUCKET = "crawled-images";
+const MAX_IMG_B64 = 7_000_000; // base64 길이 상한(≈5MB 바이너리) — 초과 시 업로드 스킵
 
 const REQUEST_HEADERS = {
   "User-Agent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36",
@@ -104,11 +106,30 @@ async function fetchDetail(b: Board, uid: string) {
   bodyText = bodyText.replace(/ /g, " ").replace(/[ \t]+/g, " ").replace(/\n{3,}/g, "\n\n").trim();
 
   const images: string[] = [];
+  let firstData: { mime: string; ext: string; b64: string } | null = null;
   $body.find("img").each((_, el) => {
-    const src = $(el).attr("src");
-    if (!src || !/^https?:\/\//.test(src)) return; // data:base64 / 빈값 제외
-    images.push(src);
+    const src = $(el).attr("src") || "";
+    if (/^https?:\/\//.test(src)) { images.push(src); return; } // 절대 http (드묾)
+    if (src.startsWith("/")) { images.push(b.base + src); return; } // 상대 서버경로 (서울 /upload/image/*)
+    if (!firstData) { // data:base64 인라인 (다빈치 포스터) — 첫 장만 업로드 대상
+      const m = src.match(/^data:(image\/(png|jpe?g|gif|webp));base64,(.+)$/i);
+      if (m) firstData = { mime: m[1], ext: m[2].toLowerCase().replace("jpeg", "jpg"), b64: m[3] };
+    }
   });
+  // http 이미지가 없고 base64 포스터만 있으면, 첫 장만 Storage에 올려 URL화
+  // (분류기 비전 경로 + 앱 상세 이미지 표시용). 실패 시 텍스트 fallback.
+  if (images.length === 0 && firstData && firstData.b64.length <= MAX_IMG_B64) {
+    try {
+      const bytes = Uint8Array.from(atob(firstData.b64), (c) => c.charCodeAt(0));
+      const hash = await sha256Hex(firstData.b64);
+      const path = `${b.parserKey}/${hash}.${firstData.ext}`;
+      const { error: upErr } = await supabase.storage.from(BUCKET).upload(path, bytes, { contentType: firstData.mime, upsert: true });
+      if (!upErr) {
+        const { data } = supabase.storage.from(BUCKET).getPublicUrl(path);
+        if (data?.publicUrl) images.push(data.publicUrl);
+      }
+    } catch (_) { /* 업로드 실패 무시 */ }
+  }
 
   const attachments: string[] = [];
   $('a[href*="downloadfile.php"]').each((_, el) => {
