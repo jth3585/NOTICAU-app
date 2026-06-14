@@ -18,6 +18,7 @@ export const SOURCE_LABELS: Record<string, string> = {
   cau_main: '본교',
   cau_bne: '경영대',
   cau_biz: '경영학부',
+  cau_library: '학술정보원',
 };
 
 export function sourceLabel(parserKey: string | null | undefined): string {
