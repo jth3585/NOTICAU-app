@@ -64,8 +64,12 @@ export function useHomeFeed() {
     const readIds = new Set<string>(((readRes.data ?? []) as any[]).map((r: any) => r.notice_id));
     const notices = (noticesRes.data ?? []) as Notice[];
 
-    // 본인과 안 맞는(또는 읽은) 공지 제외한 베이스
+    // 본인과 안 맞는(또는 읽은) 공지 제외한 베이스 (새공지/키워드매치용)
     const base = notices.filter((n) => !isMismatch(n, metaOf(n), profile, disabledTopics, readIds));
+    // 오늘마감용 베이스: 읽음은 제외하지 않음 (마감은 긴급성 — 읽었어도 오늘 마감이면 계속 노출).
+    //   타깃/카테고리 불일치만 거른다 (readIds를 빈 Set으로 넘김).
+    const NO_READ = new Set<string>();
+    const deadlineBase = notices.filter((n) => !isMismatch(n, metaOf(n), profile, disabledTopics, NO_READ));
     const now = Date.now();
 
     const newList = base
@@ -80,8 +84,8 @@ export function useHomeFeed() {
         .sort((a, b) => (b.crawled_at ?? '').localeCompare(a.crawled_at ?? ''))
       : [];
 
-    // 오늘마감: 남은 마감 시간이 0 ~ 24h 이내 (이미 지난 마감 제외)
-    const deadlineList = base
+    // 오늘마감: 남은 마감 시간이 0 ~ 24h 이내 (이미 지난 마감 제외). 읽음 무관.
+    const deadlineList = deadlineBase
       .map((n) => {
         const dl = metaOf(n)?.deadline_at ?? null;
         const ms = dl && !isNaN(Date.parse(dl)) ? Date.parse(dl) - now : null;
