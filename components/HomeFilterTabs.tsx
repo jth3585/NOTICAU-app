@@ -1,5 +1,6 @@
-import { useEffect, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import { Dimensions, FlatList, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import { useFocusEffect } from '@react-navigation/native';
 import { LinearGradient } from 'expo-linear-gradient';
 import type { Notice, UserKeyword } from '../lib/types';
 import { type HomeTab, firstMatchedKeyword } from '../lib/homeFeed';
@@ -26,7 +27,22 @@ type Props = {
 };
 
 export function HomeFilterTabs({ newList, keywordList, deadlineList, keywords, onPressNotice }: Props) {
-  const [tab, setTab] = useState<HomeTab>('new');
+  // 공지가 있는 탭 우선 (새공지 → 키워드매치 → 오늘마감). 없으면 null.
+  const firstNonEmpty = (): HomeTab | null =>
+    newList.length ? 'new' : keywordList.length ? 'keyword' : deadlineList.length ? 'deadline' : null;
+
+  // 초기 선택: 공지 있는 첫 탭
+  const [tab, setTab] = useState<HomeTab>(() => firstNonEmpty() ?? 'new');
+
+  // 홈 재진입(앱 시작·다른 탭에서 복귀) 시, 현재 탭이 비어 있으면 공지 있는 탭으로 점프.
+  useFocusEffect(useCallback(() => {
+    setTab((prev) => {
+      const curLen = prev === 'new' ? newList.length : prev === 'keyword' ? keywordList.length : deadlineList.length;
+      if (curLen > 0) return prev;
+      return firstNonEmpty() ?? prev;
+    });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [newList, keywordList, deadlineList]));
 
   // 오늘마감 탭에서 남은 시간 실시간 갱신 (30초마다 재계산). 분 표시라 30초면 충분.
   const [, setTick] = useState(0);
