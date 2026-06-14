@@ -68,16 +68,18 @@ export function useHomeFeed() {
     const base = notices.filter((n) => !isMismatch(n, metaOf(n), profile, disabledTopics, NO_READ));
     const now = Date.now();
 
+    // 새공지: 최근 24h '게시된' 것 (posted_at 기준 — crawled_at은 우리 DB 적재 시점이라
+    //   새 소스 백필 시 과거 공지가 전부 새공지로 뜨는 문제가 생김).
     const newList = base
-      .filter((n) => n.crawled_at && (now - Date.parse(n.crawled_at)) <= NEW_WINDOW_MS)
-      .sort((a, b) => (b.crawled_at ?? '').localeCompare(a.crawled_at ?? ''));
+      .filter((n) => n.posted_at && (now - Date.parse(n.posted_at)) <= NEW_WINDOW_MS)
+      .sort((a, b) => (b.posted_at ?? '').localeCompare(a.posted_at ?? ''));
 
-    // 키워드매치: 최근 24h 올라온 것 중 키워드 매칭
+    // 키워드매치: 최근 24h 게시된 것 중 키워드 매칭
     const keywordList = keywords.length
-      ? base.filter((n) => n.crawled_at
-          && (now - Date.parse(n.crawled_at)) <= KEYWORD_WINDOW_MS
+      ? base.filter((n) => n.posted_at
+          && (now - Date.parse(n.posted_at)) <= KEYWORD_WINDOW_MS
           && keywordMatches(n, keywords))
-        .sort((a, b) => (b.crawled_at ?? '').localeCompare(a.crawled_at ?? ''))
+        .sort((a, b) => (b.posted_at ?? '').localeCompare(a.posted_at ?? ''))
       : [];
 
     // 오늘마감: 남은 마감 시간이 0 ~ 24h 이내 (이미 지난 마감 제외).
