@@ -4,6 +4,7 @@ import { useNavigation } from '@react-navigation/native';
 import { useMarkdown } from 'react-native-marked';
 import type { MarkedStyles } from 'react-native-marked';
 import { COLORS, FONT, SPACING, WEIGHT } from '../lib/theme';
+import { BackButton } from './ui/BackButton';
 
 // 약관/개인정보 등 정적 마크다운 문서를 헤더 + 스크롤로 표시하는 공용 화면.
 export function MarkdownPage({ title, markdown }: { title: string; markdown: string }) {
@@ -13,9 +14,7 @@ export function MarkdownPage({ title, markdown }: { title: string; markdown: str
   return (
     <SafeAreaView style={styles.container} edges={['top']}>
       <View style={styles.header}>
-        <TouchableOpacity onPress={() => navigation.goBack()} hitSlop={8}>
-          <Text style={styles.back}>‹ 뒤로</Text>
-        </TouchableOpacity>
+        <BackButton onPress={() => navigation.goBack()} />
         <Text style={styles.title}>{title}</Text>
         <View style={{ width: 40 }} />
       </View>
@@ -25,7 +24,7 @@ export function MarkdownPage({ title, markdown }: { title: string; markdown: str
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: COLORS.bg },
+  container: { flex: 1, backgroundColor: COLORS.surface },
   header: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingHorizontal: SPACING.lg, paddingVertical: SPACING.md },
   back: { fontSize: FONT.body, color: COLORS.text },
   title: { fontSize: FONT.subtitle, fontWeight: WEIGHT.bold, color: COLORS.text },
