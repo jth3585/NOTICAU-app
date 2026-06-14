@@ -46,11 +46,10 @@ export function useHomeFeed() {
     const { data: { session } } = await supabase.auth.getSession();
     if (!session) { setData(EMPTY); setLoading(false); return; }
 
-    const [profileRes, keywordsRes, prefsRes, readRes, noticesRes] = await Promise.all([
+    const [profileRes, keywordsRes, prefsRes, noticesRes] = await Promise.all([
       supabase.from('profiles').select('*').eq('user_id', session.user.id).maybeSingle(),
       supabase.from('user_keywords').select('*').eq('user_id', session.user.id),
       supabase.from('user_category_prefs').select('topic,is_enabled').eq('user_id', session.user.id),
-      supabase.from('user_feed_state').select('notice_id').eq('user_id', session.user.id).not('read_at', 'is', null),
       supabase.from('notices').select('*, notice_meta(*), sources(parser_key, name)').order('posted_at', { ascending: false }).limit(300),
     ]);
 
@@ -61,15 +60,12 @@ export function useHomeFeed() {
     const disabledTopics = new Set<string>(
       ((prefsRes.data ?? []) as any[]).filter((p) => !p.is_enabled).map((p) => p.topic),
     );
-    const readIds = new Set<string>(((readRes.data ?? []) as any[]).map((r: any) => r.notice_id));
     const notices = (noticesRes.data ?? []) as Notice[];
 
-    // 본인과 안 맞는(또는 읽은) 공지 제외한 베이스 (새공지/키워드매치용)
-    const base = notices.filter((n) => !isMismatch(n, metaOf(n), profile, disabledTopics, readIds));
-    // 오늘마감용 베이스: 읽음은 제외하지 않음 (마감은 긴급성 — 읽었어도 오늘 마감이면 계속 노출).
-    //   타깃/카테고리 불일치만 거른다 (readIds를 빈 Set으로 넘김).
+    // 홈 세 탭 공통 베이스: 타깃/카테고리 불일치만 제외. 읽음은 제외하지 않음
+    //   (홈은 "지금 챙길 것"을 보여주는 곳 — 읽었어도 24h 새 공지/마감이면 계속 노출).
     const NO_READ = new Set<string>();
-    const deadlineBase = notices.filter((n) => !isMismatch(n, metaOf(n), profile, disabledTopics, NO_READ));
+    const base = notices.filter((n) => !isMismatch(n, metaOf(n), profile, disabledTopics, NO_READ));
     const now = Date.now();
 
     const newList = base
@@ -84,8 +80,8 @@ export function useHomeFeed() {
         .sort((a, b) => (b.crawled_at ?? '').localeCompare(a.crawled_at ?? ''))
       : [];
 
-    // 오늘마감: 남은 마감 시간이 0 ~ 24h 이내 (이미 지난 마감 제외). 읽음 무관.
-    const deadlineList = deadlineBase
+    // 오늘마감: 남은 마감 시간이 0 ~ 24h 이내 (이미 지난 마감 제외).
+    const deadlineList = base
       .map((n) => {
         const dl = metaOf(n)?.deadline_at ?? null;
         const ms = dl && !isNaN(Date.parse(dl)) ? Date.parse(dl) - now : null;
