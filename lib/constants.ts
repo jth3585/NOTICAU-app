@@ -19,6 +19,8 @@ export const SOURCE_LABELS: Record<string, string> = {
   cau_bne: '경영대',
   cau_biz: '경영학부',
   cau_library: '학술정보원',
+  cau_dorm: '생활관',
+  cau_dorm_seoul: '생활관',
 };
 
 export function sourceLabel(parserKey: string | null | undefined): string {
