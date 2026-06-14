@@ -141,8 +141,8 @@ async function fetchDetail(b: Board, uid: string) {
   return { bodyText, images, attachments };
 }
 
-async function crawlBoard(b: Board, pages: number) {
-  const stat = { board: b.parserKey, pages: 0, listed: 0, skippedDup: 0, insertedNotices: 0, fetchFailed: 0, error: null as string | null };
+async function crawlBoard(b: Board, pages: number, reprocess: boolean) {
+  const stat = { board: b.parserKey, pages: 0, listed: 0, skippedDup: 0, insertedNotices: 0, updated: 0, fetchFailed: 0, error: null as string | null };
 
   const { data: source } = await supabase.from("sources").select("id").eq("parser_key", b.parserKey).maybeSingle();
   if (!source) { stat.error = `source not found: ${b.parserKey}`; return stat; }
@@ -161,9 +161,22 @@ async function crawlBoard(b: Board, pages: number) {
         try {
           const contentHash = await sha256Hex(`${it.title}|${url}|${postedAt}`);
           const { data: existing } = await supabase.from("notices").select("id").eq("content_hash", contentHash).maybeSingle();
-          if (existing) { stat.skippedDup++; continue; }
+          if (existing && !reprocess) { stat.skippedDup++; continue; }
 
           const detail = await fetchDetail(b, it.uid);
+
+          // reprocess: 기존 행의 본문/이미지/첨부만 in-place 갱신 (삭제 없이 백필)
+          if (existing) {
+            await supabase.from("notices").update({
+              body_text: detail.bodyText,
+              body_image_urls: detail.images,
+              attachment_urls: detail.attachments,
+            }).eq("id", existing.id);
+            stat.updated++;
+            await sleep(1500);
+            continue;
+          }
+
           const { error: insErr } = await supabase.from("notices").insert({
             source_id: sourceId,
             source_category: it.category,
@@ -218,14 +231,16 @@ Deno.serve(async (req) => {
   }
 
   let pages = 1;
+  let reprocess = false;
   try {
     const body = await req.json();
     if (body && Number.isInteger(body.pages) && body.pages > 0) pages = Math.min(body.pages, 30);
+    if (body && body.reprocess === true) reprocess = true;
   } catch { /* cron 빈 body */ }
 
   const results = [];
   for (const b of BOARDS) {
-    results.push(await crawlBoard(b, pages));
+    results.push(await crawlBoard(b, pages, reprocess));
   }
 
   return new Response(JSON.stringify({ results }), { headers: { "Content-Type": "application/json" } });
