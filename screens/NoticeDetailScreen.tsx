@@ -239,7 +239,8 @@ function AutoImage({ uri, width, onPress }: { uri: string; width: number; onPres
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: COLORS.bg },
+  // 상세는 읽기 화면 → 흰 배경(카드 양각 베이스가 아닌 단일 읽기 면)
+  container: { flex: 1, backgroundColor: COLORS.surface },
   header: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -275,7 +276,7 @@ const styles = StyleSheet.create({
   linkBtnText: { fontSize: FONT.body, color: COLORS.accentText, fontWeight: WEIGHT.semibold },
   sourceBtn: {
     marginTop: SPACING.xxl,
-    backgroundColor: COLORS.surface,
+    backgroundColor: COLORS.surface2,
     borderRadius: RADIUS.card,
     paddingVertical: SPACING.md,
     alignItems: 'center',
@@ -326,7 +327,7 @@ class BaseRenderer extends Renderer {
     const colW = Math.floor(available / numCols);
     return (
       <View key={this.getKey()} style={{ borderWidth: 1, borderColor: COLORS.border, borderRadius: RADIUS.box, overflow: 'hidden', marginVertical: SPACING.sm }}>
-        <View style={{ flexDirection: 'row', backgroundColor: COLORS.surface }}>
+        <View style={{ flexDirection: 'row', backgroundColor: COLORS.surface2 }}>
           {header.map((cell: any, i: number) => (
             <View key={i} style={{ width: colW, padding: 6, borderRightWidth: i < numCols - 1 ? StyleSheet.hairlineWidth : 0, borderRightColor: COLORS.border }}>
               {cell}
