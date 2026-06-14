@@ -26,7 +26,8 @@ export function SwipeToRemoveBookmark({ onRemove, children }: Props) {
     <ReanimatedSwipeable
       ref={ref}
       friction={1.5}
-      leftThreshold={60}
+      leftThreshold={ACTION_W * 0.6}
+      overshootLeft={false}
       dragOffsetFromLeftEdge={12}
       // 복귀 스프링을 부드럽게 (기본 damping 1000 과감쇠 → 딱 붙는 느낌 제거)
       animationOptions={{ mass: 1, damping: 24, stiffness: 180, overshootClamping: false }}
@@ -44,19 +45,19 @@ export function SwipeToRemoveBookmark({ onRemove, children }: Props) {
   );
 }
 
+const ACTION_W = 96; // 고정 폭 — 스와이프가 이 지점에서 걸려 멈추고(overshootLeft=false) 돌아옴
+
 const styles = StyleSheet.create({
   action: {
-    flex: 1,
+    width: ACTION_W,
     flexDirection: 'row',
     alignItems: 'center',
     gap: SPACING.xs,
     backgroundColor: COLORS.danger,
     borderRadius: RADIUS.card,
-    // 카드와 동일 마진 (marginRight 없으면 닫힐 때 우측이 튀어나옴)
     marginLeft: SPACING.lg,
-    marginRight: SPACING.lg,
     marginBottom: SPACING.md,
-    paddingHorizontal: SPACING.lg,
+    paddingLeft: SPACING.lg,
   },
-  actionText: { color: '#fff', fontSize: FONT.caption, fontWeight: WEIGHT.bold },
+  actionText: { color: '#fff', fontSize: FONT.micro, fontWeight: WEIGHT.bold },
 });

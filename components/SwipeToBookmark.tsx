@@ -19,8 +19,8 @@ export function SwipeToBookmark({ alreadyBookmarked, onBookmark, onAlready, chil
 
   const renderLeftActions = () => (
     <View style={[styles.action, alreadyBookmarked && styles.actionMuted]}>
-      <BookmarkIcon size={22} filled color="#fff" />
-      <Text style={styles.actionText}>{alreadyBookmarked ? '이미 북마크됨' : '북마크'}</Text>
+      <BookmarkIcon size={20} filled color="#fff" />
+      <Text style={styles.actionText} numberOfLines={1}>{alreadyBookmarked ? '북마크됨' : '북마크'}</Text>
     </View>
   );
 
@@ -28,7 +28,8 @@ export function SwipeToBookmark({ alreadyBookmarked, onBookmark, onAlready, chil
     <ReanimatedSwipeable
       ref={ref}
       friction={1.5}
-      leftThreshold={60}
+      leftThreshold={ACTION_W * 0.6}
+      overshootLeft={false}
       dragOffsetFromLeftEdge={12}
       // 복귀 스프링을 부드럽게 (기본 damping 1000 과감쇠 → 딱 붙는 느낌 제거)
       animationOptions={{ mass: 1, damping: 24, stiffness: 180, overshootClamping: false }}
@@ -50,20 +51,20 @@ export function SwipeToBookmark({ alreadyBookmarked, onBookmark, onAlready, chil
   );
 }
 
+const ACTION_W = 96; // 고정 폭 — 스와이프가 이 지점에서 걸려 멈추고(overshootLeft=false) 돌아옴
+
 const styles = StyleSheet.create({
   action: {
-    flex: 1,
+    width: ACTION_W,
     flexDirection: 'row',
     alignItems: 'center',
     gap: SPACING.xs,
     backgroundColor: COLORS.accent,
     borderRadius: RADIUS.card,
-    // 카드와 동일한 좌우/하단 마진 (특히 marginRight 없으면 닫힐 때 우측 16px이 튀어나옴)
     marginLeft: SPACING.lg,
-    marginRight: SPACING.lg,
     marginBottom: SPACING.md,
-    paddingHorizontal: SPACING.lg,
+    paddingLeft: SPACING.lg,
   },
   actionMuted: { backgroundColor: COLORS.textTertiary },
-  actionText: { color: '#fff', fontSize: FONT.caption, fontWeight: WEIGHT.bold },
+  actionText: { color: '#fff', fontSize: FONT.micro, fontWeight: WEIGHT.bold },
 });
