@@ -120,7 +120,7 @@ const styles = StyleSheet.create({
     borderRadius: RADIUS.card,
     padding: SPACING.lg,
     marginBottom: SPACING.xl,
-    ...SHADOW.card,
+    ...SHADOW.accent, // 토스 느낌의 컬러 그림자
   },
   profileRow: { flexDirection: 'row', alignItems: 'center', gap: SPACING.md },
   avatar: {
