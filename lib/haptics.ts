@@ -13,3 +13,8 @@ export function successHaptic() {
 export function softHaptic() {
   try { Haptics.selectionAsync(); } catch {}
 }
+
+// 삭제/되돌림 등 주의가 필요한 동작 피드백.
+export function warningHaptic() {
+  try { Haptics.notificationAsync(Haptics.NotificationFeedbackType.Warning); } catch {}
+}

@@ -1,22 +1,42 @@
-import { useEffect, useState } from 'react';
-import { ActivityIndicator, Alert, Linking, StyleSheet, Text, TouchableOpacity } from 'react-native';
-import * as Haptics from 'expo-haptics';
+import { useEffect, useRef, useState } from 'react';
+import { ActivityIndicator, Alert, Animated, Easing, Linking, StyleSheet, Text, TouchableOpacity } from 'react-native';
 import { COLORS, FONT, RADIUS, SPACING, WEIGHT } from '../../lib/theme';
-import { CalendarIcon, CheckIcon } from './icons';
+import { CalendarIcon, CheckIcon, TrashIcon } from './icons';
 import { addNoticeToCalendar, getSavedEventId, removeNoticeFromCalendar } from '../../lib/calendar';
+import { successHaptic, warningHaptic } from '../../lib/haptics';
 import type { Notice } from '../../lib/types';
+
+// 해제 직후 빨간 "삭제됨"을 보여주는 시간(ms). 이후 기본 상태로 부드럽게 복귀.
+const REMOVED_FLASH_MS = 900;
 
 // 공지 마감일을 기기 캘린더에 추가/해제하는 토글 버튼.
 // 마감일이 있을 때만 상세화면에서 렌더. eventId 로컬 매핑으로 상태 복원.
+// 추가됨 상태에서 다시 누르면 잠깐 빨갛게 "삭제됨"을 보여준 뒤 기본 상태로 페이드한다.
 export function AddToCalendarButton({ notice, deadlineAt }: { notice: Notice; deadlineAt: string }) {
   const [added, setAdded] = useState(false);
   const [busy, setBusy] = useState(false);
+  // 해제 직후 잠깐 빨갛게 "삭제됨"을 보여주는 일시 상태.
+  const [removedFlash, setRemovedFlash] = useState(false);
+
+  // 0 = 기본(파랑), 1 = 빨강. 색 보간이라 네이티브 드라이버 사용 불가.
+  const redAnim = useRef(new Animated.Value(0)).current;
+  const flashTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   useEffect(() => {
     let alive = true;
     getSavedEventId(notice.id).then((id) => { if (alive) setAdded(!!id); });
     return () => { alive = false; };
   }, [notice.id]);
+
+  // 언마운트 시 타이머 정리.
+  useEffect(() => () => { if (flashTimer.current) clearTimeout(flashTimer.current); }, []);
+
+  // 빨간 잔상/타이머를 즉시 제거하고 기본 상태로 되돌린다.
+  const clearFlash = () => {
+    if (flashTimer.current) { clearTimeout(flashTimer.current); flashTimer.current = null; }
+    setRemovedFlash(false);
+    redAnim.setValue(0);
+  };
 
   const onPress = async () => {
     if (busy) return;
@@ -25,12 +45,27 @@ export function AddToCalendarButton({ notice, deadlineAt }: { notice: Notice; de
       if (added) {
         await removeNoticeFromCalendar(notice.id);
         setAdded(false);
-        Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+        // 빨간 "삭제됨" 플래시를 띄우고, REMOVED_FLASH_MS 후 기본 상태로 부드럽게 페이드.
+        setRemovedFlash(true);
+        redAnim.setValue(1);
+        warningHaptic();
+        if (flashTimer.current) clearTimeout(flashTimer.current);
+        flashTimer.current = setTimeout(() => {
+          setRemovedFlash(false);
+          Animated.timing(redAnim, {
+            toValue: 0,
+            duration: 450,
+            easing: Easing.out(Easing.quad),
+            useNativeDriver: false,
+          }).start();
+        }, REMOVED_FLASH_MS);
       } else {
+        // 플래시 도중 다시 누르면 곧바로 재추가 — 빨강 잔상 제거.
+        clearFlash();
         const res = await addNoticeToCalendar(notice, deadlineAt);
         if (res.ok) {
           setAdded(true);
-          Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+          successHaptic();
         } else if (res.reason === 'permission') {
           Alert.alert(
             '캘린더 권한 필요',
@@ -48,45 +83,52 @@ export function AddToCalendarButton({ notice, deadlineAt }: { notice: Notice; de
     }
   };
 
+  // added가 아닐 때만 색을 파랑↔빨강으로 보간. added는 정적(파랑 채움) 스타일.
+  const borderColor = redAnim.interpolate({ inputRange: [0, 1], outputRange: [COLORS.accent, COLORS.danger] });
+  const backgroundColor = redAnim.interpolate({ inputRange: [0, 1], outputRange: [COLORS.surface, COLORS.dangerSoft] });
+  const textColor = redAnim.interpolate({ inputRange: [0, 1], outputRange: [COLORS.accent, COLORS.danger] });
+  const containerStyle = added
+    ? { borderColor: COLORS.accentSoft, backgroundColor: COLORS.accentSoft }
+    : { borderColor, backgroundColor };
+
   return (
-    <TouchableOpacity
-      onPress={onPress}
-      disabled={busy}
-      activeOpacity={0.7}
-      style={[styles.btn, added && styles.btnAdded]}
-    >
-      {busy ? (
-        <ActivityIndicator size="small" color={added ? COLORS.accentText : COLORS.accent} />
-      ) : added ? (
-        <CheckIcon size={18} color={COLORS.accentText} />
-      ) : (
-        <CalendarIcon size={18} color={COLORS.accent} />
-      )}
-      <Text style={[styles.text, added && styles.textAdded]}>
-        {added ? '캘린더에 추가됨' : '캘린더에 추가'}
-      </Text>
-    </TouchableOpacity>
+    <Animated.View style={[styles.btn, containerStyle]}>
+      <TouchableOpacity onPress={onPress} disabled={busy} activeOpacity={0.7} style={styles.inner}>
+        {busy ? (
+          <ActivityIndicator size="small" color={added ? COLORS.accentText : COLORS.accent} />
+        ) : added ? (
+          <CheckIcon size={18} color={COLORS.accentText} />
+        ) : removedFlash ? (
+          <TrashIcon size={18} color={COLORS.danger} />
+        ) : (
+          <CalendarIcon size={18} color={COLORS.accent} />
+        )}
+        {added ? (
+          <Text style={[styles.text, styles.textAdded]}>캘린더에 추가됨</Text>
+        ) : (
+          <Animated.Text style={[styles.text, { color: textColor }]}>
+            {removedFlash ? '삭제됨' : '캘린더에 추가'}
+          </Animated.Text>
+        )}
+      </TouchableOpacity>
+    </Animated.View>
   );
 }
 
 const styles = StyleSheet.create({
   btn: {
+    alignSelf: 'flex-start',
+    borderRadius: RADIUS.pill,
+    borderWidth: 1,
+    marginBottom: SPACING.sm,
+  },
+  inner: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
     gap: SPACING.xs,
-    alignSelf: 'flex-start',
     paddingVertical: SPACING.sm,
     paddingHorizontal: SPACING.md,
-    borderRadius: RADIUS.pill,
-    borderWidth: 1,
-    borderColor: COLORS.accent,
-    backgroundColor: COLORS.surface,
-    marginBottom: SPACING.sm,
-  },
-  btnAdded: {
-    borderColor: COLORS.accentSoft,
-    backgroundColor: COLORS.accentSoft,
   },
   text: { fontSize: FONT.caption, fontWeight: WEIGHT.bold, color: COLORS.accent },
   textAdded: { color: COLORS.accentText },
