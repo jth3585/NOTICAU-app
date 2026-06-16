@@ -94,22 +94,28 @@ export function AddToCalendarButton({ notice, deadlineAt }: { notice: Notice; de
   return (
     <Animated.View style={[styles.btn, containerStyle]}>
       <TouchableOpacity onPress={onPress} disabled={busy} activeOpacity={0.7} style={styles.inner}>
-        {busy ? (
-          <ActivityIndicator size="small" color={added ? COLORS.accentText : COLORS.accent} />
-        ) : added ? (
-          <CheckIcon size={18} color={COLORS.accentText} />
-        ) : removedFlash ? (
-          <TrashIcon size={18} color={COLORS.danger} />
-        ) : (
-          <CalendarIcon size={18} color={COLORS.accent} />
-        )}
-        {added ? (
-          <Text style={[styles.text, styles.textAdded]}>캘린더에 추가됨</Text>
-        ) : (
-          <Animated.Text style={[styles.text, { color: textColor }]}>
-            {removedFlash ? '삭제됨' : '캘린더에 추가'}
-          </Animated.Text>
-        )}
+        <View style={styles.iconBox}>
+          {busy ? (
+            <ActivityIndicator size="small" color={added ? COLORS.accentText : COLORS.accent} />
+          ) : added ? (
+            <CheckIcon size={18} color={COLORS.accentText} />
+          ) : removedFlash ? (
+            <TrashIcon size={18} color={COLORS.danger} />
+          ) : (
+            <CalendarIcon size={18} color={COLORS.accent} />
+          )}
+        </View>
+        <View style={styles.labelBox}>
+          {/* 폭 고정용 투명 sizer(가장 긴 라벨) — 세 상태 박스 크기 통일 */}
+          <Text style={[styles.text, styles.labelSizer]} numberOfLines={1}>캘린더에 추가됨</Text>
+          {added ? (
+            <Text style={[styles.text, styles.textAdded, styles.labelOverlay]} numberOfLines={1}>캘린더에 추가됨</Text>
+          ) : (
+            <Animated.Text style={[styles.text, styles.labelOverlay, { color: textColor }]} numberOfLines={1}>
+              {removedFlash ? '삭제됨' : '캘린더에 추가'}
+            </Animated.Text>
+          )}
+        </View>
       </TouchableOpacity>
     </Animated.View>
   );
@@ -132,4 +138,8 @@ const styles = StyleSheet.create({
   },
   text: { fontSize: FONT.caption, fontWeight: WEIGHT.bold, color: COLORS.accent },
   textAdded: { color: COLORS.accentText },
+  iconBox: { width: 20, alignItems: 'center', justifyContent: 'center' },
+  labelBox: { justifyContent: 'center' },
+  labelSizer: { opacity: 0 }, // 폭만 차지하고 보이지 않음
+  labelOverlay: { position: 'absolute', left: 0, right: 0, textAlign: 'center' },
 });
