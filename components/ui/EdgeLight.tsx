@@ -16,11 +16,24 @@ const AnimatedRect = Animated.createAnimatedComponent(Rect);
 
 type Props = { radius?: number; strokeWidth?: number; duration?: number; streaks?: number };
 
+// 빛줄기 한 가닥을 구성하는 레이어들. 모두 같은 시작 edge를 공유하므로(같은 dashoffset),
+// 짧고 밝은 "머리"가 선두에 서고 긴 레이어일수록 뒤로 옅게 깔려 코멧 꼬리를 만든다.
+//  - len: 줄기 1개 주기(period) 대비 길이 비율
+//  - wMul: strokeWidth 배수 (코어는 얇게, 글로우는 넓게)
+//  - op: 불투명도
+const LAYERS = [
+  { len: 0.06, wMul: 2.8, op: 0.10 }, // 머리 주변 부드러운 글로우 (넓고 옅음)
+  { len: 0.28, wMul: 0.7, op: 0.07 }, // 가장 긴 꼬리
+  { len: 0.16, wMul: 0.7, op: 0.15 },
+  { len: 0.08, wMul: 0.8, op: 0.34 },
+  { len: 0.03, wMul: 1.0, op: 0.98 }, // 밝은 머리 코어 (짧고 진함) — 맨 위에 그림
+] as const;
+
 // 부모(보통 AI 요약 박스) 위에 절대배치되어, 마운트(=화면 진입) 시 한 번만
-// 빛 줄기가 테두리를 한 바퀴 돌고 사라지는 엣지라이팅 효과.
+// 얇은 빛줄기가 테두리를 한 바퀴 돌고 사라지는 엣지라이팅 효과.
 // streaks=2 면 정반대(180°)에 두 줄기가 대칭으로 돈다.
 // 동작 줄이기(Reduce Motion) 활성 기기에선 렌더하지 않음.
-export function EdgeLight({ radius = RADIUS.box, strokeWidth = 2, duration = 1200, streaks = 2 }: Props) {
+export function EdgeLight({ radius = RADIUS.box, strokeWidth = 1.5, duration = 1400, streaks = 2 }: Props) {
   const [size, setSize] = useState({ w: 0, h: 0 });
   const reduced = useReducedMotion();
   const offset = useSharedValue(0);
@@ -34,7 +47,6 @@ export function EdgeLight({ radius = RADIUS.box, strokeWidth = 2, duration = 120
   const perimeter = rw > 0 && rh > 0 ? 2 * (rw + rh) - 8 * radius + 2 * Math.PI * radius : 0;
   // dash 주기 = 둘레 / 줄기수 → 줄기들이 균등(2개면 정반대)하게 배치됨
   const period = streaks > 0 ? perimeter / streaks : perimeter;
-  const seg = period * 0.32; // 각 줄기 길이 (주기의 ~32%)
 
   useEffect(() => {
     if (reduced || perimeter <= 0 || played.current) return;
@@ -69,20 +81,28 @@ export function EdgeLight({ radius = RADIUS.box, strokeWidth = 2, duration = 120
               <Stop offset="1" stopColor={COLORS.accentGradient[2]} />
             </LinearGradient>
           </Defs>
-          <AnimatedRect
-            x={sw / 2}
-            y={sw / 2}
-            width={rw}
-            height={rh}
-            rx={radius}
-            ry={radius}
-            fill="none"
-            stroke="url(#edgeLight)"
-            strokeWidth={sw}
-            strokeLinecap="round"
-            strokeDasharray={`${seg} ${period - seg}`}
-            animatedProps={rectProps}
-          />
+          {LAYERS.map((l, i) => {
+            const w = sw * l.wMul;
+            const seg = period * l.len;
+            return (
+              <AnimatedRect
+                key={i}
+                x={w / 2}
+                y={w / 2}
+                width={Math.max(0, size.w - w)}
+                height={Math.max(0, size.h - w)}
+                rx={radius}
+                ry={radius}
+                fill="none"
+                stroke="url(#edgeLight)"
+                strokeWidth={w}
+                strokeOpacity={l.op}
+                strokeLinecap="round"
+                strokeDasharray={`${seg} ${period - seg}`}
+                animatedProps={rectProps}
+              />
+            );
+          })}
         </Svg>
       ) : null}
     </Animated.View>
