@@ -1,7 +1,8 @@
 import { useEffect, useRef, useState } from 'react';
 import * as SplashScreen from 'expo-splash-screen';
-import { NavigationContainer } from '@react-navigation/native';
+import { NavigationContainer, createNavigationContainerRef } from '@react-navigation/native';
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
+import * as Notifications from 'expo-notifications';
 import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
@@ -14,6 +15,7 @@ import { BookmarkIcon } from './components/ui/BookmarkIcon';
 import { ensureAnonSession } from './lib/auth';
 import { migrateLocalToDB } from './lib/migrate';
 import { setupPushNotifications } from './lib/push';
+import { fetchNoticeById } from './lib/notices';
 import { supabase } from './lib/supabase';
 import OnboardingNavigator from './screens/onboarding/OnboardingNavigator';
 import ProfileEditScreen from './screens/ProfileEditScreen';
@@ -37,6 +39,36 @@ const MIN_SPLASH_MS = 1500; // 콜드 스타트 스플래시 최소 표시 시�
 
 const Stack = createNativeStackNavigator<RootStackParamList>();
 const Tab = createBottomTabNavigator<TabParamList>();
+
+// 알림 탭 → 화면 이동을 위한 네비게이션 ref (스크린 밖에서 navigate 하기 위함)
+export const navigationRef = createNavigationContainerRef<RootStackParamList>();
+
+async function waitUntilNavReady(timeoutMs = 5000): Promise<boolean> {
+  const start = Date.now();
+  while (!navigationRef.isReady()) {
+    if (Date.now() - start > timeoutMs) return false;
+    await new Promise((r) => setTimeout(r, 100));
+  }
+  return true;
+}
+
+// 알림 응답(탭) → 적절한 화면으로 라우팅.
+// keyword: 매칭 공지 1건이면 바로 Detail, 여러 건이면 홈 키워드매치 탭. digest(브리핑) 등은 무시(앱만 열림).
+async function routeFromNotificationData(data: any): Promise<void> {
+  if (!data || data.type !== 'keyword') return;
+  const ids: string[] = Array.isArray(data.noticeIds) ? data.noticeIds : [];
+  if (!(await waitUntilNavReady())) return;
+
+  if (ids.length === 1) {
+    const notice = await fetchNoticeById(ids[0]);
+    if (notice) {
+      navigationRef.navigate('Detail', { notice });
+      return;
+    }
+  }
+  // 0건(조회 실패 포함) 또는 여러 건 → 홈 키워드매치 탭으로
+  (navigationRef.navigate as any)('Tabs', { screen: 'Home', params: { tab: 'keyword' } });
+}
 
 type TabIconComponent = (props: { size?: number; color: string }) => React.ReactElement;
 
@@ -126,6 +158,18 @@ export default function App() {
     })();
   }, []);
 
+  // 알림 탭 라우팅: 앱 실행 중(워밍) 리스너 + 콜드 스타트(앱이 알림으로 열림) 처리
+  useEffect(() => {
+    const sub = Notifications.addNotificationResponseReceivedListener((resp) => {
+      routeFromNotificationData(resp.notification.request.content.data);
+    });
+    // 콜드 스타트: 앱을 띄운 마지막 알림 응답이 있으면 라우팅
+    Notifications.getLastNotificationResponseAsync().then((resp) => {
+      if (resp) routeFromNotificationData(resp.notification.request.content.data);
+    });
+    return () => sub.remove();
+  }, []);
+
   if (!ready) {
     return (
       <SafeAreaProvider>
@@ -138,7 +182,7 @@ export default function App() {
     <GestureHandlerRootView style={{ flex: 1 }}>
       <SafeAreaProvider>
         <StatusBar style="dark" />
-        <NavigationContainer>
+        <NavigationContainer ref={navigationRef}>
           <Stack.Navigator
             screenOptions={{ headerShown: false }}
             initialRouteName={hasProfile ? 'Tabs' : 'Onboarding'}

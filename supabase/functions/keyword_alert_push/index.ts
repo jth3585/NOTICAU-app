@@ -185,8 +185,10 @@ Deno.serve(async (req) => {
       ? `키워드 '${rep}' 매칭 공지 ${K}개`
       : `키워드 '${rep}' 외 ${distinctKw - 1}개 매칭 공지 ${K}개`;
 
+    // 딥링크용: 매칭 공지 id (1개면 앱에서 바로 해당 글로, 여러 개면 키워드매치 탭으로)
+    const noticeIds = [...matchedNoticeIds].slice(0, 20);
     for (const token of tokens) {
-      messages.push({ to: token, sound: "default", title: "키워드 알림", body });
+      messages.push({ to: token, sound: "default", title: "키워드 알림", body, data: { type: "keyword", noticeIds } });
     }
     sentUserIds.push(uid);
   }

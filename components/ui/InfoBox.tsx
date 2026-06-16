@@ -2,6 +2,7 @@ import type { ReactNode } from 'react';
 import { StyleSheet, View } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { COLORS, RADIUS, SPACING } from '../../lib/theme';
+import { EdgeLight } from './EdgeLight';
 
 type Tone = 'gradient' | 'accent' | 'danger' | 'default' | keyof typeof COLORS.categories;
 
@@ -16,7 +17,7 @@ function resolve(tone: Exclude<Tone, 'gradient'>): { bg: string; border: string 
 }
 
 // 좌측 컬러바 없음. 기본값 gradient (AI 콘텐츠 시각 신호).
-export function InfoBox({ children, tone = 'gradient' }: { children: ReactNode; tone?: Tone }) {
+export function InfoBox({ children, tone = 'gradient', edgeLight = false }: { children: ReactNode; tone?: Tone; edgeLight?: boolean }) {
   if (tone === 'gradient') {
     return (
       <LinearGradient
@@ -26,6 +27,7 @@ export function InfoBox({ children, tone = 'gradient' }: { children: ReactNode; 
         style={[styles.box, { borderWidth: 1, borderColor: COLORS.border }]}
       >
         {children}
+        {edgeLight ? <EdgeLight radius={RADIUS.box} /> : null}
       </LinearGradient>
     );
   }

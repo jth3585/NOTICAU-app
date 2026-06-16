@@ -24,6 +24,7 @@ import { formatDateFull, metaOf, sourceOf } from '../lib/format';
 import { CategoryBadge } from '../components/ui/CategoryBadge';
 import { SourceBadge } from '../components/ui/SourceBadge';
 import { DeadlineBox } from '../components/ui/DeadlineBox';
+import { AddToCalendarButton } from '../components/ui/AddToCalendarButton';
 import { SectionHeader } from '../components/ui/SectionHeader';
 import { AttachmentRow } from '../components/ui/AttachmentRow';
 import { InfoBox } from '../components/ui/InfoBox';
@@ -45,6 +46,9 @@ export default function NoticeDetailScreen({ route, navigation }: Props) {
   const src = sourceOf(notice);
   const topic = meta?.topic ?? null;
   const md = meta?.body_markdown ?? null;
+  const deadlineAt = meta?.deadline_at ?? null;
+  // 마감일이 있고 아직 지나지 않은 경우에만 캘린더 추가 버튼 노출 (지난 마감은 무의미)
+  const canAddCalendar = !!deadlineAt && new Date(deadlineAt).getTime() > Date.now();
   const bodyText = notice.body_text ?? '';
   const images = notice.body_image_urls ?? [];
   const attachments = notice.attachment_urls ?? [];
@@ -111,7 +115,8 @@ export default function NoticeDetailScreen({ route, navigation }: Props) {
           {notice.author ? ` · ${notice.author}` : ''}
         </Text>
 
-        <DeadlineBox deadlineAt={meta?.deadline_at ?? null} />
+        <DeadlineBox deadlineAt={deadlineAt} />
+        {canAddCalendar ? <AddToCalendarButton notice={notice} deadlineAt={deadlineAt!} /> : null}
 
         <BodyBlock md={md} bodyText={bodyText} sourceUrl={notice.source_url} onOpen={open} />
 
@@ -198,7 +203,7 @@ function BodyBlock({
     return (
       <View style={styles.bodyWrap}>
         {summary && summaryElements.length > 0 ? (
-          <InfoBox tone="gradient">
+          <InfoBox tone="gradient" edgeLight>
             <View style={styles.summaryLabelRow}>
               <AiSummaryLabel />
             </View>

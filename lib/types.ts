@@ -82,7 +82,8 @@ export type RootStackParamList = {
 };
 
 export type TabParamList = {
-  Home: undefined;
+  // tab: 알림 딥링크로 특정 필터 탭을 열 때 (소비 후 비움)
+  Home: { tab?: 'new' | 'keyword' | 'deadline' } | undefined;
   Feed: undefined;
   Bookmark: undefined;
   MyPage: undefined;

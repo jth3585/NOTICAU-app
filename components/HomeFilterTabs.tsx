@@ -24,15 +24,21 @@ type Props = {
   deadlineList: Notice[];
   keywords: UserKeyword[];
   onPressNotice: (n: Notice) => void;
+  initialTab?: HomeTab | null; // 알림 딥링크로 강제 선택할 탭
 };
 
-export function HomeFilterTabs({ newList, keywordList, deadlineList, keywords, onPressNotice }: Props) {
+export function HomeFilterTabs({ newList, keywordList, deadlineList, keywords, onPressNotice, initialTab }: Props) {
   // 공지가 있는 탭 우선 (새공지 → 키워드매치 → 오늘마감). 없으면 null.
   const firstNonEmpty = (): HomeTab | null =>
     newList.length ? 'new' : keywordList.length ? 'keyword' : deadlineList.length ? 'deadline' : null;
 
-  // 초기 선택: 공지 있는 첫 탭
-  const [tab, setTab] = useState<HomeTab>(() => firstNonEmpty() ?? 'new');
+  // 초기 선택: 딥링크 지정 탭 > 공지 있는 첫 탭
+  const [tab, setTab] = useState<HomeTab>(() => initialTab ?? firstNonEmpty() ?? 'new');
+
+  // 딥링크로 탭이 지정되면(워밍 상태 포함) 해당 탭으로 전환
+  useEffect(() => {
+    if (initialTab) setTab(initialTab);
+  }, [initialTab]);
 
   // 홈 재진입(앱 시작·다른 탭에서 복귀) 시, 현재 탭이 비어 있으면 공지 있는 탭으로 점프.
   useFocusEffect(useCallback(() => {

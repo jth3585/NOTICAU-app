@@ -1,8 +1,8 @@
-import { useCallback } from 'react';
+import { useCallback, useEffect } from 'react';
 import { ActivityIndicator, RefreshControl, ScrollView, StyleSheet, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { LinearGradient } from 'expo-linear-gradient';
-import { useFocusEffect, useNavigation } from '@react-navigation/native';
+import { useFocusEffect, useNavigation, useRoute, type RouteProp } from '@react-navigation/native';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { useDigest } from '../lib/digest';
 import { useHomeFeed } from '../lib/homeFeed';
@@ -10,7 +10,7 @@ import { useLastSeenAt } from '../lib/new-badge';
 import { HomeGreeting } from '../components/HomeGreeting';
 import { HomeFilterTabs } from '../components/HomeFilterTabs';
 import { HomeCuration } from '../components/HomeCuration';
-import type { Notice, RootStackParamList } from '../lib/types';
+import type { Notice, RootStackParamList, TabParamList } from '../lib/types';
 import { COLORS, SPACING } from '../lib/theme';
 
 type Nav = NativeStackNavigationProp<RootStackParamList>;
@@ -20,6 +20,12 @@ const TOP_TINT = ['rgba(74,144,226,0.24)', 'rgba(108,150,235,0.10)', 'transparen
 
 export default function HomeScreen() {
   const navigation = useNavigation<Nav>();
+  const route = useRoute<RouteProp<TabParamList, 'Home'>>();
+  // 알림 딥링크로 전달된 탭(예: 키워드매치). 한 번 소비 후 비워서 재진입 시 고정되지 않게.
+  const requestedTab = route.params?.tab ?? null;
+  useEffect(() => {
+    if (requestedTab) navigation.setParams({ tab: undefined } as never);
+  }, [requestedTab, navigation]);
   const feed = useHomeFeed();
   const {
     notices: digestNotices, loading: digestLoading, loadingMore, allSeen,
@@ -70,6 +76,7 @@ export default function HomeScreen() {
           deadlineList={feed.deadlineList}
           keywords={feed.keywords}
           onPressNotice={onPressNotice}
+          initialTab={requestedTab}
         />
         <HomeCuration
           notices={digestNotices}

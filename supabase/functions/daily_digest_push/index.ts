@@ -171,8 +171,9 @@ Deno.serve(async (req) => {
 
     const body = `오늘 새 공지 ${N}건`;
 
+    // 브리핑은 집계형 → 특정 글 딥링크 없음(앱만 열림). type만 표기.
     for (const token of tokens) {
-      messages.push({ to: token, sound: "default", title: "NOTICAU", body });
+      messages.push({ to: token, sound: "default", title: "NOTICAU", body, data: { type: "digest" } });
     }
     sentUserIds.push(uid);
   }
