@@ -58,7 +58,7 @@ export default function MyPageScreen() {
 
         {/* 프로필 카드 */}
         {profile && (
-          <TouchableOpacity style={styles.profileCard} onPress={() => navigation.navigate('ProfileEdit')} activeOpacity={0.75}>
+          <View style={styles.profileCard}>
             <View style={styles.profileRow}>
               <View style={styles.avatar}><Text style={styles.avatarText}>{profile.grade}학년</Text></View>
               <View style={styles.profileInfo}>
@@ -70,9 +70,8 @@ export default function MyPageScreen() {
                   {profile.is_dormitory ? ' · 기숙사' : ''}
                 </Text>
               </View>
-              <ChevronRightIcon size={18} color={COLORS.textTertiary} />
             </View>
-          </TouchableOpacity>
+          </View>
         )}
 
         {/* 내 설정 */}
