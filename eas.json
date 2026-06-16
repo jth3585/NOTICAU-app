@@ -17,6 +17,11 @@
     "production": {
       "distribution": "store",
       "autoIncrement": true
+    },
+    "production-ci": {
+      "distribution": "store",
+      "autoIncrement": false,
+      "environment": "production"
     }
   },
   "submit": {

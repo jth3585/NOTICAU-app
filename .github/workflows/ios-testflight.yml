@@ -1,0 +1,50 @@
+name: iOS → TestFlight (local build, no EAS build quota)
+
+# 수동 실행 전용. EAS '클라우드 빌드' 횟수를 쓰지 않고,
+# GitHub의 macOS 러너에서 `eas build --local`로 IPA를 만든 뒤
+# `eas submit`(무료)으로 TestFlight에 업로드한다.
+on:
+  workflow_dispatch:
+
+jobs:
+  build-and-submit:
+    runs-on: macos-14
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Install eas-cli
+        run: npm install -g eas-cli
+
+      # ephemeral 러너라 autoIncrement가 유지되지 않으므로,
+      # GitHub run_number로 매번 고유·단조증가하는 buildNumber를 직접 주입.
+      - name: Set unique iOS buildNumber
+        run: |
+          node -e "const fs=require('fs');const p='app.json';const j=JSON.parse(fs.readFileSync(p));j.expo.ios.buildNumber=String(100+${{ github.run_number }});fs.writeFileSync(p,JSON.stringify(j,null,2));console.log('iOS buildNumber =',j.expo.ios.buildNumber);"
+
+      - name: Build IPA locally (no EAS build credit used)
+        env:
+          EXPO_TOKEN: ${{ secrets.EXPO_TOKEN }}
+        run: eas build --local --non-interactive --platform ios --profile production-ci --output "$RUNNER_TEMP/app.ipa"
+
+      - name: Submit to TestFlight (free)
+        env:
+          EXPO_TOKEN: ${{ secrets.EXPO_TOKEN }}
+        run: eas submit --platform ios --profile production --path "$RUNNER_TEMP/app.ipa" --non-interactive
+
+      - name: Upload IPA artifact (백업)
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: ios-ipa
+          path: ${{ runner.temp }}/app.ipa
+          if-no-files-found: ignore
