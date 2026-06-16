@@ -2,7 +2,7 @@ import { useCallback, useEffect, useState } from 'react';
 import { supabase } from './supabase';
 import type { Notice, Profile, UserKeyword } from './types';
 import { metaOf } from './format';
-import { isMismatch } from './matching';
+import { isMismatch, matchKeyword } from './matching';
 
 const NEW_WINDOW_MS = 24 * 60 * 60 * 1000; // "새공지" 윈도우 (최근 24h crawled)
 const KEYWORD_WINDOW_MS = 24 * 60 * 60 * 1000; // "키워드매치" 윈도우 (최근 24h crawled 중 매칭)
@@ -13,13 +13,13 @@ export type HomeTab = 'new' | 'keyword' | 'deadline';
 export function keywordMatches(notice: Notice, keywords: UserKeyword[]): boolean {
   if (keywords.length === 0) return false;
   const hay = `${notice.title} ${notice.body_text ?? ''}`.toLowerCase();
-  return keywords.some((k) => hay.includes(k.keyword.toLowerCase()));
+  return keywords.some((k) => matchKeyword(hay, k.keyword));
 }
 
 // 공지에 매칭된 첫 키워드 (카드 #태그용)
 export function firstMatchedKeyword(notice: Notice, keywords: UserKeyword[]): string | null {
   const hay = `${notice.title} ${notice.body_text ?? ''}`.toLowerCase();
-  const hit = keywords.find((k) => hay.includes(k.keyword.toLowerCase()));
+  const hit = keywords.find((k) => matchKeyword(hay, k.keyword));
   return hit ? hit.keyword : null;
 }
 

@@ -17,7 +17,7 @@ export function SwipeToRemoveBookmark({ onRemove, children }: Props) {
 
   const renderLeftActions = () => (
     <View style={styles.action}>
-      <TrashIcon size={20} color="#fff" />
+      <TrashIcon size={22} color="#fff" />
       <Text style={styles.actionText}>삭제</Text>
     </View>
   );
@@ -45,19 +45,19 @@ export function SwipeToRemoveBookmark({ onRemove, children }: Props) {
   );
 }
 
-const ACTION_W = 96; // 고정 폭 — 스와이프가 이 지점에서 걸려 멈추고(overshootLeft=false) 돌아옴
+const ACTION_W = 140; // 고정 폭 — 이 지점에서 걸려 멈추고(overshootLeft=false) 돌아옴. 추가 스와이프와 동일.
 
 const styles = StyleSheet.create({
   action: {
     width: ACTION_W,
     flexDirection: 'row',
     alignItems: 'center',
-    gap: SPACING.xs,
+    gap: SPACING.sm,
     backgroundColor: COLORS.danger,
     borderRadius: RADIUS.card,
     marginLeft: SPACING.lg,
     marginBottom: SPACING.md,
     paddingLeft: SPACING.lg,
   },
-  actionText: { color: '#fff', fontSize: FONT.micro, fontWeight: WEIGHT.bold },
+  actionText: { color: '#fff', fontSize: FONT.caption, fontWeight: WEIGHT.bold },
 });

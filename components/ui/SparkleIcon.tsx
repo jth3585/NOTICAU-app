@@ -4,7 +4,7 @@ import Svg, { Path } from 'react-native-svg';
 export function SparkleIcon({ size = 14, color }: { size?: number; color: string }) {
   return (
     <Svg width={size} height={size} viewBox="0 0 24 24" fill={color}>
-      <Path d="M12 0 L13.5 9 L22.5 12 L13.5 15 L12 24 L10.5 15 L1.5 12 L10.5 9 Z" />
+      <Path d="M12 1 Q12.9 11.1 23 12 Q12.9 12.9 12 23 Q11.1 12.9 1 12 Q11.1 11.1 12 1 Z" />
     </Svg>
   );
 }

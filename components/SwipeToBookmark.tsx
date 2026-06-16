@@ -19,7 +19,7 @@ export function SwipeToBookmark({ alreadyBookmarked, onBookmark, onAlready, chil
 
   const renderLeftActions = () => (
     <View style={[styles.action, alreadyBookmarked && styles.actionMuted]}>
-      <BookmarkIcon size={20} filled color="#fff" />
+      <BookmarkIcon size={22} filled color="#fff" />
       <Text style={styles.actionText} numberOfLines={1}>{alreadyBookmarked ? '북마크됨' : '북마크'}</Text>
     </View>
   );
@@ -51,14 +51,14 @@ export function SwipeToBookmark({ alreadyBookmarked, onBookmark, onAlready, chil
   );
 }
 
-const ACTION_W = 96; // 고정 폭 — 스와이프가 이 지점에서 걸려 멈추고(overshootLeft=false) 돌아옴
+const ACTION_W = 140; // 고정 폭 — 이 지점에서 걸려 멈추고(overshootLeft=false) 돌아옴. 넉넉한 폭으로 파란 패널이 카드와 이어진 느낌.
 
 const styles = StyleSheet.create({
   action: {
     width: ACTION_W,
     flexDirection: 'row',
     alignItems: 'center',
-    gap: SPACING.xs,
+    gap: SPACING.sm,
     backgroundColor: COLORS.accent,
     borderRadius: RADIUS.card,
     marginLeft: SPACING.lg,
@@ -66,5 +66,5 @@ const styles = StyleSheet.create({
     paddingLeft: SPACING.lg,
   },
   actionMuted: { backgroundColor: COLORS.textTertiary },
-  actionText: { color: '#fff', fontSize: FONT.micro, fontWeight: WEIGHT.bold },
+  actionText: { color: '#fff', fontSize: FONT.caption, fontWeight: WEIGHT.bold },
 });

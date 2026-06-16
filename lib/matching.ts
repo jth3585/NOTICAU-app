@@ -1,5 +1,21 @@
 import type { Notice, NoticeMeta, Profile, Source, UserKeyword } from './types';
 
+function escapeRegex(s: string): string {
+  return s.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+}
+
+// 키워드 매칭: 영문/숫자로만 된 키워드는 단어 경계(\b)로 정밀 매칭하여
+// 영어 단어 내부 부분일치 오탐 방지("ai"가 "Detailed"에 걸리는 문제).
+// 한글이 섞인 키워드는 조사·합성어 때문에 기존 substring 매칭 유지("장학"→"장학금").
+// haystack 은 이미 lower-case 되어 있다고 가정.
+export function matchKeyword(haystack: string, keyword: string): boolean {
+  const kw = keyword.toLowerCase();
+  if (/^[a-z0-9]+$/i.test(keyword)) {
+    return new RegExp(`\\b${escapeRegex(kw)}\\b`, 'i').test(haystack);
+  }
+  return haystack.includes(kw);
+}
+
 const SOURCE_SCORE: Record<string, number> = {
   cau_biz: 35,
   cau_bne: 25,
@@ -66,7 +82,7 @@ export function calculateMatchScore(
     const haystack = `${notice.title} ${notice.body_text ?? ''}`.toLowerCase();
     let matched = 0;
     for (const kw of keywords) {
-      if (haystack.includes(kw.keyword.toLowerCase())) matched++;
+      if (matchKeyword(haystack, kw.keyword)) matched++;
       if (matched >= 2) break;
     }
     if (matched >= 2) score += 35;

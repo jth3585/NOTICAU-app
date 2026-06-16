@@ -15,8 +15,8 @@ import { COLORS, SPACING } from '../lib/theme';
 
 type Nav = NativeStackNavigationProp<RootStackParamList>;
 
-// 상단 소프트 틴트 (블루→보라 → 투명). 상태바+인사말 영역만 은은히 물들이고 필터 탭 전에 사라짐.
-const TOP_TINT = ['rgba(110,140,238,0.22)', 'rgba(150,125,240,0.10)', 'transparent'] as const;
+// 상단 소프트 틴트 (블루 → 투명). 상태바+인사말 영역만 은은히 물들이고 필터 탭 전에 사라짐.
+const TOP_TINT = ['rgba(74,144,226,0.24)', 'rgba(108,150,235,0.10)', 'transparent'] as const;
 
 export default function HomeScreen() {
   const navigation = useNavigation<Nav>();

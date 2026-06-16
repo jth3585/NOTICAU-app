@@ -69,9 +69,23 @@ function isMismatch(
   return false;
 }
 
+function escapeRegex(s: string): string {
+  return s.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+}
+
+// 영문/숫자 키워드는 단어 경계(\b)로 정밀 매칭("ai"가 "Detailed"에 걸리는 오탐 방지),
+// 한글 포함 키워드는 조사·합성어 때문에 substring 유지("장학"→"장학금"). lib/matching.ts 와 동일.
+function matchKeyword(haystack: string, keyword: string): boolean {
+  const kw = keyword.toLowerCase();
+  if (/^[a-z0-9]+$/i.test(keyword)) {
+    return new RegExp(`\\b${escapeRegex(kw)}\\b`, "i").test(haystack);
+  }
+  return haystack.includes(kw);
+}
+
 function noticeHasKeyword(notice: any, keyword: string): boolean {
   const haystack = `${notice.title} ${notice.body_text ?? ""}`.toLowerCase();
-  return haystack.includes(keyword.toLowerCase());
+  return matchKeyword(haystack, keyword);
 }
 
 Deno.serve(async (req) => {
