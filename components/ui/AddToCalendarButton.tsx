@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from 'react';
-import { ActivityIndicator, Alert, Animated, Easing, Linking, StyleSheet, Text, TouchableOpacity } from 'react-native';
+import { ActivityIndicator, Alert, Animated, Easing, Linking, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import { COLORS, FONT, RADIUS, SPACING, WEIGHT } from '../../lib/theme';
 import { CalendarIcon, CheckIcon, TrashIcon } from './icons';
 import { addNoticeToCalendar, getSavedEventId, removeNoticeFromCalendar } from '../../lib/calendar';
