@@ -56,7 +56,16 @@ export function EdgeLight({ radius = RADIUS.box, duration = 1400, streaks = 2 }:
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [perimeter, reduced]);
 
-  const rectProps = useAnimatedProps(() => ({ strokeDashoffset: offset.value }));
+  // 세 레이어가 같은 "앞쪽(leading) edge"를 공유하도록 각 레이어를 꼬리 길이차만큼
+  // 뒤로 민다. 코어(LAYERS[2])를 기준(0)으로, 더 긴 레이어는 그만큼 뒤로 깔려
+  // 밝은 머리가 선두에 서고 꼬리가 뒤로 따라온다. (LAYERS 길이=3 고정 → 훅 수 안정)
+  const coreSeg = period * LAYERS[2].len;
+  const d0 = period * LAYERS[0].len - coreSeg;
+  const d1 = period * LAYERS[1].len - coreSeg;
+  const props0 = useAnimatedProps(() => ({ strokeDashoffset: offset.value + d0 }));
+  const props1 = useAnimatedProps(() => ({ strokeDashoffset: offset.value + d1 }));
+  const props2 = useAnimatedProps(() => ({ strokeDashoffset: offset.value }));
+  const layerProps = [props0, props1, props2];
   const containerStyle = useAnimatedStyle(() => ({ opacity: opacity.value }));
 
   if (reduced) return null;
@@ -89,7 +98,7 @@ export function EdgeLight({ radius = RADIUS.box, duration = 1400, streaks = 2 }:
                 strokeOpacity={l.op}
                 strokeLinecap="round"
                 strokeDasharray={`${seg} ${period - seg}`}
-                animatedProps={rectProps}
+                animatedProps={layerProps[i]}
               />
             );
           })}
