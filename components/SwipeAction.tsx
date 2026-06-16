@@ -5,9 +5,6 @@ import { FONT, RADIUS, SPACING, WEIGHT } from '../lib/theme';
 
 // 카드가 좌→우로 열리며 멈추는(걸리는) 거리. 이 폭이 곧 RNGH의 leftWidth.
 const OPEN_W = 140;
-// 패널은 OPEN_W보다 훨씬 길게 그려서 오른쪽 끝(둥근 모서리)이 카드 밑으로 숨는다.
-// → 어느 지점까지 밀어도 카드와 패널 사이에 틈/모서리가 보이지 않음.
-const PANEL_W = OPEN_W + 240;
 
 type Props = {
   icon: React.ReactNode; // 흰색 아이콘
@@ -18,17 +15,25 @@ type Props = {
 };
 
 // 북마크 추가/삭제 공용 스와이프. 좌→우로 임계값을 넘겨 손을 떼면 onTrigger 실행 후
-// 곧바로 원위치로 스프링백. 액션 패널은 카드 밑까지 연장되어 항상 카드와 이어진 느낌.
+// 곧바로 원위치로 스프링백.
+//
+// 액션 패널은 카드 본체(불투명 영역)와 동일한 inset의 클립 박스 안에서 꽉 채워진다.
+//  - 클립이 카드 좌우 여백(marginHorizontal)과 같아서 → 닫힐 때 카드 오른쪽 여백
+//    틈으로 패널이 비쳐 튀어나오지 않음.
+//  - 클립 안을 패널이 가득 채워서 → 열 때 카드 왼쪽 가장자리까지 솔리드 컬러라
+//    오른쪽 모서리 잔상이 보이지 않음.
 export function SwipeAction({ icon, label, color, onTrigger, children }: Props) {
   const ref = useRef<SwipeableMethods>(null);
   const handled = useRef(false);
 
   const renderLeftActions = () => (
     <>
-      {/* 실제 색 패널: 절대배치로 카드 밑까지 연장 (오른쪽 모서리 가려짐) */}
-      <View style={[styles.panel, { backgroundColor: color }]}>
-        {icon}
-        <Text style={styles.label} numberOfLines={1}>{label}</Text>
+      {/* 카드 본체에 맞춘 클립 박스 (좌우 여백·반경 동일, overflow hidden) */}
+      <View style={styles.clip}>
+        <View style={[styles.panel, { backgroundColor: color }]}>
+          {icon}
+          <Text style={styles.label} numberOfLines={1}>{label}</Text>
+        </View>
       </View>
       {/* 측정용 스페이서: 이 폭이 곧 열리는 거리(leftWidth) */}
       <View style={styles.sizer} pointerEvents="none" />
@@ -62,17 +67,21 @@ export function SwipeAction({ icon, label, color, onTrigger, children }: Props) 
 }
 
 const styles = StyleSheet.create({
-  panel: {
+  clip: {
     position: 'absolute',
-    left: SPACING.lg,
+    left: SPACING.lg,   // 카드 marginHorizontal과 동일 → 오른쪽 여백으로 안 비침
+    right: SPACING.lg,
     top: 0,
-    bottom: SPACING.md, // 카드 하단 여백과 맞춤
-    width: PANEL_W,
+    bottom: SPACING.md, // 카드 marginBottom과 동일
+    borderRadius: RADIUS.card,
+    overflow: 'hidden',
+  },
+  panel: {
+    ...StyleSheet.absoluteFillObject, // 클립을 가득 채움
     flexDirection: 'row',
     alignItems: 'center',
     gap: SPACING.sm,
     paddingLeft: SPACING.lg,
-    borderRadius: RADIUS.card,
   },
   sizer: { width: OPEN_W },
   label: { color: '#fff', fontSize: FONT.caption, fontWeight: WEIGHT.bold },
