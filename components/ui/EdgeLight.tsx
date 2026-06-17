@@ -10,7 +10,7 @@ import {
   withTiming,
 } from 'react-native-reanimated';
 import { BlurMask, Canvas, DashPathEffect, Group, Path, Skia, SweepGradient, rect, rrect, vec } from '@shopify/react-native-skia';
-import { RADIUS } from '../../lib/theme';
+import { RADIUS, SPACING } from '../../lib/theme';
 
 type Props = { radius?: number; duration?: number };
 
@@ -18,8 +18,11 @@ type Props = { radius?: number; duration?: number };
 // sweep이 매끄럽게 닫히도록 끝을 시작색으로 복귀.
 const GRADIENT = ['#5B9BF0', '#9B7BF0', '#5B9BF0'];
 
-// 캔버스를 박스보다 이만큼 키워 바깥쪽 블룸이 잘리지 않게 (음수 inset).
+// 박스 테두리 바깥쪽 블룸용 여유.
 const PAD = 16;
+// EdgeLight는 부모(InfoBox) padding 안쪽 content box 기준으로 절대배치되므로,
+// 박스 "테두리"에 맞추려면 부모 padding(SPACING.lg)만큼 더 바깥으로 빼고 + 블룸 여유(PAD).
+const EDGE_INSET = SPACING.lg + PAD;
 
 // 부모(AI 요약 박스) 위에 절대배치. 마운트(=화면 진입) 시 한 번:
 //   두 줄기 빛이 박스 테두리(모서리 라인)를 따라 돌고 → 페이드아웃.
@@ -68,7 +71,7 @@ export function EdgeLight({ radius = RADIUS.box, duration = 1600 }: Props) {
   return (
     <View
       pointerEvents="none"
-      style={{ position: 'absolute', top: -PAD, left: -PAD, right: -PAD, bottom: -PAD }}
+      style={{ position: 'absolute', top: -EDGE_INSET, left: -EDGE_INSET, right: -EDGE_INSET, bottom: -EDGE_INSET }}
       onLayout={(e: LayoutChangeEvent) => {
         const { width, height } = e.nativeEvent.layout;
         if (width !== size.w || height !== size.h) setSize({ w: width, h: height });
