@@ -1,4 +1,4 @@
-import { ActivityIndicator, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import { StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import type { Notice } from '../lib/types';
 import { NoticeCard } from './NoticeCard';
 import { COLORS, FONT, RADIUS, SPACING, TEXT, WEIGHT } from '../lib/theme';
@@ -7,14 +7,13 @@ import { ChevronRightIcon } from './ui/icons';
 
 type Props = {
   notices: Notice[];
-  loadingMore: boolean;
   allSeen: boolean;
-  onLoadMore: () => void;
+  onGoToAll: () => void;        // 전체 공지 탭으로 이동
   onPressNotice: (n: Notice) => void;
   isNew: (postedAt: string | null) => boolean;
 };
 
-export function HomeCuration({ notices, loadingMore, allSeen, onLoadMore, onPressNotice, isNew }: Props) {
+export function HomeCuration({ notices, allSeen, onGoToAll, onPressNotice, isNew }: Props) {
   return (
     <View style={styles.section}>
       <Text style={styles.label}>AI 큐레이션</Text>
@@ -22,12 +21,13 @@ export function HomeCuration({ notices, loadingMore, allSeen, onLoadMore, onPres
       {allSeen ? (
         <View style={styles.doneCard}>
           <View style={styles.doneTitleRow}>
-            <Text style={styles.doneTitle}>오늘 다 확인했어요</Text>
+            <Text style={styles.doneTitle}>오늘 추천 공지를 다 읽었어요</Text>
             <SparkleIcon size={16} color={COLORS.accent} />
           </View>
-          <Text style={styles.doneSub}>매일 새 추천이 준비돼요</Text>
-          <TouchableOpacity style={styles.moreBtn} onPress={onLoadMore} disabled={loadingMore} activeOpacity={0.75}>
-            {loadingMore ? <ActivityIndicator color="#fff" /> : <Text style={styles.moreBtnText}>추천 더보기</Text>}
+          <Text style={styles.doneSub}>전체 공지에서 더 둘러보세요</Text>
+          <TouchableOpacity style={styles.moreBtn} onPress={onGoToAll} activeOpacity={0.75}>
+            <Text style={styles.moreBtnText}>전체 공지 보기</Text>
+            <ChevronRightIcon size={16} color="#fff" />
           </TouchableOpacity>
         </View>
       ) : (
@@ -40,16 +40,6 @@ export function HomeCuration({ notices, loadingMore, allSeen, onLoadMore, onPres
               onPress={() => onPressNotice(item)}
             />
           ))}
-          <TouchableOpacity style={styles.moreBtnRow} onPress={onLoadMore} disabled={loadingMore} activeOpacity={0.7}>
-            {loadingMore ? (
-              <ActivityIndicator color={COLORS.accent} />
-            ) : (
-              <View style={styles.moreCardInner}>
-                <Text style={styles.moreCardText}>더보기</Text>
-                <ChevronRightIcon size={16} color={COLORS.accentText} />
-              </View>
-            )}
-          </TouchableOpacity>
         </View>
       )}
     </View>
@@ -62,17 +52,6 @@ const styles = StyleSheet.create({
     ...TEXT.sectionLabel,
     paddingHorizontal: SPACING.lg, paddingBottom: SPACING.lg,
   },
-  moreBtnRow: {
-    marginHorizontal: SPACING.lg,
-    marginTop: SPACING.xs,
-    paddingVertical: SPACING.md,
-    backgroundColor: COLORS.surface,
-    borderRadius: RADIUS.card,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  moreCardInner: { flexDirection: 'row', alignItems: 'center', gap: SPACING.xs },
-  moreCardText: { fontSize: FONT.body, color: COLORS.accentText, fontWeight: WEIGHT.semibold },
   doneCard: {
     marginHorizontal: SPACING.lg,
     backgroundColor: COLORS.surface,
@@ -86,12 +65,15 @@ const styles = StyleSheet.create({
   doneSub: { fontSize: FONT.caption, color: COLORS.textSecondary },
   moreBtn: {
     marginTop: SPACING.sm,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: SPACING.xs,
     backgroundColor: COLORS.accent,
     borderRadius: RADIUS.card,
     paddingVertical: SPACING.sm,
     paddingHorizontal: SPACING.xl,
     minWidth: 140,
-    alignItems: 'center',
+    justifyContent: 'center',
   },
   moreBtnText: { fontSize: FONT.body, fontWeight: WEIGHT.bold, color: '#fff' },
 });

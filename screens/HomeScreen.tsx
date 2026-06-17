@@ -28,8 +28,8 @@ export default function HomeScreen() {
   }, [requestedTab, navigation]);
   const feed = useHomeFeed();
   const {
-    notices: digestNotices, loading: digestLoading, loadingMore, allSeen,
-    refresh: digestRefresh, loadMore, syncReadIds, markReadLocal,
+    notices: digestNotices, loading: digestLoading, allSeen,
+    refresh: digestRefresh, syncReadIds, markReadLocal,
   } = useDigest();
   const { lastSeenAt } = useLastSeenAt();
 
@@ -54,6 +54,11 @@ export default function HomeScreen() {
     markReadLocal(n.id);
     navigation.navigate('Detail', { notice: n });
   }, [markReadLocal, navigation]);
+
+  // 추천을 다 읽으면 전체 공지 탭으로 이동.
+  const onGoToAll = useCallback(() => {
+    navigation.navigate('Feed' as never);
+  }, [navigation]);
 
   if (feed.loading || digestLoading) {
     return (
@@ -86,9 +91,8 @@ export default function HomeScreen() {
         />
         <HomeCuration
           notices={digestNotices}
-          loadingMore={loadingMore}
           allSeen={allSeen}
-          onLoadMore={loadMore}
+          onGoToAll={onGoToAll}
           onPressNotice={onPressCuration}
           isNew={isNew}
         />
