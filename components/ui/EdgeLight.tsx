@@ -54,12 +54,12 @@ export function EdgeLight({ radius = RADIUS.box, duration = 1600 }: Props) {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [perimeter, reduced]);
 
-  // 두 줄기: 주기를 둘레/2로 두면 dash가 둘레에 2개 배치됨(정반대). phase를 이동시켜 함께 돈다.
+  // 두 막대(긴 줄기): 주기를 둘레/2로 두고 dash를 길게 → 두 막대가 테두리를 거의 다 채우고
+  // 작은 틈 2개만 돌아다닌다. phase 이동으로 천천히 회전.
   const half = perimeter / 2;
-  const seg = perimeter * 0.09;            // 각 줄기 길이
+  const seg = perimeter * 0.45;            // 각 막대 길이(틈은 약 5%씩)
   const intervals = perimeter > 0 ? [seg, Math.max(1, half - seg)] : [1, 1];
-  // 1.5바퀴 돌고 끝 (자연스러운 흐름)
-  const phase = useDerivedValue(() => -progress.value * perimeter * 1.5);
+  const phase = useDerivedValue(() => -progress.value * perimeter);
   const groupOpacity = useDerivedValue(() => opacity.value);
   const center = vec(size.w / 2, size.h / 2);
 
@@ -77,17 +77,17 @@ export function EdgeLight({ radius = RADIUS.box, duration = 1600 }: Props) {
       {boxW > 0 && boxH > 0 ? (
         <Canvas style={StyleSheet.absoluteFill}>
           <Group opacity={groupOpacity}>
-            {/* 바깥 블룸: 넓은 선 + 강한 블러 */}
-            <Path path={path} style="stroke" strokeWidth={4} strokeCap="round" opacity={0.45}>
+            {/* 바깥 블룸: 넓고 부드러운 글로우 */}
+            <Path path={path} style="stroke" strokeWidth={3} strokeCap="round" opacity={0.55}>
               <SweepGradient c={center} colors={GRADIENT} />
               <DashPathEffect intervals={intervals} phase={phase} />
               <BlurMask blur={10} style="solid" />
             </Path>
-            {/* 코어: 얇고 선명한 선 + 약한 블러 */}
-            <Path path={path} style="stroke" strokeWidth={1.4} strokeCap="round">
+            {/* 코어: 얇은 선 + 부드럽게 (블러>두께 → 생 막대 아닌 부드러운 빛) */}
+            <Path path={path} style="stroke" strokeWidth={1} strokeCap="round" opacity={0.9}>
               <SweepGradient c={center} colors={GRADIENT} />
               <DashPathEffect intervals={intervals} phase={phase} />
-              <BlurMask blur={1.5} style="solid" />
+              <BlurMask blur={3} style="solid" />
             </Path>
           </Group>
         </Canvas>
