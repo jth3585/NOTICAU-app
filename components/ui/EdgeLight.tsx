@@ -14,8 +14,9 @@ import { RADIUS } from '../../lib/theme';
 
 type Props = { radius?: number; duration?: number };
 
-// 테두리를 도는 빛의 그라데이션(브랜드 블루~인디고~시안).
-const GRADIENT = ['#6E8CEE', '#4A90E2', '#46C2E8', '#6E8CEE'];
+// 테두리를 도는 빛의 그라데이션 — AI 요약 라벨과 동일한 파랑→보라 (#5B9BF0 → #9B7BF0).
+// sweep이 매끄럽게 닫히도록 끝을 시작색으로 복귀.
+const GRADIENT = ['#5B9BF0', '#9B7BF0', '#5B9BF0'];
 
 // 캔버스를 박스보다 이만큼 키워 바깥쪽 블룸이 잘리지 않게 (음수 inset).
 const PAD = 16;
