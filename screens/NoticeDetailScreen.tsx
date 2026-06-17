@@ -34,6 +34,7 @@ import { useBookmark } from '../lib/bookmarks';
 import { BookmarkIcon } from '../components/ui/BookmarkIcon';
 import { ShareIcon } from '../components/ui/ShareIcon';
 import { markAsRead } from '../lib/read';
+import { supabase } from '../lib/supabase';
 
 type Props = NativeStackScreenProps<RootStackParamList, 'Detail'>;
 
@@ -45,7 +46,9 @@ export default function NoticeDetailScreen({ route, navigation }: Props) {
   const meta = metaOf(notice);
   const src = sourceOf(notice);
   const topic = meta?.topic ?? null;
-  const md = meta?.body_markdown ?? null;
+  // body_markdown은 목록 쿼리에서 제외(페이로드 절감)되므로 상세에서 지연 로드.
+  // 딥링크 등으로 이미 들어온 경우(meta.body_markdown 존재)엔 추가 패치 없음.
+  const [md, setMd] = useState<string | null>(meta?.body_markdown ?? null);
   const deadlineAt = meta?.deadline_at ?? null;
   // 마감일이 있고 아직 지나지 않은 경우에만 캘린더 추가 버튼 노출 (지난 마감은 무의미)
   const canAddCalendar = !!deadlineAt && new Date(deadlineAt).getTime() > Date.now();
@@ -59,6 +62,16 @@ export default function NoticeDetailScreen({ route, navigation }: Props) {
 
   // 상세 진입 시 자동 읽음 처리
   useEffect(() => { markAsRead(notice.id); }, [notice.id]);
+
+  // body_markdown 지연 로드 (목록에서 제외됨). 없을 때만 단건 조회.
+  useEffect(() => {
+    if (md != null) return;
+    let alive = true;
+    supabase.from('notice_meta').select('body_markdown').eq('notice_id', notice.id).maybeSingle()
+      .then(({ data }) => { if (alive && data?.body_markdown) setMd(data.body_markdown); });
+    return () => { alive = false; };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [notice.id]);
 
   // 공유: 제목 + 출처 + 원문 링크 + 노티카우 출처 표기
   const onShare = async () => {

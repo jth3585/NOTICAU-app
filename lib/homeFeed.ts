@@ -3,6 +3,7 @@ import { supabase } from './supabase';
 import type { Notice, Profile, UserKeyword } from './types';
 import { metaOf } from './format';
 import { isMismatch, matchKeyword } from './matching';
+import { NOTICE_LIST_SELECT } from './notices';
 
 const NEW_WINDOW_MS = 24 * 60 * 60 * 1000; // "새공지" 윈도우 (최근 24h crawled)
 const KEYWORD_WINDOW_MS = 24 * 60 * 60 * 1000; // "키워드매치" 윈도우 (최근 24h crawled 중 매칭)
@@ -50,7 +51,7 @@ export function useHomeFeed() {
       supabase.from('profiles').select('*').eq('user_id', session.user.id).maybeSingle(),
       supabase.from('user_keywords').select('*').eq('user_id', session.user.id),
       supabase.from('user_category_prefs').select('topic,is_enabled').eq('user_id', session.user.id),
-      supabase.from('notices').select('*, notice_meta(*), sources(parser_key, name)').order('posted_at', { ascending: false }).limit(300),
+      supabase.from('notices').select(NOTICE_LIST_SELECT).order('posted_at', { ascending: false }).limit(300),
     ]);
 
     const profile = profileRes.data as Profile | null;

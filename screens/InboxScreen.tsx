@@ -20,6 +20,7 @@ import { SearchIcon } from '../components/ui/SearchIcon';
 import { SortIcon } from '../components/ui/SortIcon';
 import { CloseIcon, CheckIcon } from '../components/ui/icons';
 import { useReadSet } from '../lib/read';
+import { NOTICE_LIST_SELECT } from '../lib/notices';
 import { useBookmarkSet, addBookmark } from '../lib/bookmarks';
 import { lightHaptic, softHaptic } from '../lib/haptics';
 import { useLastSeenAt, touchLastSeenAt } from '../lib/new-badge';
@@ -103,7 +104,7 @@ export default function InboxScreen() {
   const loadNotices = useCallback(async () => {
     const { data, error } = await supabase
       .from('notices')
-      .select('*, notice_meta(*), sources(parser_key, name)')
+      .select(NOTICE_LIST_SELECT)
       .order('posted_at', { ascending: false })
       .limit(100);
     if (error) { setError(error.message); return; }
@@ -131,7 +132,7 @@ export default function InboxScreen() {
         if (!rpcErr && ids && ids.length > 0) {
           const { data } = await supabase
             .from('notices')
-            .select('*, notice_meta(*), sources(parser_key, name)')
+            .select(NOTICE_LIST_SELECT)
             .in('id', (ids as { id: string }[]).map((r) => r.id))
             .order('posted_at', { ascending: false });
           setSearchResults((data ?? []) as Notice[]);
@@ -140,7 +141,7 @@ export default function InboxScreen() {
         } else {
           const { data } = await supabase
             .from('notices')
-            .select('*, notice_meta(*), sources(parser_key, name)')
+            .select(NOTICE_LIST_SELECT)
             .ilike('title', `%${query.trim()}%`)
             .order('posted_at', { ascending: false })
             .limit(50);
