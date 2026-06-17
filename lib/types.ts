@@ -9,7 +9,8 @@ export type NoticeMeta = {
   notice_id: string;
   topic: string | null;
   action: string | null;
-  deadline_at: string | null;
+  apply_start_at: string | null; // 신청 시작일 (없으면 null). now<이 값이면 "신청 D-N"
+  deadline_at: string | null;    // 신청 마감/종료
   target_grades: number[] | null;
   target_depts: string[] | null;
   target_campuses: string[] | null;

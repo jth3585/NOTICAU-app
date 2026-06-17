@@ -50,6 +50,7 @@ export default function NoticeDetailScreen({ route, navigation }: Props) {
   // 딥링크 등으로 이미 들어온 경우(meta.body_markdown 존재)엔 추가 패치 없음.
   const [md, setMd] = useState<string | null>(meta?.body_markdown ?? null);
   const deadlineAt = meta?.deadline_at ?? null;
+  const applyStartAt = meta?.apply_start_at ?? null;
   // 마감일이 있고 아직 지나지 않은 경우에만 캘린더 추가 버튼 노출 (지난 마감은 무의미)
   const canAddCalendar = !!deadlineAt && new Date(deadlineAt).getTime() > Date.now();
   const bodyText = notice.body_text ?? '';
@@ -128,7 +129,7 @@ export default function NoticeDetailScreen({ route, navigation }: Props) {
           {notice.author ? ` · ${notice.author}` : ''}
         </Text>
 
-        <DeadlineBox deadlineAt={deadlineAt} />
+        <DeadlineBox applyStartAt={applyStartAt} deadlineAt={deadlineAt} />
         {canAddCalendar ? <AddToCalendarButton notice={notice} deadlineAt={deadlineAt!} /> : null}
 
         <BodyBlock md={md} bodyText={bodyText} sourceUrl={notice.source_url} onOpen={open} />
