@@ -366,6 +366,17 @@ class BaseRenderer extends Renderer {
     );
   }
 
+  // 문단을 View가 아닌 "단일 selectable Text"로 감싼다. 라이브러리 기본은 children을
+  // View로 감싸 inline Text들이 형제로 쪼개지는데(→ iOS에서 조각 단위로만 선택), 하나의
+  // Text로 묶으면 굵은 글씨를 포함한 문단 전체를 드래그로 영역 선택·복사할 수 있다.
+  paragraph(children: any, styles?: any): any {
+    return (
+      <Text key={this.getKey()} selectable style={styles} lineBreakStrategyIOS="hangul-word">
+        {children}
+      </Text>
+    );
+  }
+
   // strong 포함 항목: 마커 제거(lineHeight 충돌 방지) + 들여쓰기
   // strong 없는 항목: • 마커 정상 표시
   list(ordered: boolean, li: any[], _ls?: any, _ts?: any, startIndex?: number): any {
