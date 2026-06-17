@@ -77,16 +77,16 @@ export function EdgeLight({ radius = RADIUS.box, duration = 1600 }: Props) {
         <Canvas style={StyleSheet.absoluteFill}>
           <Group opacity={groupOpacity}>
             {/* 바깥 블룸: 넓은 선 + 강한 블러 */}
-            <Path path={path} style="stroke" strokeWidth={6} strokeCap="round" opacity={0.45}>
+            <Path path={path} style="stroke" strokeWidth={4} strokeCap="round" opacity={0.45}>
               <SweepGradient c={center} colors={GRADIENT} />
               <DashPathEffect intervals={intervals} phase={phase} />
-              <BlurMask blur={12} style="solid" />
+              <BlurMask blur={10} style="solid" />
             </Path>
             {/* 코어: 얇고 선명한 선 + 약한 블러 */}
-            <Path path={path} style="stroke" strokeWidth={2.5} strokeCap="round">
+            <Path path={path} style="stroke" strokeWidth={1.4} strokeCap="round">
               <SweepGradient c={center} colors={GRADIENT} />
               <DashPathEffect intervals={intervals} phase={phase} />
-              <BlurMask blur={2} style="solid" />
+              <BlurMask blur={1.5} style="solid" />
             </Path>
           </Group>
         </Canvas>
