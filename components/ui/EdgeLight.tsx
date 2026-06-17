@@ -6,34 +6,32 @@ import {
   useReducedMotion,
   useSharedValue,
   withDelay,
+  withSequence,
   withTiming,
 } from 'react-native-reanimated';
-import { BlurMask, Canvas, DashPathEffect, Group, Path, Skia, rect, rrect } from '@shopify/react-native-skia';
+import { BlurMask, Canvas, DashPathEffect, Group, Path, Skia, SweepGradient, rect, rrect, vec } from '@shopify/react-native-skia';
 import { RADIUS } from '../../lib/theme';
 
 type Props = { radius?: number; duration?: number };
 
-// 옅은 파스텔 박스 위에서 도드라지는 accent 블루.
-const ACCENT = '#4A90E2';
-const ACCENT_GLOW = '#6E8CEE';
+// 테두리를 도는 빛의 그라데이션(브랜드 블루 계열, 살짝 인디고~시안 톤).
+const GRADIENT = ['#6E8CEE', '#4A90E2', '#46C2E8', '#6E8CEE'];
 
-// 부모(AI 요약 박스) 위에 절대배치되어, 마운트(=화면 진입) 시 한 번 빛줄기가 "테두리를 따라"
-// 한 바퀴 돌고 사라지는 엣지라이팅.
-//  - 라운드 사각 Path를 만들고 DashPathEffect의 phase를 애니메이션해 dash가 경로(모서리 포함)를
-//    따라 흐르게 한다(원형 스피너가 아니라 진짜 테두리 따라 흐름).
-//  - 짧은 dash 2개를 작은 간격으로 붙여 "거의 연결된 두 줄기"로 보이게.
-//  - BlurMask로 실제 글로우. 동작 줄이기(Reduce Motion)면 렌더 안 함.
-export function EdgeLight({ radius = RADIUS.box, duration = 1700 }: Props) {
+// 부모(AI 요약 박스) 위에 절대배치. 마운트(=화면 진입) 시 한 번:
+//   빛이 테두리를 따라 "삭" 그려지며 한 바퀴 차오르고 → 잠깐 머문 뒤 → 부드럽게 사라진다.
+// 구현: 라운드 사각 Path + DashPathEffect(phase 애니메이션)로 stroke를 draw-on 트레이스.
+//   색은 SweepGradient, 번짐은 BlurMask(글로우/블룸). 원형 스피너가 아니라 테두리 경로를 따라 흐름.
+// 동작 줄이기(Reduce Motion)면 렌더하지 않음.
+export function EdgeLight({ radius = RADIUS.box, duration = 1500 }: Props) {
   const [size, setSize] = useState({ w: 0, h: 0 });
   const reduced = useReducedMotion();
-  const progress = useSharedValue(0);
-  const opacity = useSharedValue(1);
+  const progress = useSharedValue(0); // 0→1: 테두리 그려짐
+  const opacity = useSharedValue(0);
   const played = useRef(false);
 
-  const INSET = 7; // 글로우가 캔버스 밖으로 잘리지 않도록
+  const INSET = 10; // 블룸이 캔버스 밖으로 잘리지 않도록 여유
   const w = Math.max(0, size.w - INSET * 2);
   const h = Math.max(0, size.h - INSET * 2);
-  // 라운드 사각 둘레 근사 (dash 간격 계산용)
   const perimeter = w > 0 && h > 0 ? 2 * (w + h) - 8 * radius + 2 * Math.PI * radius : 0;
 
   const path = useMemo(() => {
@@ -45,21 +43,19 @@ export function EdgeLight({ radius = RADIUS.box, duration = 1700 }: Props) {
   useEffect(() => {
     if (reduced || perimeter <= 0 || played.current) return;
     played.current = true;
+    // 그려지며 등장 → 끝나면 페이드아웃
     progress.value = withTiming(1, { duration, easing: Easing.inOut(Easing.cubic) });
-    opacity.value = withDelay(duration - 300, withTiming(0, { duration: 500 }));
+    opacity.value = withSequence(
+      withTiming(1, { duration: 250 }),                 // 빠르게 나타나
+      withDelay(duration - 100, withTiming(0, { duration: 550 })), // 다 그려질 즈음 페이드
+    );
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [perimeter, reduced]);
 
-  // 두 줄기를 거의 붙게: 짧은 dash 2개 + 아주 작은 간격, 나머지는 큰 공백 (한 바퀴에 1쌍).
-  const seg = perimeter * 0.06;
-  const gapClose = perimeter * 0.015;
-  const intervals = perimeter > 0
-    ? [seg, gapClose, seg, Math.max(1, perimeter - 2 * seg - gapClose)]
-    : [1, 1];
-
-  // phase를 둘레만큼 이동시켜 dash가 경로를 한 바퀴 흐르게.
-  const phase = useDerivedValue(() => -progress.value * perimeter);
+  // draw-on: dash 한 칸을 둘레만큼 두고 phase로 가려진 부분을 줄여 테두리를 따라 그려지게.
+  const phase = useDerivedValue(() => perimeter * (1 - progress.value));
   const groupOpacity = useDerivedValue(() => opacity.value);
+  const center = vec(size.w / 2, size.h / 2);
 
   if (reduced) return null;
 
@@ -71,14 +67,16 @@ export function EdgeLight({ radius = RADIUS.box, duration = 1700 }: Props) {
       {w > 0 && h > 0 ? (
         <Canvas style={styles.canvas}>
           <Group opacity={groupOpacity}>
-            {/* 글로우: 넓은 선 + 강한 블러 */}
-            <Path path={path} style="stroke" strokeWidth={5} strokeCap="round" color={ACCENT_GLOW} opacity={0.5}>
-              <DashPathEffect intervals={intervals} phase={phase} />
-              <BlurMask blur={9} style="solid" />
+            {/* 바깥 블룸: 넓은 선 + 강한 블러 */}
+            <Path path={path} style="stroke" strokeWidth={6} strokeCap="round" opacity={0.45}>
+              <SweepGradient c={center} colors={GRADIENT} />
+              <DashPathEffect intervals={[perimeter, perimeter]} phase={phase} />
+              <BlurMask blur={12} style="solid" />
             </Path>
             {/* 코어: 얇고 선명한 선 + 약한 블러 */}
-            <Path path={path} style="stroke" strokeWidth={2} strokeCap="round" color={ACCENT}>
-              <DashPathEffect intervals={intervals} phase={phase} />
+            <Path path={path} style="stroke" strokeWidth={2.5} strokeCap="round">
+              <SweepGradient c={center} colors={GRADIENT} />
+              <DashPathEffect intervals={[perimeter, perimeter]} phase={phase} />
               <BlurMask blur={2} style="solid" />
             </Path>
           </Group>
