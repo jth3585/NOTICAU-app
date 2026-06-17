@@ -1,109 +1,100 @@
 import { useEffect, useRef, useState } from 'react';
-import { StyleSheet, type LayoutChangeEvent } from 'react-native';
-import Animated, {
+import { StyleSheet, View, type LayoutChangeEvent } from 'react-native';
+import {
   Easing,
-  useAnimatedProps,
-  useAnimatedStyle,
+  useDerivedValue,
   useReducedMotion,
   useSharedValue,
   withDelay,
   withTiming,
 } from 'react-native-reanimated';
-import Svg, { Rect } from 'react-native-svg';
-import { COLORS, RADIUS } from '../../lib/theme';
-
-const AnimatedRect = Animated.createAnimatedComponent(Rect);
+import { BlurMask, Canvas, Group, RoundedRect, SweepGradient, vec } from '@shopify/react-native-skia';
+import { RADIUS } from '../../lib/theme';
 
 type Props = { radius?: number; duration?: number; streaks?: number };
 
-// 한 빛줄기를 이루는 레이어들. 모두 같은 시작 edge를 공유(같은 dashoffset)하므로
-// 밝은 코어가 선두에 서고, 글로우가 그 주변을, 짧은 꼬리가 뒤로 옅게 깔린다.
-//  - len: 줄기 1개 주기(period) 대비 길이 비율
-//  - w: 선 두께(px), op: 불투명도, color: 색
-const LAYERS = [
-  { len: 0.07, w: 6,   op: 0.22, color: COLORS.accentGradient[0] }, // 글로우 (넓고 옅음)
-  { len: 0.14, w: 2,   op: 0.20, color: COLORS.accent },            // 짧은 꼬리
-  { len: 0.05, w: 2.4, op: 1.0,  color: COLORS.accent },            // 밝은 코어 (선두·맨 위)
-] as const;
+// accent(#4A90E2) RGB. 옅은 파스텔 박스 위에서 도드라지도록 accent 사용.
+const ACCENT_RGB = '74,144,226';
 
-const MAX_W = 6; // 가장 두꺼운 레이어(글로우) — 가장자리 클리핑 방지용 inset 기준
+// Sweep(원뿔) 그라데이션의 색 정지점 생성. 각 줄기 중심에 짧은 밝은 호(arc)를 두고
+// 나머지는 투명 → 회전시키면 밝은 빛점이 테두리를 따라 돈다. BlurMask로 글로우.
+function buildStops(streaks: number, peakAlpha: number) {
+  const colors: string[] = [];
+  const positions: number[] = [];
+  const half = 0.035; // 밝은 호의 반폭(원 둘레 대비)
+  const T = `rgba(${ACCENT_RGB},0)`;
+  const B = `rgba(${ACCENT_RGB},${peakAlpha})`;
+  const push = (pos: number, c: string) => { positions.push(pos); colors.push(c); };
+  push(0, T);
+  for (let i = 0; i < streaks; i++) {
+    const c = (i + 0.5) / streaks; // 각 구간 중앙에 피크
+    push(Math.max(0.0001, c - half), T);
+    push(c, B);
+    push(Math.min(0.9999, c + half), T);
+  }
+  push(1, T);
+  return { colors, positions };
+}
 
-// 부모(보통 AI 요약 박스) 위에 절대배치되어, 마운트(=화면 진입) 시 한 번만
-// 밝은 빛줄기가 테두리를 한 바퀴 돌고 사라지는 엣지라이팅 효과.
-// streaks=2 면 정반대(180°)에 두 줄기가 대칭으로 돈다.
+// 부모(AI 요약 박스) 위에 절대배치되어, 마운트(=화면 진입) 시 한 번 빛줄기가 테두리를
+// 한 바퀴 돌고 사라지는 엣지라이팅. Skia로 실제 블러 글로우 + 회전 sweep 그라데이션.
 // 동작 줄이기(Reduce Motion) 활성 기기에선 렌더하지 않음.
-export function EdgeLight({ radius = RADIUS.box, duration = 1400, streaks = 2 }: Props) {
+export function EdgeLight({ radius = RADIUS.box, duration = 1700, streaks = 2 }: Props) {
   const [size, setSize] = useState({ w: 0, h: 0 });
   const reduced = useReducedMotion();
-  const offset = useSharedValue(0);
+  const progress = useSharedValue(0);
   const opacity = useSharedValue(1);
-  const played = useRef(false); // 진입 시 1회만 재생
-
-  const rw = Math.max(0, size.w - MAX_W);
-  const rh = Math.max(0, size.h - MAX_W);
-  // 라운드 사각 둘레 근사 (정확값 아니어도 시각적으로 충분)
-  const perimeter = rw > 0 && rh > 0 ? 2 * (rw + rh) - 8 * radius + 2 * Math.PI * radius : 0;
-  // dash 주기 = 둘레 / 줄기수 → 줄기들이 균등(2개면 정반대)하게 배치됨
-  const period = streaks > 0 ? perimeter / streaks : perimeter;
+  const played = useRef(false);
 
   useEffect(() => {
-    if (reduced || perimeter <= 0 || played.current) return;
+    if (reduced || size.w === 0 || played.current) return;
     played.current = true;
-    offset.value = 0;
-    opacity.value = 1;
-    offset.value = withTiming(-perimeter, { duration, easing: Easing.inOut(Easing.cubic) });
-    opacity.value = withDelay(duration - 200, withTiming(0, { duration: 400 }));
+    progress.value = withTiming(1, { duration, easing: Easing.inOut(Easing.cubic) });
+    opacity.value = withDelay(duration - 300, withTiming(0, { duration: 500 }));
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [perimeter, reduced]);
+  }, [size, reduced]);
 
-  // 세 레이어가 같은 "앞쪽(leading) edge"를 공유하도록 각 레이어를 꼬리 길이차만큼
-  // 뒤로 민다. 코어(LAYERS[2])를 기준(0)으로, 더 긴 레이어는 그만큼 뒤로 깔려
-  // 밝은 머리가 선두에 서고 꼬리가 뒤로 따라온다. (LAYERS 길이=3 고정 → 훅 수 안정)
-  const coreSeg = period * LAYERS[2].len;
-  const d0 = period * LAYERS[0].len - coreSeg;
-  const d1 = period * LAYERS[1].len - coreSeg;
-  const props0 = useAnimatedProps(() => ({ strokeDashoffset: offset.value + d0 }));
-  const props1 = useAnimatedProps(() => ({ strokeDashoffset: offset.value + d1 }));
-  const props2 = useAnimatedProps(() => ({ strokeDashoffset: offset.value }));
-  const layerProps = [props0, props1, props2];
-  const containerStyle = useAnimatedStyle(() => ({ opacity: opacity.value }));
+  const cx = size.w / 2;
+  const cy = size.h / 2;
+  const center = vec(cx, cy);
+  // 한 바퀴(2π) 회전
+  const transform = useDerivedValue(() => [{ rotate: progress.value * 2 * Math.PI }]);
+  const groupOpacity = useDerivedValue(() => opacity.value);
+
+  const glow = buildStops(streaks, 0.6);
+  const core = buildStops(streaks, 1);
+
+  // BlurMask 글로우가 캔버스 밖으로 잘리지 않도록 살짝 안쪽으로.
+  const INSET = 7;
+  const x = INSET, y = INSET;
+  const w = Math.max(0, size.w - INSET * 2);
+  const h = Math.max(0, size.h - INSET * 2);
 
   if (reduced) return null;
 
   return (
-    <Animated.View
-      pointerEvents="none"
-      style={[StyleSheet.absoluteFill, containerStyle]}
-      onLayout={(e: LayoutChangeEvent) => {
-        const { width, height } = e.nativeEvent.layout;
-        if (width !== size.w || height !== size.h) setSize({ w: width, h: height });
-      }}
-    >
-      {perimeter > 0 ? (
-        <Svg width={size.w} height={size.h}>
-          {LAYERS.map((l, i) => {
-            const seg = period * l.len;
-            return (
-              <AnimatedRect
-                key={i}
-                x={MAX_W / 2}
-                y={MAX_W / 2}
-                width={rw}
-                height={rh}
-                rx={radius}
-                ry={radius}
-                fill="none"
-                stroke={l.color}
-                strokeWidth={l.w}
-                strokeOpacity={l.op}
-                strokeLinecap="round"
-                strokeDasharray={`${seg} ${period - seg}`}
-                animatedProps={layerProps[i]}
-              />
-            );
-          })}
-        </Svg>
+    <View pointerEvents="none" style={StyleSheet.absoluteFill} onLayout={(e: LayoutChangeEvent) => {
+      const { width, height } = e.nativeEvent.layout;
+      if (width !== size.w || height !== size.h) setSize({ w: width, h: height });
+    }}>
+      {size.w > 0 && w > 0 && h > 0 ? (
+        <Canvas style={styles.canvas}>
+          <Group transform={transform} origin={center} opacity={groupOpacity}>
+            {/* 글로우: 넓은 선 + 강한 블러 */}
+            <RoundedRect x={x} y={y} width={w} height={h} r={radius} style="stroke" strokeWidth={5}>
+              <SweepGradient c={center} colors={glow.colors} positions={glow.positions} />
+              <BlurMask blur={10} style="solid" />
+            </RoundedRect>
+            {/* 코어: 얇고 선명한 밝은 선 + 약한 블러 */}
+            <RoundedRect x={x} y={y} width={w} height={h} r={radius} style="stroke" strokeWidth={2}>
+              <SweepGradient c={center} colors={core.colors} positions={core.positions} />
+              <BlurMask blur={2} style="solid" />
+            </RoundedRect>
+          </Group>
+        </Canvas>
       ) : null}
-    </Animated.View>
+    </View>
   );
 }
+
+const styles = StyleSheet.create({ canvas: { flex: 1 } });
