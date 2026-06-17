@@ -29,7 +29,7 @@ export default function HomeScreen() {
   const feed = useHomeFeed();
   const {
     notices: digestNotices, loading: digestLoading, loadingMore, allSeen,
-    refresh: digestRefresh, loadMore, syncReadIds,
+    refresh: digestRefresh, loadMore, syncReadIds, markReadLocal,
   } = useDigest();
   const { lastSeenAt } = useLastSeenAt();
 
@@ -48,6 +48,12 @@ export default function HomeScreen() {
   const onPressNotice = useCallback((n: Notice) => {
     navigation.navigate('Detail', { notice: n });
   }, [navigation]);
+
+  // 큐레이션 글을 열면 즉시 로컬 읽음 처리(서버 커밋 타이밍과 무관하게 바로 사라지게).
+  const onPressCuration = useCallback((n: Notice) => {
+    markReadLocal(n.id);
+    navigation.navigate('Detail', { notice: n });
+  }, [markReadLocal, navigation]);
 
   if (feed.loading || digestLoading) {
     return (
@@ -83,7 +89,7 @@ export default function HomeScreen() {
           loadingMore={loadingMore}
           allSeen={allSeen}
           onLoadMore={loadMore}
-          onPressNotice={onPressNotice}
+          onPressNotice={onPressCuration}
           isNew={isNew}
         />
       </ScrollView>

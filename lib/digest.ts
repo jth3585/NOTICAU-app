@@ -96,6 +96,12 @@ export function useDigest() {
     if (mounted.current) setReadIds(set);
   }, []);
 
+  // 낙관적 로컬 읽음 처리. 상세 진입 시 서버 read_at 커밋이 홈 포커스 sync보다 늦어
+  // 방금 읽은 글(특히 마지막 글)이 안 사라지는 레이스를 방지. 서버 기록은 markAsRead가 별도 수행.
+  const markReadLocal = useCallback((id: string) => {
+    setReadIds(prev => (prev.has(id) ? prev : new Set(prev).add(id)));
+  }, []);
+
   const initialize = useCallback(async () => {
     setLoading(true);
     const today = new Date().toISOString().slice(0, 10);
@@ -158,5 +164,5 @@ export function useDigest() {
   // 오늘의 다이제스트를 모두 읽었을 때
   const allSeen = !loading && cacheIds.length > 0 && visible.length === 0;
 
-  return { notices: visible, loading, loadingMore, allSeen, refresh, loadMore, syncReadIds };
+  return { notices: visible, loading, loadingMore, allSeen, refresh, loadMore, syncReadIds, markReadLocal };
 }
