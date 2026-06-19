@@ -8,6 +8,7 @@ import { useFolders, createFolder, setBookmarkFolder } from '../lib/folders';
 import { useReadSet } from '../lib/read';
 import { useLastSeenAt } from '../lib/new-badge';
 import { lightHaptic } from '../lib/haptics';
+import { toast } from '../lib/toast';
 import { keywordMatches, firstMatchedKeyword } from '../lib/homeFeed';
 import type { RootStackParamList } from '../lib/types';
 import { COLORS, FONT, RADIUS, SPACING, WEIGHT } from '../lib/theme';
@@ -42,6 +43,7 @@ export default function BookmarkFolderScreen({ route }: Props) {
 
   const onRemoveBookmark = useCallback((id: string) => {
     lightHaptic();
+    toast('북마크에서 삭제했어요');
     // 스와이프 스프링백이 보인 뒤 제거 (북마크 추가와 동일한 감)
     setTimeout(() => {
       setRemovedIds((prev) => new Set(prev).add(id));

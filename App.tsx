@@ -17,6 +17,7 @@ import { ensureAnonSession } from './lib/auth';
 import { migrateLocalToDB } from './lib/migrate';
 import { setupPushNotifications } from './lib/push';
 import { fetchNoticeById } from './lib/notices';
+import { ToastHost } from './components/ui/ToastHost';
 import { supabase } from './lib/supabase';
 import OnboardingNavigator from './screens/onboarding/OnboardingNavigator';
 import ProfileEditScreen from './screens/ProfileEditScreen';
@@ -224,6 +225,7 @@ export default function App() {
             <Stack.Screen name="DeleteAccount" component={DeleteAccountScreen} />
           </Stack.Navigator>
         </NavigationContainer>
+        <ToastHost />
       </SafeAreaProvider>
     </GestureHandlerRootView>
   );

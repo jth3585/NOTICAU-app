@@ -25,6 +25,7 @@ import { useReadSet } from '../lib/read';
 import { NOTICE_LIST_SELECT } from '../lib/notices';
 import { useBookmarkSet, addBookmark } from '../lib/bookmarks';
 import { lightHaptic, softHaptic } from '../lib/haptics';
+import { toast } from '../lib/toast';
 import { useLastSeenAt, touchLastSeenAt } from '../lib/new-badge';
 
 const SORT_LABELS: Record<SortMode, string> = {
@@ -67,10 +68,12 @@ export default function InboxScreen() {
     lightHaptic();
     markBookmarked(id); // optimistic
     addBookmark(id);
+    toast('북마크에 추가했어요', 'success');
   }, [markBookmarked]);
 
   const onSwipeAlready = useCallback(() => {
     softHaptic();
+    toast('이미 북마크된 공지예요');
   }, []);
 
   // 카테고리 OFF 프리프 (topic → false인 것들) + 사용자 정렬 칩 순서
