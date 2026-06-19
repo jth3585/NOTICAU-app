@@ -1,7 +1,7 @@
 import { StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import type { Notice } from '../lib/types';
 import { COLORS, FONT, RADIUS, SHADOW, SPACING, WEIGHT } from '../lib/theme';
-import { formatDateShort, formatDday, metaOf, sourceOf } from '../lib/format';
+import { formatDateShort, formatScheduleBadge, metaOf, sourceOf } from '../lib/format';
 import { CategoryBadge } from './ui/CategoryBadge';
 import { SourceBadge } from './ui/SourceBadge';
 
@@ -35,14 +35,16 @@ export function NoticeCard({
   const meta = metaOf(notice);
   const src = sourceOf(notice);
   const topic = meta?.topic ?? null;
-  const dday = formatDday(meta?.deadline_at ?? null);
+  const badge = formatScheduleBadge(meta?.apply_start_at ?? null, meta?.deadline_at ?? null);
   const postedMD = formatDateShort(notice.posted_at);
 
-  const ddayColor = dday?.overdue
+  const badgeColor = badge?.kind === 'overdue'
     ? COLORS.textTertiary
-    : dday?.urgent
-      ? COLORS.danger
-      : COLORS.textSecondary;
+    : badge?.kind === 'upcoming'
+      ? COLORS.accentText
+      : badge?.urgent
+        ? COLORS.danger
+        : COLORS.textSecondary;
 
   return (
     <TouchableOpacity
@@ -80,9 +82,9 @@ export function NoticeCard({
             <Text style={[styles.dday, { color: COLORS.danger }]}>{countdown}</Text>
             <Text style={styles.dim}> · {postedMD}</Text>
           </>
-        ) : dday ? (
+        ) : badge ? (
           <>
-            <Text style={[styles.dday, { color: ddayColor }]}>{dday.label}</Text>
+            <Text style={[styles.dday, { color: badgeColor }]}>{badge.label}</Text>
             <Text style={styles.dim}> · {postedMD}</Text>
           </>
         ) : (

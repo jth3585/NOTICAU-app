@@ -53,6 +53,34 @@ export function formatDday(deadlineAt: string | null): Dday | null {
   return { label: `D-${diff}`, overdue: false, urgent: diff <= 3 };
 }
 
+// 신청 시작/마감을 함께 고려한 카드·상세용 배지.
+//  - 신청 시작 전(now<start) → '신청 D-N' (시작 안내)
+//  - 신청 중(start~deadline) → '마감 D-N' / 'D-day' (임박 시 urgent)
+//  - 마감 후 → '마감' (overdue)
+export type ScheduleKind = 'upcoming' | 'open' | 'overdue';
+export type ScheduleBadge = {
+  label: string;
+  kind: ScheduleKind;
+  urgent: boolean; // 마감 D-3 이하
+};
+
+export function formatScheduleBadge(
+  applyStartAt: string | null,
+  deadlineAt: string | null,
+): ScheduleBadge | null {
+  // 신청 시작 전이면 시작까지 카운트다운
+  if (applyStartAt && !isNaN(Date.parse(applyStartAt))) {
+    const ds = dayDiff(kstDateKey(applyStartAt), kstTodayKey());
+    if (ds > 0) return { label: `신청 D-${ds}`, kind: 'upcoming', urgent: false };
+    if (ds === 0) return { label: '신청 시작', kind: 'upcoming', urgent: false };
+    // ds<0 → 신청 시작됨 → 아래 마감 로직으로
+  }
+  const dd = formatDday(deadlineAt);
+  if (!dd) return null;
+  if (dd.overdue) return { label: '마감', kind: 'overdue', urgent: false };
+  return { label: dd.label, kind: 'open', urgent: dd.urgent };
+}
+
 // 마감까지 남은 시간 "N시간 M분 남음" (오늘마감 탭용). 1분 미만이면 '곧 마감', 지났으면 null.
 export function formatTimeRemaining(deadlineAt: string | null): string | null {
   if (!deadlineAt || isNaN(Date.parse(deadlineAt))) return null;

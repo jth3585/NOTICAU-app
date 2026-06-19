@@ -90,4 +90,13 @@ export const SHADOW = {
     shadowOffset: { width: 0, height: 2 },
     elevation: 2,
   },
+  // 토스 느낌의 컬러 그림자 — accent 블루가 은은하게 번지는 부드러운 그림자.
+  // (Android는 API 28+ 에서 elevation 그림자에 shadowColor 반영)
+  accent: {
+    shadowColor: COLORS.accent,
+    shadowOpacity: 0.28,
+    shadowRadius: 16,
+    shadowOffset: { width: 0, height: 8 },
+    elevation: 8,
+  },
 } as const;

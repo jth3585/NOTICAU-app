@@ -5,6 +5,7 @@ import type { Notice, NoticeMeta, Profile, UserKeyword } from './types';
 import { metaOf, sourceOf } from './format';
 import { isMismatch, calculateMatchScore } from './matching';
 import { fetchReadIds } from './read';
+import { NOTICE_LIST_SELECT } from './notices';
 
 // actionable인데 마감일이 지난 공지는 디지스트에서 제외 (이미 신청 종료 → 무의미).
 function isExpiredActionable(meta: NoticeMeta | null): boolean {
@@ -45,7 +46,7 @@ async function computeDigestIds(excludeIds: string[], limit: number): Promise<st
     supabase.from('user_keywords').select('*').eq('user_id', session.user.id),
     supabase.from('user_category_prefs').select('topic,is_enabled').eq('user_id', session.user.id),
     supabase.from('user_feed_state').select('notice_id').eq('user_id', session.user.id).not('read_at', 'is', null),
-    supabase.from('notices').select('*, notice_meta(*), sources(parser_key, name)').order('posted_at', { ascending: false }).limit(300),
+    supabase.from('notices').select(NOTICE_LIST_SELECT).order('posted_at', { ascending: false }).limit(300),
   ]);
 
   const profile = profileRes.data as Profile | null;
@@ -76,7 +77,7 @@ async function fetchNoticesByIds(ids: string[]): Promise<Notice[]> {
   if (ids.length === 0) return [];
   const { data } = await supabase
     .from('notices')
-    .select('*, notice_meta(*), sources(parser_key, name)')
+    .select(NOTICE_LIST_SELECT)
     .in('id', ids);
   // ids 순서 유지
   const map = new Map((data ?? []).map((n: any) => [n.id, n]));
@@ -94,6 +95,12 @@ export function useDigest() {
   const syncReadIds = useCallback(async () => {
     const set = await fetchReadIds();
     if (mounted.current) setReadIds(set);
+  }, []);
+
+  // 낙관적 로컬 읽음 처리. 상세 진입 시 서버 read_at 커밋이 홈 포커스 sync보다 늦어
+  // 방금 읽은 글(특히 마지막 글)이 안 사라지는 레이스를 방지. 서버 기록은 markAsRead가 별도 수행.
+  const markReadLocal = useCallback((id: string) => {
+    setReadIds(prev => (prev.has(id) ? prev : new Set(prev).add(id)));
   }, []);
 
   const initialize = useCallback(async () => {
@@ -158,5 +165,5 @@ export function useDigest() {
   // 오늘의 다이제스트를 모두 읽었을 때
   const allSeen = !loading && cacheIds.length > 0 && visible.length === 0;
 
-  return { notices: visible, loading, loadingMore, allSeen, refresh, loadMore, syncReadIds };
+  return { notices: visible, loading, loadingMore, allSeen, refresh, loadMore, syncReadIds, markReadLocal };
 }
