@@ -42,8 +42,11 @@ export default function BookmarkFolderScreen({ route }: Props) {
 
   const onRemoveBookmark = useCallback((id: string) => {
     lightHaptic();
-    setRemovedIds((prev) => new Set(prev).add(id)); // optimistic
-    removeBookmark(id).then(() => refresh());
+    // 스와이프 스프링백이 보인 뒤 제거 (북마크 추가와 동일한 감)
+    setTimeout(() => {
+      setRemovedIds((prev) => new Set(prev).add(id));
+      removeBookmark(id).then(() => refresh());
+    }, 300);
   }, [refresh]);
 
   const isCustom = folder === 'custom';

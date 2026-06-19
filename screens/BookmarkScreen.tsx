@@ -36,8 +36,11 @@ export default function BookmarkScreen() {
 
   const onRemoveBookmark = useCallback((id: string) => {
     lightHaptic();
-    setRemovedIds((prev) => new Set(prev).add(id)); // optimistic: 목록에서 즉시 제거
-    removeBookmark(id).then(() => { refresh(); refreshFolders(); });
+    // 스와이프 스프링백이 보인 뒤 제거 (북마크 추가와 동일한 감 — 즉시 제거하면 딱 달라붙음)
+    setTimeout(() => {
+      setRemovedIds((prev) => new Set(prev).add(id));
+      removeBookmark(id).then(() => { refresh(); refreshFolders(); });
+    }, 300);
   }, [refresh, refreshFolders]);
 
   useFocusEffect(useCallback(() => {
