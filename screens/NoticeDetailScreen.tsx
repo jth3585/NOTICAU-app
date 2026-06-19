@@ -1,7 +1,6 @@
 import { useState, useMemo, useEffect } from 'react';
 import {
   Dimensions,
-  Image,
   Linking,
   Platform,
   ScrollView,
@@ -12,6 +11,7 @@ import {
   useWindowDimensions,
   View,
 } from 'react-native';
+import { Image } from 'expo-image';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useMarkdown, Renderer } from 'react-native-marked';
 import type { MarkedStyles } from 'react-native-marked';
@@ -246,9 +246,11 @@ function AutoImage({ uri, width, onPress }: { uri: string; width: number; onPres
       <Image
         source={{ uri }}
         style={{ width, height: width / ratio, marginTop: SPACING.md, borderRadius: RADIUS.box }}
-        resizeMode="contain"
+        contentFit="contain"
+        transition={250}
+        cachePolicy="memory-disk"
         onLoad={(e) => {
-          const { width: w, height: h } = e.nativeEvent.source;
+          const { width: w, height: h } = e.source;
           if (w && h) setRatio(w / h);
         }}
       />

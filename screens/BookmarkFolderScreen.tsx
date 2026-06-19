@@ -17,6 +17,7 @@ import { FolderPickerSheet } from '../components/FolderPickerSheet';
 import { AddBookmarksModal } from '../components/AddBookmarksModal';
 import { SwipeToRemoveBookmark } from '../components/SwipeToRemoveBookmark';
 import { BackButton } from '../components/ui/BackButton';
+import { NoticeListSkeleton } from '../components/ui/Skeleton';
 
 type Props = NativeStackScreenProps<RootStackParamList, 'BookmarkFolder'>;
 
@@ -133,7 +134,7 @@ export default function BookmarkFolderScreen({ route }: Props) {
       ) : null}
 
       {loading ? (
-        <View style={styles.center}><Text style={styles.sub}>불러오는 중…</Text></View>
+        <NoticeListSkeleton count={5} />
       ) : list.length === 0 ? (
         <View style={styles.center}>
           <BookmarkIcon size={40} filled={false} color={COLORS.textTertiary} />

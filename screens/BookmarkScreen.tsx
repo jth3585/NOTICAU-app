@@ -17,6 +17,7 @@ import { FolderNameModal } from '../components/FolderNameModal';
 import { FolderPickerSheet } from '../components/FolderPickerSheet';
 import { SwipeToRemoveBookmark } from '../components/SwipeToRemoveBookmark';
 import { FolderIcon, HashIcon, MailIcon } from '../components/ui/icons';
+import { NoticeListSkeleton } from '../components/ui/Skeleton';
 
 export default function BookmarkScreen() {
   const navigation = useNavigation<NativeStackNavigationProp<RootStackParamList>>();
@@ -153,9 +154,7 @@ export default function BookmarkScreen() {
         contentContainerStyle={styles.list}
         ListEmptyComponent={
           loading ? (
-            <View style={styles.empty}>
-              <Text style={styles.sub}>불러오는 중…</Text>
-            </View>
+            <NoticeListSkeleton count={5} />
           ) : (
             <View style={styles.empty}>
               <BookmarkIcon size={40} filled={false} color={COLORS.textTertiary} />

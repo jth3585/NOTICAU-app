@@ -18,7 +18,9 @@ import { NoticeCard } from '../components/NoticeCard';
 import { SwipeToBookmark } from '../components/SwipeToBookmark';
 import { SearchIcon } from '../components/ui/SearchIcon';
 import { SortIcon } from '../components/ui/SortIcon';
-import { CloseIcon, CheckIcon } from '../components/ui/icons';
+import { CloseIcon, CheckIcon, ClipboardListIcon } from '../components/ui/icons';
+import { EmptyState } from '../components/ui/EmptyState';
+import { NoticeListSkeleton } from '../components/ui/Skeleton';
 import { useReadSet } from '../lib/read';
 import { NOTICE_LIST_SELECT } from '../lib/notices';
 import { useBookmarkSet, addBookmark } from '../lib/bookmarks';
@@ -172,7 +174,12 @@ export default function InboxScreen() {
     return sortNotices(f, sortMode);
   }, [notices, selected, sortMode, query, searchResults, disabledTopics]);
 
-  if (loading) return <Centered>불러오는 중…</Centered>;
+  if (loading) return (
+    <SafeAreaView style={styles.container} edges={['top']}>
+      <Text style={styles.pageTitle}>전체 공지</Text>
+      <NoticeListSkeleton />
+    </SafeAreaView>
+  );
   if (error) return <Centered>공지를 불러오지 못했어요. 잠시 후 다시 시도해 주세요.</Centered>;
 
   return (
@@ -244,9 +251,20 @@ export default function InboxScreen() {
           </SwipeToBookmark>
         )}
         ListEmptyComponent={
-          <Text style={styles.empty}>
-            {searching ? '검색 중…' : query ? `'${query}' 검색 결과가 없어요` : '이 카테고리엔 아직 공지가 없어요'}
-          </Text>
+          searching ? (
+            <Text style={styles.empty}>검색 중…</Text>
+          ) : query ? (
+            <EmptyState
+              icon={<SearchIcon size={30} color={COLORS.textTertiary} />}
+              title={`'${query}' 검색 결과가 없어요`}
+              subtitle="다른 키워드로 찾아보세요"
+            />
+          ) : (
+            <EmptyState
+              icon={<ClipboardListIcon size={30} color={COLORS.textTertiary} />}
+              title="이 카테고리엔 아직 공지가 없어요"
+            />
+          )
         }
         contentContainerStyle={styles.listContent}
       />

@@ -1,5 +1,5 @@
 import { useCallback, useEffect } from 'react';
-import { ActivityIndicator, RefreshControl, ScrollView, StyleSheet, View } from 'react-native';
+import { RefreshControl, ScrollView, StyleSheet, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useFocusEffect, useNavigation, useRoute, type RouteProp } from '@react-navigation/native';
@@ -10,6 +10,7 @@ import { useLastSeenAt } from '../lib/new-badge';
 import { HomeGreeting } from '../components/HomeGreeting';
 import { HomeFilterTabs } from '../components/HomeFilterTabs';
 import { HomeCuration } from '../components/HomeCuration';
+import { NoticeListSkeleton } from '../components/ui/Skeleton';
 import type { Notice, RootStackParamList, TabParamList } from '../lib/types';
 import { COLORS, SPACING } from '../lib/theme';
 
@@ -63,7 +64,7 @@ export default function HomeScreen() {
   if (feed.loading || digestLoading) {
     return (
       <SafeAreaView style={styles.container} edges={['top']}>
-        <View style={styles.center}><ActivityIndicator color={COLORS.accent} /></View>
+        <NoticeListSkeleton count={5} />
       </SafeAreaView>
     );
   }
