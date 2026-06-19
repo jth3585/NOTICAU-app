@@ -1,4 +1,4 @@
-import { useState, useMemo, useEffect } from 'react';
+import { useState, useMemo, useEffect, useCallback, memo } from 'react';
 import {
   Dimensions,
   Linking,
@@ -89,14 +89,14 @@ export default function NoticeDetailScreen({ route, navigation }: Props) {
 
   // InApp 브라우저로 열기 (referrer/세션 유지 → 학교 PHP 다운로드 핸들러 호환).
   // 실패 시 외부 브라우저 폴백.
-  const open = async (url: string | null | undefined) => {
+  const open = useCallback(async (url: string | null | undefined) => {
     if (!url) return;
     try {
       await WebBrowser.openBrowserAsync(url);
     } catch {
       Linking.openURL(url).catch(() => {});
     }
-  };
+  }, []);
 
   return (
     <SafeAreaView style={styles.container} edges={['top']}>
@@ -194,7 +194,7 @@ function splitSummary(md: string): { summary: string | null; rest: string } {
   return { summary: null, rest: md.trim() };
 }
 
-function BodyBlock({
+const BodyBlock = memo(function BodyBlock({
   md,
   bodyText,
   sourceUrl,
@@ -236,7 +236,7 @@ function BodyBlock({
       <Text style={styles.linkBtnText}>원문에서 자세히 보기</Text>
     </TouchableOpacity>
   );
-}
+});
 
 // 로드 후 원본 비율로 높이를 맞추는 이미지. onPress → 풀스크린 뷰어로 연결.
 function AutoImage({ uri, width, onPress }: { uri: string; width: number; onPress?: () => void }) {

@@ -33,6 +33,7 @@ const EDGE_INSET = SPACING.lg + GLOW_PAD;
 // 동작 줄이기(Reduce Motion)면 렌더하지 않음.
 export function EdgeLight({ radius = RADIUS.box, duration = 1500 }: Props) {
   const [size, setSize] = useState({ w: 0, h: 0 }); // 오버레이(박스+GLOW_PAD*2) 크기
+  const [done, setDone] = useState(false); // 재생 완료 후 언마운트 (스크롤 시 불필요한 SVG 레이어 제거)
   const reduced = useReducedMotion();
   const offset = useSharedValue(0);
   const opacity = useSharedValue(1); // 1에서 시작 → 첫 프레임부터 보이고, 끝에서만 페이드아웃
@@ -70,6 +71,8 @@ export function EdgeLight({ radius = RADIUS.box, duration = 1500 }: Props) {
     played.current = true;
     offset.value = withTiming(-perimeter, { duration, easing: Easing.inOut(Easing.cubic) });
     opacity.value = withDelay(duration - 350, withTiming(0, { duration: 550 }));
+    const t = setTimeout(() => setDone(true), duration + 700); // 페이드 끝난 뒤 언마운트
+    return () => clearTimeout(t);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [perimeter, reduced]);
 
@@ -78,7 +81,7 @@ export function EdgeLight({ radius = RADIUS.box, duration = 1500 }: Props) {
   const coreProps = useAnimatedProps(() => ({ strokeDashoffset: offset.value }));
   const containerStyle = useAnimatedStyle(() => ({ opacity: opacity.value }));
 
-  if (reduced) return null;
+  if (reduced || done) return null;
 
   return (
     <Animated.View
