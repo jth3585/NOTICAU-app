@@ -1,4 +1,5 @@
 import { StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import { MotiView } from 'moti';
 import type { Notice } from '../lib/types';
 import { NoticeCard } from './NoticeCard';
 import { COLORS, FONT, RADIUS, SPACING, TEXT, WEIGHT } from '../lib/theme';
@@ -19,7 +20,12 @@ export function HomeCuration({ notices, allSeen, onGoToAll, onPressNotice, isNew
       <Text style={styles.label}>AI 큐레이션</Text>
 
       {allSeen ? (
-        <View style={styles.doneCard}>
+        <MotiView
+          style={styles.doneCard}
+          from={{ opacity: 0, scale: 0.96 }}
+          animate={{ opacity: 1, scale: 1 }}
+          transition={{ type: 'timing', duration: 360 }}
+        >
           <View style={styles.doneTitleRow}>
             <Text style={styles.doneTitle}>오늘 추천 공지를 다 읽었어요</Text>
             <SparkleIcon size={16} color={COLORS.accent} />
@@ -29,16 +35,22 @@ export function HomeCuration({ notices, allSeen, onGoToAll, onPressNotice, isNew
             <Text style={styles.moreBtnText}>전체 공지 보기</Text>
             <ChevronRightIcon size={16} color="#fff" />
           </TouchableOpacity>
-        </View>
+        </MotiView>
       ) : (
         <View>
-          {notices.map((item) => (
-            <NoticeCard
+          {notices.map((item, i) => (
+            <MotiView
               key={item.id}
-              notice={item}
-              isNew={isNew(item.posted_at)}
-              onPress={() => onPressNotice(item)}
-            />
+              from={{ opacity: 0, translateY: 10 }}
+              animate={{ opacity: 1, translateY: 0 }}
+              transition={{ type: 'timing', duration: 320, delay: i * 55 }}
+            >
+              <NoticeCard
+                notice={item}
+                isNew={isNew(item.posted_at)}
+                onPress={() => onPressNotice(item)}
+              />
+            </MotiView>
           ))}
         </View>
       )}
