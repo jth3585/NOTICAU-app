@@ -43,7 +43,8 @@
         {
           "calendarPermission": "공지 마감일을 캘린더에 추가하기 위해 캘린더 접근이 필요합니다."
         }
-      ]
+      ],
+      "expo-font"
     ],
     "extra": {
       "eas": {

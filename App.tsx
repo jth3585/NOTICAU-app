@@ -1,5 +1,6 @@
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useRef, useState, cloneElement } from 'react';
 import * as SplashScreen from 'expo-splash-screen';
+import { useFonts } from 'expo-font';
 import { NavigationContainer, createNavigationContainerRef } from '@react-navigation/native';
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
 import * as Notifications from 'expo-notifications';
@@ -7,7 +8,7 @@ import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import { StatusBar } from 'expo-status-bar';
-import { StyleSheet, View } from 'react-native';
+import { StyleSheet, Text, View } from 'react-native';
 import type { RootStackParamList, TabParamList } from './lib/types';
 import { COLORS, FONT, WEIGHT } from './lib/theme';
 import { HomeIcon, ClipboardListIcon, UserIcon } from './components/ui/icons';
@@ -36,6 +37,19 @@ import NoticeDetailScreen from './screens/NoticeDetailScreen';
 // 콜드 스타트 시 네이티브 스플래시를 수동 제어 (init 완료 + 최소 표시시간 후 hide).
 SplashScreen.preventAutoHideAsync().catch(() => {});
 const MIN_SPLASH_MS = 1500; // 콜드 스타트 스플래시 최소 표시 시간
+
+// 전역 기본 글꼴: Pretendard. 컴포넌트가 지정한 style(fontWeight·색 등)은 그대로 우선한다.
+// variable 폰트라 기존 fontWeight 값이 그대로 굵기를 선택. Text.render를 한 번만 패치해
+// 모든 <Text>에 base fontFamily를 주입(개별 style이 덮어쓰지 않도록 배열 앞에 병합).
+const TextAny = Text as any;
+if (!TextAny.__fontPatched && typeof TextAny.render === 'function') {
+  const origRender = TextAny.render;
+  TextAny.render = function (...args: any[]) {
+    const el = origRender.apply(this, args);
+    return cloneElement(el, { style: [{ fontFamily: 'Pretendard' }, el.props.style] });
+  };
+  TextAny.__fontPatched = true;
+}
 
 const Stack = createNativeStackNavigator<RootStackParamList>();
 const Tab = createBottomTabNavigator<TabParamList>();
@@ -127,6 +141,7 @@ function Tabs() {
 
 export default function App() {
   const [ready, setReady] = useState(false);
+  const [fontsLoaded] = useFonts({ Pretendard: require('./assets/fonts/PretendardVariable.ttf') });
   const [hasProfile, setHasProfile] = useState(false);
   const initStartTime = useRef(Date.now()).current;
 
@@ -153,10 +168,14 @@ export default function App() {
         const remaining = MIN_SPLASH_MS - (Date.now() - initStartTime);
         if (remaining > 0) await new Promise((r) => setTimeout(r, remaining));
         setReady(true);
-        await SplashScreen.hideAsync();
       }
     })();
   }, []);
+
+  // 초기화 + 폰트 로드가 모두 끝나면 스플래시 해제 (글꼴 깜빡임 방지)
+  useEffect(() => {
+    if (ready && fontsLoaded) SplashScreen.hideAsync().catch(() => {});
+  }, [ready, fontsLoaded]);
 
   // 알림 탭 라우팅: 앱 실행 중(워밍) 리스너 + 콜드 스타트(앱이 알림으로 열림) 처리
   useEffect(() => {
@@ -170,7 +189,7 @@ export default function App() {
     return () => sub.remove();
   }, []);
 
-  if (!ready) {
+  if (!ready || !fontsLoaded) {
     return (
       <SafeAreaProvider>
         <View style={{ flex: 1, backgroundColor: COLORS.bg }} />
