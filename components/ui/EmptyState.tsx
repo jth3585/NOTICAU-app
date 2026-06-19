@@ -1,6 +1,6 @@
 import type { ReactNode } from 'react';
 import { StyleSheet, Text, TouchableOpacity, View } from 'react-native';
-import { MotiView } from 'moti';
+import Animated, { FadeInDown } from 'react-native-reanimated';
 import { COLORS, FONT, RADIUS, SPACING, WEIGHT } from '../../lib/theme';
 
 // 빈 화면 공통 컴포넌트: 크고 흐린 아이콘 + 제목(+보조문구) + (선택)액션 버튼.
@@ -19,12 +19,7 @@ export function EmptyState({
   onAction?: () => void;
 }) {
   return (
-    <MotiView
-      style={styles.wrap}
-      from={{ opacity: 0, translateY: 10 }}
-      animate={{ opacity: 1, translateY: 0 }}
-      transition={{ type: 'timing', duration: 400 }}
-    >
+    <Animated.View style={styles.wrap} entering={FadeInDown.duration(400)}>
       <View style={styles.iconBox}>{icon}</View>
       <Text style={styles.title}>{title}</Text>
       {subtitle ? <Text style={styles.subtitle}>{subtitle}</Text> : null}
@@ -33,7 +28,7 @@ export function EmptyState({
           <Text style={styles.actionText}>{actionLabel}</Text>
         </TouchableOpacity>
       ) : null}
-    </MotiView>
+    </Animated.View>
   );
 }
 

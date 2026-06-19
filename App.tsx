@@ -46,7 +46,12 @@ if (!TextAny.__fontPatched && typeof TextAny.render === 'function') {
   const origRender = TextAny.render;
   TextAny.render = function (...args: any[]) {
     const el = origRender.apply(this, args);
-    return cloneElement(el, { style: [{ fontFamily: 'Pretendard' }, el.props.style] });
+    // 예외 시 원본 그대로 반환 → 글꼴 패치가 어떤 경우에도 크래시를 내지 않게 보호.
+    try {
+      return cloneElement(el, { style: [{ fontFamily: 'Pretendard' }, el?.props?.style] });
+    } catch {
+      return el;
+    }
   };
   TextAny.__fontPatched = true;
 }
