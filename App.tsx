@@ -25,6 +25,7 @@ import ProfileEditScreen from './screens/ProfileEditScreen';
 import KeywordManageScreen from './screens/KeywordManageScreen';
 import CategoryPrefsScreen from './screens/CategoryPrefsScreen';
 import NotificationSettingsScreen from './screens/NotificationSettingsScreen';
+import AccountInfoScreen from './screens/AccountInfoScreen';
 import TermsScreen from './screens/TermsScreen';
 import PrivacyScreen from './screens/PrivacyScreen';
 import DeleteAccountScreen from './screens/DeleteAccountScreen';
@@ -228,6 +229,7 @@ export default function App() {
             <Stack.Screen name="KeywordManage" component={KeywordManageScreen} />
             <Stack.Screen name="CategoryPrefs" component={CategoryPrefsScreen} />
             <Stack.Screen name="NotificationSettings" component={NotificationSettingsScreen} />
+            <Stack.Screen name="AccountInfo" component={AccountInfoScreen} />
             <Stack.Screen name="Terms" component={TermsScreen} />
             <Stack.Screen name="Privacy" component={PrivacyScreen} />
             <Stack.Screen name="DeleteAccount" component={DeleteAccountScreen} />

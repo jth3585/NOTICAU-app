@@ -77,6 +77,7 @@ export type RootStackParamList = {
   KeywordManage: undefined;
   CategoryPrefs: undefined;
   NotificationSettings: undefined;
+  AccountInfo: undefined;
   Terms: undefined;
   Privacy: undefined;
   DeleteAccount: undefined;

@@ -8,12 +8,9 @@ import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { supabase } from '../lib/supabase';
 import type { RootStackParamList } from '../lib/types';
 import { COLORS, FONT, RADIUS, SHADOW, SPACING, TEXT, WEIGHT } from '../lib/theme';
-import {
-  ChevronRightIcon, HashIcon, FolderIcon,
-  BellIcon, FileTextIcon, ShieldIcon, TrashIcon,
-} from '../components/ui/icons';
+import { HashIcon, FolderIcon, BellIcon, UserIcon } from '../components/ui/icons';
 import { BookmarkIcon } from '../components/ui/BookmarkIcon';
-import type { ReactNode } from 'react';
+import { SettingsGroup, SettingsRow } from '../components/ui/SettingsRow';
 
 type Nav = NativeStackNavigationProp<RootStackParamList>;
 
@@ -72,8 +69,6 @@ export default function MyPageScreen() {
   return (
     <SafeAreaView style={styles.container} edges={['top']}>
       <ScrollView contentContainerStyle={styles.scroll}>
-        <Text style={styles.pageTitle}>마이페이지</Text>
-
         {/* 히어로 프로필 카드 (그라데이션) */}
         {profile && (
           <LinearGradient
@@ -128,45 +123,25 @@ export default function MyPageScreen() {
 
         {/* 내 설정 */}
         <Text style={styles.groupLabel}>내 설정</Text>
-        <View style={styles.menuGroup}>
-          <MenuItem icon={<HashIcon size={16} color={COLORS.textSecondary} />} label="키워드 관리" onPress={() => navigation.navigate('KeywordManage')} />
-          <MenuItem icon={<FolderIcon size={16} color={COLORS.textSecondary} />} label="카테고리 필터" onPress={() => navigation.navigate('CategoryPrefs')} last />
-        </View>
+        <SettingsGroup>
+          <SettingsRow icon={<HashIcon size={16} color={COLORS.textSecondary} />} label="키워드 관리" onPress={() => navigation.navigate('KeywordManage')} />
+          <SettingsRow icon={<FolderIcon size={16} color={COLORS.textSecondary} />} label="카테고리 필터" onPress={() => navigation.navigate('CategoryPrefs')} last />
+        </SettingsGroup>
 
         {/* 앱 정보 */}
-        <Text style={styles.groupLabel}>앱 정보</Text>
-        <View style={styles.menuGroup}>
-          <MenuItem icon={<BellIcon size={16} color={COLORS.textSecondary} />} label="알림 설정" onPress={() => navigation.navigate('NotificationSettings')} />
-          <MenuItem icon={<FileTextIcon size={16} color={COLORS.textSecondary} />} label="이용약관" onPress={() => navigation.navigate('Terms')} />
-          <MenuItem icon={<ShieldIcon size={16} color={COLORS.textSecondary} />} label="개인정보 처리방침" onPress={() => navigation.navigate('Privacy')} last />
-        </View>
-
-        {/* 계정 */}
-        <Text style={styles.groupLabel}>계정</Text>
-        <View style={styles.menuGroup}>
-          <MenuItem icon={<TrashIcon size={16} color={COLORS.danger} />} label="회원 탈퇴" onPress={() => navigation.navigate('DeleteAccount')} danger last />
-        </View>
+        <Text style={[styles.groupLabel, styles.groupLabelGap]}>앱 정보</Text>
+        <SettingsGroup>
+          <SettingsRow icon={<BellIcon size={16} color={COLORS.textSecondary} />} label="알림 설정" onPress={() => navigation.navigate('NotificationSettings')} />
+          <SettingsRow icon={<UserIcon size={16} color={COLORS.textSecondary} />} label="계정 정보" onPress={() => navigation.navigate('AccountInfo')} last />
+        </SettingsGroup>
       </ScrollView>
     </SafeAreaView>
   );
 }
 
-function MenuItem({ icon, label, onPress, disabled, danger, last }: { icon?: ReactNode; label: string; onPress?: () => void; disabled?: boolean; danger?: boolean; last?: boolean }) {
-  return (
-    <TouchableOpacity style={[styles.menuItem, last && styles.menuItemLast]} onPress={onPress} disabled={disabled} activeOpacity={0.6}>
-      <View style={styles.menuLeft}>
-        {icon ? <View style={[styles.menuIcon, danger && styles.menuIconDanger]}>{icon}</View> : null}
-        <Text style={[styles.menuLabel, disabled && styles.menuDisabled, danger && styles.menuDanger]}>{label}</Text>
-      </View>
-      <ChevronRightIcon size={18} color={COLORS.textTertiary} />
-    </TouchableOpacity>
-  );
-}
-
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: COLORS.bg },
-  scroll: { paddingHorizontal: SPACING.lg, paddingBottom: SPACING.xxl },
-  pageTitle: { ...TEXT.pageTitle, paddingTop: SPACING.sm, marginBottom: SPACING.lg },
+  scroll: { paddingHorizontal: SPACING.lg, paddingTop: SPACING.md, paddingBottom: SPACING.xxl },
 
   // 히어로 프로필 카드 (그라데이션 = 학생증/멤버십 느낌)
   hero: {
@@ -209,26 +184,5 @@ const styles = StyleSheet.create({
   statLabel: { fontSize: FONT.caption, color: COLORS.textSecondary },
 
   groupLabel: { ...TEXT.sectionLabel, marginBottom: SPACING.sm },
-  menuGroup: {
-    backgroundColor: COLORS.surface,
-    borderRadius: RADIUS.card,
-    marginBottom: SPACING.xl,
-    ...SHADOW.card,
-  },
-  menuItem: {
-    flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between',
-    paddingHorizontal: SPACING.lg, paddingVertical: SPACING.md + 2,
-    borderBottomWidth: StyleSheet.hairlineWidth, borderBottomColor: COLORS.border,
-  },
-  menuItemLast: { borderBottomWidth: 0 },
-  menuLeft: { flexDirection: 'row', alignItems: 'center', gap: SPACING.md, flex: 1 },
-  menuIcon: {
-    width: 30, height: 30, borderRadius: 9,
-    backgroundColor: COLORS.surface2,
-    alignItems: 'center', justifyContent: 'center',
-  },
-  menuIconDanger: { backgroundColor: COLORS.dangerSoft },
-  menuLabel: { fontSize: FONT.body, color: COLORS.text },
-  menuDisabled: { color: COLORS.textTertiary },
-  menuDanger: { color: COLORS.danger },
+  groupLabelGap: { marginTop: SPACING.xl }, // 그룹 사이 간격
 });
