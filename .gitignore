@@ -43,3 +43,9 @@ yarn-error.*
 
 # Supabase CLI local cache
 supabase/.temp/
+
+# 디자인 레퍼런스 (로컬 전용 — 커밋 제외)
+/레퍼런스.jpg
+/상단그라디언트 레퍼런스.jpg
+/ai요약스타일 레퍼런스.png
+/UX 라이팅 가이드*.md
