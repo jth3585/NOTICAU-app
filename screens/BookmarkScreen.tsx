@@ -235,9 +235,9 @@ const styles = StyleSheet.create({
     flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between',
     paddingHorizontal: SPACING.lg, paddingTop: SPACING.lg, marginBottom: SPACING.md,
   },
-  // 다른 탭처럼 큰 제목 제거 → "최근 추가 북마크"와 동일한 섹션 라벨 위계로 통일
-  collectionTitle: { ...TEXT.sectionLabel },
-  plus: { fontSize: 20, color: COLORS.accent, fontWeight: WEIGHT.bold, lineHeight: 22 },
+  // 중간 위계 섹션 헤딩(최근 추가 북마크의 작은 라벨보다 한 단계 위). 큰 페이지 제목은 아님.
+  collectionTitle: { fontSize: FONT.subtitle, fontWeight: WEIGHT.bold, color: COLORS.text },
+  plus: { fontSize: 22, color: COLORS.accent, fontWeight: WEIGHT.bold, lineHeight: 24 },
   folderRow: { flexDirection: 'row', gap: SPACING.md, paddingHorizontal: SPACING.lg },
   folderCard: {
     width: 130,

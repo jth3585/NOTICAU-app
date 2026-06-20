@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
 import { ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useFocusEffect, useNavigation } from '@react-navigation/native';
 import { useCallback } from 'react';
@@ -31,6 +31,7 @@ const STATUS_LABEL: Record<string, string> = {
 
 export default function MyPageScreen() {
   const navigation = useNavigation<Nav>();
+  const insets = useSafeAreaInsets();
   const [profile, setProfile] = useState<Profile | null>(null);
   const [collegeName, setCollegeName] = useState('');
   const [deptName, setDeptName] = useState('');
@@ -67,18 +68,18 @@ export default function MyPageScreen() {
   const statusText = profile?.enrollment_status?.map(s => STATUS_LABEL[s] ?? s).join(' · ') ?? '';
 
   return (
-    <SafeAreaView style={styles.container} edges={['top']}>
-      <ScrollView contentContainerStyle={styles.scroll}>
-        {/* 히어로 프로필 카드 (그라데이션) */}
+    <View style={styles.container}>
+      <ScrollView contentContainerStyle={styles.scroll} showsVerticalScrollIndicator={false}>
+        {/* 풀블리드 그라데이션 헤더 (상태바 뒤까지, 좌우 끝까지) */}
         {profile && (
           <LinearGradient
             colors={COLORS.accentGradient}
             start={{ x: 0, y: 0 }}
             end={{ x: 1, y: 1 }}
-            style={styles.hero}
+            style={[styles.hero, { paddingTop: insets.top + SPACING.lg }]}
           >
             <TouchableOpacity
-              style={styles.editChip}
+              style={[styles.editChip, { top: insets.top + SPACING.xs }]}
               onPress={() => navigation.navigate('ProfileEdit')}
               activeOpacity={0.8}
               hitSlop={8}
@@ -107,6 +108,7 @@ export default function MyPageScreen() {
           </LinearGradient>
         )}
 
+        <View style={styles.body}>
         {/* 내 활동 요약 */}
         <View style={styles.statsRow}>
           <TouchableOpacity style={styles.statCard} activeOpacity={0.8} onPress={() => navigation.navigate('Bookmark' as never)}>
@@ -134,20 +136,24 @@ export default function MyPageScreen() {
           <SettingsRow icon={<BellIcon size={16} color={COLORS.textSecondary} />} label="알림 설정" onPress={() => navigation.navigate('NotificationSettings')} />
           <SettingsRow icon={<UserIcon size={16} color={COLORS.textSecondary} />} label="계정 정보" onPress={() => navigation.navigate('AccountInfo')} last />
         </SettingsGroup>
+        </View>
       </ScrollView>
-    </SafeAreaView>
+    </View>
   );
 }
 
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: COLORS.bg },
-  scroll: { paddingHorizontal: SPACING.lg, paddingTop: SPACING.md, paddingBottom: SPACING.xxl },
+  scroll: { paddingBottom: SPACING.xxl },
+  body: { paddingHorizontal: SPACING.lg },
 
-  // 히어로 프로필 카드 (그라데이션 = 학생증/멤버십 느낌)
+  // 풀블리드 그라데이션 헤더 (떠있는 카드 X → 화면 헤더 O). 아래 모서리만 둥글게.
   hero: {
-    borderRadius: RADIUS.card,
-    padding: SPACING.lg,
-    marginBottom: SPACING.md,
+    paddingHorizontal: SPACING.lg,
+    paddingBottom: SPACING.xl,
+    borderBottomLeftRadius: 28,
+    borderBottomRightRadius: 28,
+    marginBottom: SPACING.xl,
     ...SHADOW.accent,
   },
   heroRow: { flexDirection: 'row', alignItems: 'center', gap: SPACING.md },
