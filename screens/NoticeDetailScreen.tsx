@@ -1,4 +1,4 @@
-import { useState, useMemo, useEffect, useCallback, memo } from 'react';
+import { useState, useMemo, useEffect, useCallback, memo, useRef } from 'react';
 import {
   Dimensions,
   Linking,
@@ -35,6 +35,10 @@ import { BookmarkIcon } from '../components/ui/BookmarkIcon';
 import { ShareIcon } from '../components/ui/ShareIcon';
 import { markAsRead } from '../lib/read';
 import { supabase } from '../lib/supabase';
+import { PressableScale } from '../components/ui/PressableScale';
+import Animated, {
+  FadeInDown, useSharedValue, useAnimatedStyle, withSequence, withTiming,
+} from 'react-native-reanimated';
 
 type Props = NativeStackScreenProps<RootStackParamList, 'Detail'>;
 
@@ -60,6 +64,15 @@ export default function NoticeDetailScreen({ route, navigation }: Props) {
   const [imgViewerIndex, setImgViewerIndex] = useState(0);
   const [imgViewerVisible, setImgViewerVisible] = useState(false);
   const { bookmarked, toggle: toggleBookmark } = useBookmark(notice.id);
+
+  // 북마크 추가 시 아이콘 톡 튀는 팝 (마운트 시 이미 북마크여도 안 튀게 firstRun 가드)
+  const bmScale = useSharedValue(1);
+  const bmStyle = useAnimatedStyle(() => ({ transform: [{ scale: bmScale.value }] }));
+  const bmFirstRun = useRef(true);
+  useEffect(() => {
+    if (bmFirstRun.current) { bmFirstRun.current = false; return; }
+    if (bookmarked) bmScale.value = withSequence(withTiming(1.35, { duration: 120 }), withTiming(1, { duration: 170 }));
+  }, [bookmarked]);
 
   // 상세 진입 시 자동 읽음 처리
   useEffect(() => { markAsRead(notice.id); }, [notice.id]);
@@ -109,7 +122,9 @@ export default function NoticeDetailScreen({ route, navigation }: Props) {
             <ShareIcon size={22} color={COLORS.textTertiary} />
           </TouchableOpacity>
           <TouchableOpacity onPress={toggleBookmark} hitSlop={8}>
-            <BookmarkIcon size={22} filled={bookmarked} color={bookmarked ? COLORS.accent : COLORS.textTertiary} />
+            <Animated.View style={bmStyle}>
+              <BookmarkIcon size={22} filled={bookmarked} color={bookmarked ? COLORS.accent : COLORS.textTertiary} />
+            </Animated.View>
           </TouchableOpacity>
         </View>
       </View>
@@ -217,12 +232,14 @@ const BodyBlock = memo(function BodyBlock({
     return (
       <View style={styles.bodyWrap}>
         {summary && summaryElements.length > 0 ? (
-          <InfoBox tone="gradient">
-            <View style={styles.summaryLabelRow}>
-              <AiSummaryLabel />
-            </View>
-            {summaryElements}
-          </InfoBox>
+          <Animated.View entering={FadeInDown.duration(420)}>
+            <InfoBox tone="gradient">
+              <View style={styles.summaryLabelRow}>
+                <AiSummaryLabel />
+              </View>
+              {summaryElements}
+            </InfoBox>
+          </Animated.View>
         ) : null}
         {rest && bodyElements.length > 0 ? bodyElements : null}
       </View>
@@ -242,7 +259,7 @@ const BodyBlock = memo(function BodyBlock({
 function AutoImage({ uri, width, onPress }: { uri: string; width: number; onPress?: () => void }) {
   const [ratio, setRatio] = useState(1.4);
   return (
-    <TouchableOpacity activeOpacity={0.85} onPress={onPress} disabled={!onPress}>
+    <PressableScale scaleTo={0.98} onPress={onPress} disabled={!onPress}>
       <Image
         source={{ uri }}
         style={{ width, height: width / ratio, marginTop: SPACING.md, borderRadius: RADIUS.box }}
@@ -254,7 +271,7 @@ function AutoImage({ uri, width, onPress }: { uri: string; width: number; onPres
           if (w && h) setRatio(w / h);
         }}
       />
-    </TouchableOpacity>
+    </PressableScale>
   );
 }
 

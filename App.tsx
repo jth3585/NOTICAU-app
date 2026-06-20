@@ -7,6 +7,7 @@ import * as Notifications from 'expo-notifications';
 import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
+import Animated, { useSharedValue, useAnimatedStyle, withSequence, withTiming } from 'react-native-reanimated';
 import { StatusBar } from 'expo-status-bar';
 import { StyleSheet, Text, View } from 'react-native';
 import type { RootStackParamList, TabParamList } from './lib/types';
@@ -93,7 +94,16 @@ async function routeFromNotificationData(data: any): Promise<void> {
 type TabIconComponent = (props: { size?: number; color: string }) => React.ReactElement;
 
 function TabIcon({ Icon, focused }: { Icon: TabIconComponent; focused: boolean }) {
-  return <Icon size={22} color={focused ? COLORS.accent : COLORS.textTertiary} />;
+  const scale = useSharedValue(1);
+  const style = useAnimatedStyle(() => ({ transform: [{ scale: scale.value }] }));
+  useEffect(() => {
+    if (focused) scale.value = withSequence(withTiming(1.18, { duration: 130 }), withTiming(1, { duration: 160 }));
+  }, [focused]);
+  return (
+    <Animated.View style={style}>
+      <Icon size={22} color={focused ? COLORS.accent : COLORS.textTertiary} />
+    </Animated.View>
+  );
 }
 
 function Tabs() {

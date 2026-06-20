@@ -1,5 +1,6 @@
 import { StyleSheet, Text, View } from 'react-native';
 import { COLORS, FONT, SPACING, TEXT, WEIGHT } from '../lib/theme';
+import { AnimatedCount } from './ui/AnimatedCount';
 
 // KST(UTC+9) 기준 시간대 인사
 function timeGreeting(kstHour: number): string {
@@ -20,17 +21,21 @@ export function HomeGreeting({ nickname, deadlineSoonCount, newCount }: Props) {
   const greeting = timeGreeting(kstHour);
   const title = nickname ? `${nickname}님, ${greeting}` : greeting;
 
-  // 보조 줄: 마감 임박 > 새 공지 > 다 봄
-  const subline = deadlineSoonCount > 0
-    ? `오늘 마감인 공지 ${deadlineSoonCount}건 있어요`
-    : newCount > 0
-      ? `오늘 새 공지 ${newCount}건이에요`
-      : '모든 공지를 확인했어요';
-
   return (
     <View style={styles.wrap}>
       <Text style={styles.title}>{title}</Text>
-      <Text style={styles.sub}>{subline}</Text>
+      {/* 보조 줄: 마감 임박 > 새 공지 > 다 봄. 숫자만 카운트업+강조 */}
+      {deadlineSoonCount > 0 ? (
+        <Text style={styles.sub}>
+          오늘 마감인 공지 <AnimatedCount value={deadlineSoonCount} style={styles.subStrong} />건 있어요
+        </Text>
+      ) : newCount > 0 ? (
+        <Text style={styles.sub}>
+          오늘 새 공지 <AnimatedCount value={newCount} style={styles.subStrong} />건이에요
+        </Text>
+      ) : (
+        <Text style={styles.sub}>모든 공지를 확인했어요</Text>
+      )}
     </View>
   );
 }
@@ -39,4 +44,5 @@ const styles = StyleSheet.create({
   wrap: { paddingHorizontal: SPACING.lg, paddingTop: SPACING.lg, paddingBottom: SPACING.xl },
   title: { ...TEXT.pageTitle, lineHeight: 34 },
   sub: { fontSize: FONT.body, color: COLORS.textSecondary, marginTop: SPACING.sm },
+  subStrong: { fontWeight: WEIGHT.bold, color: COLORS.accentText, fontVariant: ['tabular-nums'] },
 });

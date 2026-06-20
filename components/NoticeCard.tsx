@@ -1,6 +1,7 @@
-import { StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import { StyleSheet, Text, View } from 'react-native';
 import type { Notice } from '../lib/types';
 import { COLORS, FONT, RADIUS, SHADOW, SPACING, WEIGHT } from '../lib/theme';
+import { PressableScale } from './ui/PressableScale';
 import { formatDateShort, formatScheduleBadge, metaOf, sourceOf } from '../lib/format';
 import { CategoryBadge } from './ui/CategoryBadge';
 import { SourceBadge } from './ui/SourceBadge';
@@ -47,12 +48,10 @@ export function NoticeCard({
         : COLORS.textSecondary;
 
   return (
-    <TouchableOpacity
+    <PressableScale
       onPress={onPress}
       onLongPress={onLongPress}
       delayLongPress={300}
-      // 스와이프 래핑 카드는 dim 끔(누르면 반투명해져 뒤 액션이 비치는 문제 방지).
-      activeOpacity={dimOnPress ? 0.6 : 1}
       style={[
         styles.card,
         width != null && { width, marginHorizontal: 0, marginRight: SPACING.md, marginBottom: 0 },
@@ -92,7 +91,7 @@ export function NoticeCard({
         )}
         {keywordTag ? <Text style={styles.kwTag}>  #{keywordTag}</Text> : null}
       </Text>
-    </TouchableOpacity>
+    </PressableScale>
   );
 }
 
