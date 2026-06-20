@@ -17,7 +17,8 @@ import { CategoryChips } from '../components/CategoryChips';
 import { NoticeCard } from '../components/NoticeCard';
 import { SwipeToBookmark } from '../components/SwipeToBookmark';
 import { SearchIcon } from '../components/ui/SearchIcon';
-import { CloseIcon, CheckIcon, ClipboardListIcon, ChevronDownIcon } from '../components/ui/icons';
+import { SortIcon } from '../components/ui/SortIcon';
+import { CloseIcon, CheckIcon, ClipboardListIcon } from '../components/ui/icons';
 import { EmptyState } from '../components/ui/EmptyState';
 import { NoticeListSkeleton } from '../components/ui/Skeleton';
 import { useReadSet } from '../lib/read';
@@ -217,6 +218,14 @@ export default function InboxScreen() {
                   </TouchableOpacity>
                 ) : null}
               </View>
+              <TouchableOpacity
+                ref={sortBtnRef}
+                style={[styles.sortBtn, sortMode !== 'deadline' && styles.sortBtnActive]}
+                onPress={openSort}
+                hitSlop={6}
+              >
+                <SortIcon size={18} color={sortMode !== 'deadline' ? COLORS.accent : COLORS.textSecondary} />
+              </TouchableOpacity>
             </View>
           </View>
         }
@@ -224,19 +233,7 @@ export default function InboxScreen() {
         renderSectionHeader={() =>
           query ? null : (
             <View style={styles.filterRow}>
-              <View style={styles.chipsFlex}>
-                <CategoryChips topics={chipTopics} selected={selected} onSelect={setSelected} />
-              </View>
-              <TouchableOpacity
-                ref={sortBtnRef}
-                style={styles.sortChip}
-                onPress={openSort}
-                hitSlop={6}
-                activeOpacity={0.7}
-              >
-                <Text style={styles.sortChipText}>{SORT_LABELS[sortMode]}</Text>
-                <ChevronDownIcon size={13} color={COLORS.textSecondary} />
-              </TouchableOpacity>
+              <CategoryChips topics={chipTopics} selected={selected} onSelect={setSelected} />
             </View>
           )
         }
@@ -321,9 +318,17 @@ const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: COLORS.bg },
   pageTitle: { ...TEXT.pageTitle, paddingHorizontal: SPACING.lg, paddingTop: SPACING.sm, paddingBottom: SPACING.md },
   centered: { alignItems: 'center', justifyContent: 'center' },
-  // 검색바: 한 줄 풀폭(정렬 버튼 제거). 제목 제거로 검색이 최상단 → 위 약간 띄움.
-  searchWrap: { paddingHorizontal: SPACING.lg, paddingTop: SPACING.sm, paddingBottom: SPACING.md },
+  // 검색바 + 정렬 아이콘 한 줄 (제목 제거로 이게 최상단 → 위 약간 띄움).
+  searchWrap: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: SPACING.sm,
+    paddingHorizontal: SPACING.lg,
+    paddingTop: SPACING.sm,
+    paddingBottom: SPACING.md,
+  },
   searchRow: {
+    flex: 1,
     height: 44,
     flexDirection: 'row',
     alignItems: 'center',
@@ -337,23 +342,17 @@ const styles = StyleSheet.create({
     color: COLORS.text,
     padding: 0,
   },
-  // 필터 칩(스크롤) + 정렬 칩(고정) 한 줄. sticky라 배경 불투명.
-  filterRow: {
-    flexDirection: 'row',
+  sortBtn: {
+    width: 44,
+    height: 44,
+    backgroundColor: COLORS.surface,
+    borderRadius: RADIUS.box,
     alignItems: 'center',
-    backgroundColor: COLORS.bg,
-    paddingRight: SPACING.lg,
+    justifyContent: 'center',
   },
-  chipsFlex: { flex: 1 },
-  sortChip: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 2,
-    paddingLeft: SPACING.sm,
-    paddingVertical: SPACING.xs,
-    backgroundColor: COLORS.bg,
-  },
-  sortChipText: { fontSize: FONT.caption, color: COLORS.textSecondary, fontWeight: WEIGHT.semibold },
+  sortBtnActive: { backgroundColor: COLORS.accentSoft },
+  // 필터 칩 줄(sticky). 칩 풀폭 + 카드와 간격 확보.
+  filterRow: { backgroundColor: COLORS.bg, paddingBottom: SPACING.xs },
   listContent: { paddingBottom: SPACING.xl },
   empty: {
     textAlign: 'center',
