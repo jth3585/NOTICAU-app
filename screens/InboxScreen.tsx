@@ -17,8 +17,7 @@ import { CategoryChips } from '../components/CategoryChips';
 import { NoticeCard } from '../components/NoticeCard';
 import { SwipeToBookmark } from '../components/SwipeToBookmark';
 import { SearchIcon } from '../components/ui/SearchIcon';
-import { SortIcon } from '../components/ui/SortIcon';
-import { CloseIcon, CheckIcon, ClipboardListIcon } from '../components/ui/icons';
+import { CloseIcon, CheckIcon, ClipboardListIcon, ChevronDownIcon } from '../components/ui/icons';
 import { EmptyState } from '../components/ui/EmptyState';
 import { NoticeListSkeleton } from '../components/ui/Skeleton';
 import { useReadSet } from '../lib/read';
@@ -199,7 +198,7 @@ export default function InboxScreen() {
         ListHeaderComponent={
           <View>
             <Text style={styles.pageTitle}>전체 공지</Text>
-            <View style={styles.topBar}>
+            <View style={styles.searchWrap}>
               <View style={styles.searchRow}>
                 <View style={{ marginRight: SPACING.sm }}>
                   <SearchIcon size={16} color={COLORS.textTertiary} />
@@ -219,22 +218,26 @@ export default function InboxScreen() {
                   </TouchableOpacity>
                 ) : null}
               </View>
-              <TouchableOpacity
-                ref={sortBtnRef}
-                style={[styles.sortBtn, sortMode !== 'deadline' && styles.sortBtnActive]}
-                onPress={openSort}
-                hitSlop={6}
-              >
-                <SortIcon size={18} color={sortMode !== 'deadline' ? COLORS.accent : COLORS.textSecondary} />
-              </TouchableOpacity>
             </View>
           </View>
         }
-        // 카테고리 칩 → 상단 고정(sticky). 검색 중엔 숨김.
+        // 필터 칩(스크롤) + 정렬 칩(우측 고정) → 상단 고정(sticky). 검색 중엔 숨김.
         renderSectionHeader={() =>
           query ? null : (
-            <View style={styles.listHeader}>
-              <CategoryChips topics={chipTopics} selected={selected} onSelect={setSelected} />
+            <View style={styles.filterRow}>
+              <View style={styles.chipsFlex}>
+                <CategoryChips topics={chipTopics} selected={selected} onSelect={setSelected} />
+              </View>
+              <TouchableOpacity
+                ref={sortBtnRef}
+                style={styles.sortChip}
+                onPress={openSort}
+                hitSlop={6}
+                activeOpacity={0.7}
+              >
+                <Text style={styles.sortChipText}>{SORT_LABELS[sortMode]}</Text>
+                <ChevronDownIcon size={13} color={COLORS.textSecondary} />
+              </TouchableOpacity>
             </View>
           )
         }
@@ -317,18 +320,11 @@ function Centered({ children }: { children: ReactNode }) {
 
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: COLORS.bg },
-  pageTitle: { ...TEXT.pageTitle, paddingHorizontal: SPACING.lg, paddingTop: SPACING.sm, paddingBottom: SPACING.sm },
+  pageTitle: { ...TEXT.pageTitle, paddingHorizontal: SPACING.lg, paddingTop: SPACING.sm, paddingBottom: SPACING.md },
   centered: { alignItems: 'center', justifyContent: 'center' },
-  topBar: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    paddingHorizontal: SPACING.lg,
-    paddingTop: SPACING.xs,
-    paddingBottom: SPACING.md,
-    gap: SPACING.sm,
-  },
+  // 검색바: 한 줄 풀폭(정렬 버튼 제거). 아래 필터 줄과 간격으로 숨통.
+  searchWrap: { paddingHorizontal: SPACING.lg, paddingBottom: SPACING.md },
   searchRow: {
-    flex: 1,
     height: 44,
     flexDirection: 'row',
     alignItems: 'center',
@@ -342,16 +338,23 @@ const styles = StyleSheet.create({
     color: COLORS.text,
     padding: 0,
   },
-  sortBtn: {
-    width: 44,
-    height: 44,
-    backgroundColor: COLORS.surface,
-    borderRadius: RADIUS.box,
+  // 필터 칩(스크롤) + 정렬 칩(고정) 한 줄. sticky라 배경 불투명.
+  filterRow: {
+    flexDirection: 'row',
     alignItems: 'center',
-    justifyContent: 'center',
+    backgroundColor: COLORS.bg,
+    paddingRight: SPACING.lg,
   },
-  sortBtnActive: { backgroundColor: COLORS.accentSoft },
-  listHeader: { backgroundColor: COLORS.bg },
+  chipsFlex: { flex: 1 },
+  sortChip: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 2,
+    paddingLeft: SPACING.sm,
+    paddingVertical: SPACING.xs,
+    backgroundColor: COLORS.bg,
+  },
+  sortChipText: { fontSize: FONT.caption, color: COLORS.textSecondary, fontWeight: WEIGHT.semibold },
   listContent: { paddingBottom: SPACING.xl },
   empty: {
     textAlign: 'center',

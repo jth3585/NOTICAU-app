@@ -46,6 +46,12 @@ export function NoticeCard({
       : badge?.urgent
         ? COLORS.danger
         : COLORS.textSecondary;
+  // 마감 알약 배경: 임박=빨강틴트, 신청예정=파랑틴트, 그 외/마감=옅은 회색
+  const pillBg = badge?.kind === 'upcoming'
+    ? COLORS.accentSoft
+    : badge?.urgent
+      ? COLORS.dangerSoft
+      : COLORS.surface2;
 
   return (
     <PressableScale
@@ -63,38 +69,30 @@ export function NoticeCard({
       ]}
     >
       <View style={styles.topRow}>
-        {topic ? <CategoryBadge topic={topic} /> : <View />}
-        <View style={styles.topRight}>
-          {unread ? <View style={styles.unreadDot} /> : null}
-          {isNew ? (
-            <View style={styles.newBadge}>
-              <Text style={styles.newText}>N</Text>
-            </View>
-          ) : null}
-          <SourceBadge parserKey={src?.parser_key ?? null} />
+        <View style={styles.topLeft}>
+          {(isNew || unread) ? <View style={styles.newDot} /> : null}
+          {topic ? <CategoryBadge topic={topic} /> : null}
         </View>
+        <SourceBadge parserKey={src?.parser_key ?? null} />
       </View>
 
       <Text style={[styles.title, isRead && styles.titleRead]} numberOfLines={titleLines} lineBreakStrategyIOS="hangul-word">
         {notice.title}
       </Text>
 
-      <Text style={styles.bottom}>
+      <View style={styles.bottomRow}>
         {countdown ? (
-          <>
-            <Text style={[styles.dday, { color: COLORS.danger }]}>{countdown}</Text>
-            <Text style={styles.dim}>  {postedMD}</Text>
-          </>
+          <View style={[styles.pill, { backgroundColor: COLORS.dangerSoft }]}>
+            <Text style={[styles.pillText, { color: COLORS.danger }]}>{countdown}</Text>
+          </View>
         ) : badge ? (
-          <>
-            <Text style={[styles.dday, { color: badgeColor }]}>{badge.label}</Text>
-            <Text style={styles.dim}>  {postedMD}</Text>
-          </>
-        ) : (
-          <Text style={styles.dim}>{postedMD}</Text>
-        )}
-        {keywordTag ? <Text style={styles.kwTag}>  #{keywordTag}</Text> : null}
-      </Text>
+          <View style={[styles.pill, { backgroundColor: pillBg }]}>
+            <Text style={[styles.pillText, { color: badgeColor }]}>{badge.label}</Text>
+          </View>
+        ) : null}
+        <Text style={styles.dim}>{postedMD}</Text>
+        {keywordTag ? <Text style={[styles.kwTag, styles.kwTagRight]}>#{keywordTag}</Text> : null}
+      </View>
     </PressableScale>
   );
 }
@@ -114,17 +112,9 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     marginBottom: SPACING.sm,
   },
-  topRight: { flexDirection: 'row', alignItems: 'center', gap: SPACING.xs },
-  newBadge: {
-    width: 16,
-    height: 16,
-    borderRadius: 8,
-    backgroundColor: COLORS.danger,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  newText: { fontSize: 9, fontWeight: WEIGHT.bold, color: '#fff' },
-  unreadDot: { width: 8, height: 8, borderRadius: 4, backgroundColor: COLORS.accent },
+  topLeft: { flexDirection: 'row', alignItems: 'center', gap: SPACING.xs, flexShrink: 1 },
+  // 안읽은 새 공지: 좌상단 accent 점 하나로 통일
+  newDot: { width: 7, height: 7, borderRadius: 3.5, backgroundColor: COLORS.accent },
   title: {
     fontSize: FONT.subtitle,
     color: COLORS.text,
@@ -133,9 +123,11 @@ const styles = StyleSheet.create({
   },
   titleRead: { color: COLORS.textSecondary },
   // marginTop:auto → 카드에 여유 높이(minHeight)가 있을 때만 메타를 바닥에 고정.
-  // 높이가 콘텐츠에 맞는 일반 카드에서는 무효과.
-  bottom: { fontSize: FONT.caption, marginTop: 'auto' },
-  dday: { fontSize: FONT.caption, fontWeight: WEIGHT.semibold, fontVariant: ['tabular-nums'] },
+  bottomRow: { flexDirection: 'row', alignItems: 'center', gap: SPACING.sm, marginTop: 'auto' },
+  // 마감 알약 — 리스트를 내릴 때 긴급도가 한눈에 들어오는 스캔 신호
+  pill: { paddingHorizontal: SPACING.sm, paddingVertical: 2, borderRadius: RADIUS.pill },
+  pillText: { fontSize: FONT.micro, fontWeight: WEIGHT.bold, fontVariant: ['tabular-nums'] },
   dim: { fontSize: FONT.caption, color: COLORS.textSecondary },
   kwTag: { fontSize: FONT.caption, color: COLORS.accentText, fontWeight: WEIGHT.semibold },
+  kwTagRight: { marginLeft: 'auto' },
 });
