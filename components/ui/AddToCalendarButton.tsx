@@ -136,10 +136,11 @@ const styles = StyleSheet.create({
     paddingVertical: SPACING.sm,
     paddingHorizontal: SPACING.md,
   },
-  text: { fontSize: FONT.caption, fontWeight: WEIGHT.bold, color: COLORS.accent },
+  text: { fontSize: FONT.caption, fontWeight: WEIGHT.bold, color: COLORS.accent, lineHeight: 18 },
   textAdded: { color: COLORS.accentText },
-  iconBox: { width: 20, alignItems: 'center', justifyContent: 'center' },
-  labelBox: { justifyContent: 'center' },
+  // 고정 높이 — 상태별 아이콘(18~20px)/스피너 높이 차이로 버튼이 흔들려 아래 요소가 밀리는 것 방지
+  iconBox: { width: 20, height: 20, alignItems: 'center', justifyContent: 'center' },
+  labelBox: { height: 18, justifyContent: 'center' },
   labelSizer: { opacity: 0 }, // 폭만 차지하고 보이지 않음
   labelOverlay: { position: 'absolute', left: 0, right: 0, textAlign: 'center' },
 });

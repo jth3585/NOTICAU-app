@@ -52,6 +52,8 @@ export function NoticeCard({
       onPress={onPress}
       onLongPress={onLongPress}
       delayLongPress={300}
+      // 스와이프로 감싼 카드(dimOnPress=false)는 스케일을 꺼 밀기 제스처와 겹치지 않게.
+      scaleTo={dimOnPress ? 0.97 : 1}
       style={[
         styles.card,
         width != null && { width, marginHorizontal: 0, marginRight: SPACING.md, marginBottom: 0 },

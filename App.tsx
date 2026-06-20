@@ -97,7 +97,7 @@ function TabIcon({ Icon, focused }: { Icon: TabIconComponent; focused: boolean }
   const scale = useSharedValue(1);
   const style = useAnimatedStyle(() => ({ transform: [{ scale: scale.value }] }));
   useEffect(() => {
-    if (focused) scale.value = withSequence(withTiming(1.18, { duration: 130 }), withTiming(1, { duration: 160 }));
+    if (focused) scale.value = withSequence(withTiming(1.28, { duration: 150 }), withTiming(1, { duration: 190 }));
   }, [focused]);
   return (
     <Animated.View style={style}>
@@ -138,9 +138,7 @@ function Tabs() {
         component={BookmarkScreen}
         options={{
           tabBarLabel: '북마크',
-          tabBarIcon: ({ focused }) => (
-            <BookmarkIcon size={22} color={focused ? COLORS.accent : COLORS.textTertiary} />
-          ),
+          tabBarIcon: ({ focused }) => <TabIcon Icon={BookmarkIcon} focused={focused} />,
         }}
       />
       <Tab.Screen
