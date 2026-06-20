@@ -60,5 +60,6 @@ const styles = StyleSheet.create({
     fontSize: FONT.body,
     fontWeight: WEIGHT.semibold,
     lineHeight: 24,
+    fontVariant: ['tabular-nums'],
   },
 });

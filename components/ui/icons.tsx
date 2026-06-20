@@ -124,6 +124,37 @@ export function CalendarIcon({ size = 22, color }: IconProps) {
   );
 }
 
+// 🔔 알림 (bell)
+export function BellIcon({ size = 22, color }: IconProps) {
+  return (
+    <Base size={size}>
+      <Path d="M18 8a6 6 0 0 0-12 0c0 7-3 9-3 9h18s-3-2-3-9" stroke={color} />
+      <Path d="M13.73 21a2 2 0 0 1-3.46 0" stroke={color} />
+    </Base>
+  );
+}
+
+// 📄 문서 (file-text)
+export function FileTextIcon({ size = 22, color }: IconProps) {
+  return (
+    <Base size={size}>
+      <Path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" stroke={color} />
+      <Path d="M14 2v6h6" stroke={color} />
+      <Line x1="9" y1="13" x2="15" y2="13" stroke={color} />
+      <Line x1="9" y1="17" x2="15" y2="17" stroke={color} />
+    </Base>
+  );
+}
+
+// 🛡 개인정보 (shield)
+export function ShieldIcon({ size = 22, color }: IconProps) {
+  return (
+    <Base size={size}>
+      <Path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z" stroke={color} />
+    </Base>
+  );
+}
+
 // ⠿ 드래그 손잡이 (grip, 점 6개)
 export function GripIcon({ size = 22, color }: IconProps) {
   return (

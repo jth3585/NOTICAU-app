@@ -7,7 +7,11 @@ import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { supabase } from '../lib/supabase';
 import type { RootStackParamList } from '../lib/types';
 import { COLORS, FONT, RADIUS, SHADOW, SPACING, TEXT, WEIGHT } from '../lib/theme';
-import { ChevronRightIcon } from '../components/ui/icons';
+import {
+  ChevronRightIcon, UserIcon, HashIcon, FolderIcon,
+  BellIcon, FileTextIcon, ShieldIcon, TrashIcon,
+} from '../components/ui/icons';
+import type { ReactNode } from 'react';
 
 type Nav = NativeStackNavigationProp<RootStackParamList>;
 
@@ -77,33 +81,36 @@ export default function MyPageScreen() {
         {/* 내 설정 */}
         <Text style={styles.groupLabel}>내 설정</Text>
         <View style={styles.menuGroup}>
-          <MenuItem label="프로필 수정" onPress={() => navigation.navigate('ProfileEdit')} />
-          <MenuItem label="키워드 관리" onPress={() => navigation.navigate('KeywordManage')} />
-          <MenuItem label="카테고리 필터" onPress={() => navigation.navigate('CategoryPrefs')} last />
+          <MenuItem icon={<UserIcon size={16} color={COLORS.textSecondary} />} label="프로필 수정" onPress={() => navigation.navigate('ProfileEdit')} />
+          <MenuItem icon={<HashIcon size={16} color={COLORS.textSecondary} />} label="키워드 관리" onPress={() => navigation.navigate('KeywordManage')} />
+          <MenuItem icon={<FolderIcon size={16} color={COLORS.textSecondary} />} label="카테고리 필터" onPress={() => navigation.navigate('CategoryPrefs')} last />
         </View>
 
         {/* 앱 정보 */}
         <Text style={styles.groupLabel}>앱 정보</Text>
         <View style={styles.menuGroup}>
-          <MenuItem label="알림 설정" onPress={() => navigation.navigate('NotificationSettings')} />
-          <MenuItem label="이용약관" onPress={() => navigation.navigate('Terms')} />
-          <MenuItem label="개인정보 처리방침" onPress={() => navigation.navigate('Privacy')} last />
+          <MenuItem icon={<BellIcon size={16} color={COLORS.textSecondary} />} label="알림 설정" onPress={() => navigation.navigate('NotificationSettings')} />
+          <MenuItem icon={<FileTextIcon size={16} color={COLORS.textSecondary} />} label="이용약관" onPress={() => navigation.navigate('Terms')} />
+          <MenuItem icon={<ShieldIcon size={16} color={COLORS.textSecondary} />} label="개인정보 처리방침" onPress={() => navigation.navigate('Privacy')} last />
         </View>
 
         {/* 계정 */}
         <Text style={styles.groupLabel}>계정</Text>
         <View style={styles.menuGroup}>
-          <MenuItem label="회원 탈퇴" onPress={() => navigation.navigate('DeleteAccount')} danger last />
+          <MenuItem icon={<TrashIcon size={16} color={COLORS.danger} />} label="회원 탈퇴" onPress={() => navigation.navigate('DeleteAccount')} danger last />
         </View>
       </ScrollView>
     </SafeAreaView>
   );
 }
 
-function MenuItem({ label, onPress, disabled, danger, last }: { label: string; onPress?: () => void; disabled?: boolean; danger?: boolean; last?: boolean }) {
+function MenuItem({ icon, label, onPress, disabled, danger, last }: { icon?: ReactNode; label: string; onPress?: () => void; disabled?: boolean; danger?: boolean; last?: boolean }) {
   return (
     <TouchableOpacity style={[styles.menuItem, last && styles.menuItemLast]} onPress={onPress} disabled={disabled} activeOpacity={0.6}>
-      <Text style={[styles.menuLabel, disabled && styles.menuDisabled, danger && styles.menuDanger]}>{label}</Text>
+      <View style={styles.menuLeft}>
+        {icon ? <View style={[styles.menuIcon, danger && styles.menuIconDanger]}>{icon}</View> : null}
+        <Text style={[styles.menuLabel, disabled && styles.menuDisabled, danger && styles.menuDanger]}>{label}</Text>
+      </View>
       <ChevronRightIcon size={18} color={COLORS.textTertiary} />
     </TouchableOpacity>
   );
@@ -147,6 +154,13 @@ const styles = StyleSheet.create({
     borderBottomWidth: StyleSheet.hairlineWidth, borderBottomColor: COLORS.border,
   },
   menuItemLast: { borderBottomWidth: 0 },
+  menuLeft: { flexDirection: 'row', alignItems: 'center', gap: SPACING.md, flex: 1 },
+  menuIcon: {
+    width: 30, height: 30, borderRadius: 9,
+    backgroundColor: COLORS.surface2,
+    alignItems: 'center', justifyContent: 'center',
+  },
+  menuIconDanger: { backgroundColor: COLORS.dangerSoft },
   menuLabel: { fontSize: FONT.body, color: COLORS.text },
   menuDisabled: { color: COLORS.textTertiary },
   menuDanger: { color: COLORS.danger },
