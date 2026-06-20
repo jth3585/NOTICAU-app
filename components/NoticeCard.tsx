@@ -52,8 +52,10 @@ export function NoticeCard({
       onPress={onPress}
       onLongPress={onLongPress}
       delayLongPress={300}
-      // 스와이프로 감싼 카드(dimOnPress=false)는 스케일을 꺼 밀기 제스처와 겹치지 않게.
-      scaleTo={dimOnPress ? 0.97 : 1}
+      // 스와이프로 감싼 카드(dimOnPress=false)는 press-in 지연을 줘서, 미는 제스처가 먼저
+      // 활성화되면 스케일이 발동 전에 취소되게 → 스케일·스와이프 둘 다 살림.
+      scaleTo={0.97}
+      pressInDelay={dimOnPress ? 0 : 90}
       style={[
         styles.card,
         width != null && { width, marginHorizontal: 0, marginRight: SPACING.md, marginBottom: 0 },
