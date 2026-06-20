@@ -37,7 +37,7 @@ import { markAsRead } from '../lib/read';
 import { supabase } from '../lib/supabase';
 import { PressableScale } from '../components/ui/PressableScale';
 import Animated, {
-  FadeInDown, useSharedValue, useAnimatedStyle, withSequence, withTiming,
+  FadeInDown, useSharedValue, useAnimatedStyle, useAnimatedScrollHandler, withSequence, withTiming,
 } from 'react-native-reanimated';
 
 type Props = NativeStackScreenProps<RootStackParamList, 'Detail'>;
@@ -73,6 +73,21 @@ export default function NoticeDetailScreen({ route, navigation }: Props) {
     if (bmFirstRun.current) { bmFirstRun.current = false; return; }
     if (bookmarked) bmScale.value = withSequence(withTiming(1.35, { duration: 120 }), withTiming(1, { duration: 170 }));
   }, [bookmarked]);
+
+  // 읽기 진행 바: 스크롤 진행도(0~1)
+  const scrollY = useSharedValue(0);
+  const contentH = useSharedValue(0);
+  const viewH = useSharedValue(0);
+  const onScroll = useAnimatedScrollHandler((e) => {
+    scrollY.value = e.contentOffset.y;
+    viewH.value = e.layoutMeasurement.height;
+    contentH.value = e.contentSize.height;
+  });
+  const progressStyle = useAnimatedStyle(() => {
+    const max = Math.max(1, contentH.value - viewH.value);
+    const p = Math.min(1, Math.max(0, scrollY.value / max));
+    return { width: `${p * 100}%` };
+  });
 
   // 상세 진입 시 자동 읽음 처리
   useEffect(() => { markAsRead(notice.id); }, [notice.id]);
@@ -129,7 +144,11 @@ export default function NoticeDetailScreen({ route, navigation }: Props) {
         </View>
       </View>
 
-      <ScrollView contentContainerStyle={styles.content}>
+      <View style={styles.progressTrack}>
+        <Animated.View style={[styles.progressFill, progressStyle]} />
+      </View>
+
+      <Animated.ScrollView contentContainerStyle={styles.content} onScroll={onScroll} scrollEventThrottle={16}>
         <Text
           style={styles.title}
           {...(Platform.OS === 'ios'
@@ -175,7 +194,7 @@ export default function NoticeDetailScreen({ route, navigation }: Props) {
         <TouchableOpacity onPress={() => open(notice.source_url)} style={styles.sourceBtn}>
           <Text style={styles.sourceBtnText}>원문 페이지 열기</Text>
         </TouchableOpacity>
-      </ScrollView>
+      </Animated.ScrollView>
 
       {images.length > 0 && (
         <ImageViewing
@@ -278,6 +297,8 @@ function AutoImage({ uri, width, onPress }: { uri: string; width: number; onPres
 const styles = StyleSheet.create({
   // 상세는 읽기 화면 → 흰 배경(카드 양각 베이스가 아닌 단일 읽기 면)
   container: { flex: 1, backgroundColor: COLORS.surface },
+  progressTrack: { height: 2.5, backgroundColor: COLORS.surface2 },
+  progressFill: { height: '100%', backgroundColor: COLORS.accent },
   header: {
     flexDirection: 'row',
     alignItems: 'center',
