@@ -80,12 +80,12 @@ export function NoticeCard({
         {countdown ? (
           <>
             <Text style={[styles.dday, { color: COLORS.danger }]}>{countdown}</Text>
-            <Text style={styles.dim}> · {postedMD}</Text>
+            <Text style={styles.dim}>  {postedMD}</Text>
           </>
         ) : badge ? (
           <>
             <Text style={[styles.dday, { color: badgeColor }]}>{badge.label}</Text>
-            <Text style={styles.dim}> · {postedMD}</Text>
+            <Text style={styles.dim}>  {postedMD}</Text>
           </>
         ) : (
           <Text style={styles.dim}>{postedMD}</Text>
