@@ -178,7 +178,7 @@ export default function InboxScreen() {
 
   if (loading) return (
     <SafeAreaView style={styles.container} edges={['top']}>
-      <Text style={styles.pageTitle}>전체 공지</Text>
+      <View style={{ height: SPACING.sm }} />
       <NoticeListSkeleton />
     </SafeAreaView>
   );
@@ -197,7 +197,6 @@ export default function InboxScreen() {
         // 제목 + 검색/정렬 → 스크롤하면 함께 사라짐
         ListHeaderComponent={
           <View>
-            <Text style={styles.pageTitle}>전체 공지</Text>
             <View style={styles.searchWrap}>
               <View style={styles.searchRow}>
                 <View style={{ marginRight: SPACING.sm }}>
@@ -322,8 +321,8 @@ const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: COLORS.bg },
   pageTitle: { ...TEXT.pageTitle, paddingHorizontal: SPACING.lg, paddingTop: SPACING.sm, paddingBottom: SPACING.md },
   centered: { alignItems: 'center', justifyContent: 'center' },
-  // 검색바: 한 줄 풀폭(정렬 버튼 제거). 아래 필터 줄과 간격으로 숨통.
-  searchWrap: { paddingHorizontal: SPACING.lg, paddingBottom: SPACING.md },
+  // 검색바: 한 줄 풀폭(정렬 버튼 제거). 제목 제거로 검색이 최상단 → 위 약간 띄움.
+  searchWrap: { paddingHorizontal: SPACING.lg, paddingTop: SPACING.sm, paddingBottom: SPACING.md },
   searchRow: {
     height: 44,
     flexDirection: 'row',
