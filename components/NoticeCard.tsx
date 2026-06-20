@@ -98,9 +98,9 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    marginBottom: SPACING.sm,
+    marginBottom: SPACING.sm + 2, // 메타↔제목 살짝 더 분리(히어로 강조)
   },
-  topLeft: { flexDirection: 'row', alignItems: 'center', gap: SPACING.xs, flexShrink: 1 },
+  topLeft: { flexDirection: 'row', alignItems: 'center', gap: 6, flexShrink: 1 },
   // 안읽은 새 공지: 좌상단 accent 점 하나로 통일
   newDot: { width: 7, height: 7, borderRadius: 3.5, backgroundColor: COLORS.accent },
   title: {
