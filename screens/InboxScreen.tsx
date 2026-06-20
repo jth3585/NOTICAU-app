@@ -324,8 +324,8 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     gap: SPACING.sm,
     paddingHorizontal: SPACING.lg,
-    paddingTop: SPACING.sm,
-    paddingBottom: SPACING.md,
+    paddingTop: SPACING.md,
+    paddingBottom: SPACING.sm,
   },
   searchRow: {
     flex: 1,
@@ -352,7 +352,7 @@ const styles = StyleSheet.create({
   },
   sortBtnActive: { backgroundColor: COLORS.accentSoft },
   // 필터 칩 줄(sticky). 칩 풀폭 + 카드와 간격 확보.
-  filterRow: { backgroundColor: COLORS.bg, paddingBottom: SPACING.xs },
+  filterRow: { backgroundColor: COLORS.bg, paddingBottom: SPACING.sm },
   listContent: { paddingBottom: SPACING.xl },
   empty: {
     textAlign: 'center',

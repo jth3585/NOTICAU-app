@@ -42,7 +42,7 @@ const styles = StyleSheet.create({
   row: { backgroundColor: COLORS.bg },
   content: {
     paddingHorizontal: SPACING.lg,
-    paddingVertical: SPACING.sm,
+    paddingVertical: SPACING.xs, // 칩 자체 패딩과 이중되지 않게 얇게 (필터 줄 슬림)
     gap: SPACING.sm,
   },
   chip: {
