@@ -1,4 +1,4 @@
-import { useState, useMemo, useEffect, useCallback, memo } from 'react';
+import { useState, useMemo, useEffect, useCallback, memo, useRef } from 'react';
 import {
   Dimensions,
   Linking,
@@ -35,6 +35,8 @@ import { BookmarkIcon } from '../components/ui/BookmarkIcon';
 import { ShareIcon } from '../components/ui/ShareIcon';
 import { markAsRead } from '../lib/read';
 import { supabase } from '../lib/supabase';
+import ViewShot from 'react-native-view-shot';
+import { ShareCard } from '../components/ui/ShareCard';
 
 type Props = NativeStackScreenProps<RootStackParamList, 'Detail'>;
 
@@ -60,6 +62,7 @@ export default function NoticeDetailScreen({ route, navigation }: Props) {
   const [imgViewerIndex, setImgViewerIndex] = useState(0);
   const [imgViewerVisible, setImgViewerVisible] = useState(false);
   const { bookmarked, toggle: toggleBookmark } = useBookmark(notice.id);
+  const shareRef = useRef<ViewShot>(null);
 
   // 상세 진입 시 자동 읽음 처리
   useEffect(() => { markAsRead(notice.id); }, [notice.id]);
@@ -74,7 +77,8 @@ export default function NoticeDetailScreen({ route, navigation }: Props) {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [notice.id]);
 
-  // 공유: 제목 + 출처 + 원문 링크 + 노티카우 출처 표기
+  // 공유: 브랜드 카드 이미지 + 제목/원문 링크 텍스트.
+  // iOS는 이미지(url)+텍스트(message) 동시 공유, Android는 url 무시되고 텍스트만(폴백).
   const onShare = async () => {
     const url = notice.source_url ?? '';
     const lines = [notice.title];
@@ -82,8 +86,13 @@ export default function NoticeDetailScreen({ route, navigation }: Props) {
     if (url) lines.push(url);
     lines.push('');
     lines.push('✨ powered by NOTICAU');
+    const message = lines.join('\n');
+    let imageUri: string | undefined;
     try {
-      await Share.share({ message: lines.join('\n'), title: notice.title });
+      imageUri = await shareRef.current?.capture?.();
+    } catch { /* 캡처 실패 시 텍스트만 공유 */ }
+    try {
+      await Share.share(imageUri ? { url: imageUri, message } : { message, title: notice.title });
     } catch { /* 사용자 취소 등 무시 */ }
   };
 
@@ -172,6 +181,17 @@ export default function NoticeDetailScreen({ route, navigation }: Props) {
           doubleTapToZoomEnabled
         />
       )}
+
+      {/* 공유용 카드 — 화면 밖에 렌더해두고 캡처. pointerEvents none */}
+      <View style={styles.shareCapture} pointerEvents="none">
+        <ViewShot ref={shareRef} options={{ format: 'png', quality: 1 }}>
+          <ShareCard
+            title={notice.title}
+            topic={topic}
+            metaLine={[src?.name, formatDateFull(notice.posted_at)].filter(Boolean).join(' · ')}
+          />
+        </ViewShot>
+      </View>
     </SafeAreaView>
   );
 }
@@ -261,6 +281,7 @@ function AutoImage({ uri, width, onPress }: { uri: string; width: number; onPres
 const styles = StyleSheet.create({
   // 상세는 읽기 화면 → 흰 배경(카드 양각 베이스가 아닌 단일 읽기 면)
   container: { flex: 1, backgroundColor: COLORS.surface },
+  shareCapture: { position: 'absolute', left: -9999, top: 0 },
   header: {
     flexDirection: 'row',
     alignItems: 'center',
