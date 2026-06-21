@@ -136,11 +136,36 @@ export default function BookmarkFolderScreen({ route }: Props) {
               onPress={() => setSelectedKeyword((cur) => (cur === k.keyword ? null : k.keyword))}
             />
           ))}
+          <TouchableOpacity
+            style={styles.addChip}
+            onPress={() => navigation.navigate('KeywordManage')}
+            activeOpacity={0.7}
+            accessibilityRole="button"
+            accessibilityLabel="키워드 추가"
+          >
+            <Text style={styles.addChipText}>＋ 키워드</Text>
+          </TouchableOpacity>
         </ScrollView>
       ) : null}
 
       {loading ? (
         <NoticeListSkeleton count={5} />
+      ) : folder === 'keyword' && keywords.length === 0 ? (
+        // 등록된 키워드가 아예 없을 때 — 키워드 관리로 유도
+        <View style={styles.center}>
+          <BookmarkIcon size={40} filled={false} color={COLORS.textTertiary} />
+          <Text style={styles.emptyTitle}>등록된 키워드가 없어요</Text>
+          <Text style={styles.sub}>관심 키워드를 추가하면 매칭 북마크를 모아드려요</Text>
+          <TouchableOpacity
+            style={styles.ctaBtn}
+            onPress={() => navigation.navigate('KeywordManage')}
+            activeOpacity={0.85}
+            accessibilityRole="button"
+            accessibilityLabel="키워드 추가하러 가기"
+          >
+            <Text style={styles.ctaText}>키워드 추가하러 가기</Text>
+          </TouchableOpacity>
+        </View>
       ) : list.length === 0 ? (
         <View style={styles.center}>
           <BookmarkIcon size={40} filled={false} color={COLORS.textTertiary} />
@@ -225,6 +250,24 @@ const styles = StyleSheet.create({
   chipActive: { backgroundColor: COLORS.accent },
   chipText: { fontSize: FONT.caption, color: COLORS.textSecondary, fontWeight: WEIGHT.semibold },
   chipTextActive: { color: '#fff' },
+  // 점선 테두리 '＋ 키워드' 추가 칩 → 키워드 관리로
+  addChip: {
+    paddingHorizontal: SPACING.md,
+    paddingVertical: SPACING.xs,
+    borderRadius: RADIUS.pill,
+    borderWidth: 1,
+    borderColor: COLORS.textTertiary,
+    borderStyle: 'dashed',
+  },
+  addChipText: { fontSize: FONT.caption, fontWeight: WEIGHT.semibold, color: COLORS.textTertiary },
+  ctaBtn: {
+    marginTop: SPACING.xs,
+    backgroundColor: COLORS.accent,
+    borderRadius: RADIUS.pill,
+    paddingVertical: SPACING.sm + 2,
+    paddingHorizontal: SPACING.xl,
+  },
+  ctaText: { fontSize: FONT.caption, fontWeight: WEIGHT.bold, color: '#fff' },
   // 카드는 자체 marginHorizontal(lg)을 가지므로 리스트에 가로 패딩을 또 주지 않음(중복 시 다른 화면보다 좁아짐)
   listContent: { paddingBottom: SPACING.xxl },
   center: { flex: 1, justifyContent: 'center', alignItems: 'center', gap: SPACING.sm, paddingHorizontal: SPACING.xl },

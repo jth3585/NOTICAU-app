@@ -88,7 +88,6 @@ export default function HomeScreen() {
           deadlineList={feed.deadlineList}
           keywords={feed.keywords}
           onPressNotice={onPressNotice}
-          onManageKeywords={() => navigation.navigate('KeywordManage')}
           initialTab={requestedTab}
         />
         <HomeCuration
