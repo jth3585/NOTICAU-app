@@ -1,5 +1,6 @@
 import { useCallback, useState } from 'react';
-import { Alert, FlatList, ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import { Alert, ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import { FlashList } from '@shopify/flash-list';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useFocusEffect, useNavigation } from '@react-navigation/native';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
@@ -152,7 +153,7 @@ export default function BookmarkScreen() {
 
   return (
     <SafeAreaView style={styles.container} edges={['top']}>
-      <FlatList
+      <FlashList
         data={visibleNotices}
         keyExtractor={(n) => n.id}
         ListHeaderComponent={Header}

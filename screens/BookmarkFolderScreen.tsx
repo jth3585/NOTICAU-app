@@ -1,5 +1,6 @@
 import { useCallback, useMemo, useState } from 'react';
-import { FlatList, ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import { ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import { FlashList } from '@shopify/flash-list';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useFocusEffect, useNavigation } from '@react-navigation/native';
 import type { NativeStackNavigationProp, NativeStackScreenProps } from '@react-navigation/native-stack';
@@ -146,7 +147,7 @@ export default function BookmarkFolderScreen({ route }: Props) {
           <Text style={styles.emptyTitle}>{emptyText}</Text>
         </View>
       ) : (
-        <FlatList
+        <FlashList
           data={list}
           keyExtractor={(n) => n.id}
           contentContainerStyle={styles.listContent}
