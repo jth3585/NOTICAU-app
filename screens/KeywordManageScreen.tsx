@@ -36,9 +36,10 @@ export default function KeywordManageScreen() {
 
   useEffect(() => { loadKeywords(); }, []);
 
-  // 전체 사용자 인기 키워드 로드 (최소 3명 이상 등록). 적으면 큐레이션으로 폴백.
+  // 전체 사용자 인기 키워드 로드 (최소 5명 이상 등록). 상위부터 하드코딩 추천을
+  // 앞에서 대체하고, 5명 미만이라 비는 자리는 큐레이션으로 채운다.
   useEffect(() => {
-    supabase.rpc('popular_keywords', { p_limit: MAX_RECO }).then(({ data }) => {
+    supabase.rpc('popular_keywords', { p_limit: MAX_RECO, p_min: 5 }).then(({ data }) => {
       if (data) setPopular((data as { keyword: string }[]).map(r => r.keyword));
     });
   }, []);
