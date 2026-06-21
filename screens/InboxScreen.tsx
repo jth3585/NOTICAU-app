@@ -265,7 +265,7 @@ export default function InboxScreen() {
             {searchFocused && !submitted && (recents.length > 0 || myKeywords.length > 0) ? (
               <Animated.View
                 style={styles.suggest}
-                entering={FadeInDown.duration(180)}
+                entering={FadeInDown.duration(140).withInitialValues({ transform: [{ translateY: -8 }] })}
                 exiting={FadeOutUp.duration(140)}
               >
                 {recents.length > 0 ? (
