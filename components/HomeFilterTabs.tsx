@@ -1,9 +1,10 @@
 import { useCallback, useEffect, useState } from 'react';
-import { Dimensions, FlatList, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import { Dimensions, FlatList, ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import { useFocusEffect } from '@react-navigation/native';
 import { LinearGradient } from 'expo-linear-gradient';
 import type { Notice, UserKeyword } from '../lib/types';
 import { type HomeTab, firstMatchedKeyword } from '../lib/homeFeed';
+import { matchKeyword } from '../lib/matching';
 import { metaOf, formatTimeRemaining } from '../lib/format';
 import { NoticeCard } from './NoticeCard';
 import { COLORS, FONT, RADIUS, SPACING, WEIGHT } from '../lib/theme';
@@ -24,10 +25,13 @@ type Props = {
   deadlineList: Notice[];
   keywords: UserKeyword[];
   onPressNotice: (n: Notice) => void;
+  onManageKeywords: () => void; // 키워드 관리 화면으로 (칩 추가 / 빈 상태 CTA)
   initialTab?: HomeTab | null; // 알림 딥링크로 강제 선택할 탭
 };
 
-export function HomeFilterTabs({ newList, keywordList, deadlineList, keywords, onPressNotice, initialTab }: Props) {
+export function HomeFilterTabs({ newList, keywordList, deadlineList, keywords, onPressNotice, onManageKeywords, initialTab }: Props) {
+  // 키워드매치 탭의 키워드 칩 필터 (null = 전체)
+  const [kwFilter, setKwFilter] = useState<string | null>(null);
   // 공지가 있는 탭 우선 (새공지 → 키워드매치 → 오늘마감). 없으면 null.
   const firstNonEmpty = (): HomeTab | null =>
     newList.length ? 'new' : keywordList.length ? 'keyword' : deadlineList.length ? 'deadline' : null;
@@ -58,10 +62,14 @@ export function HomeFilterTabs({ newList, keywordList, deadlineList, keywords, o
     return () => clearInterval(id);
   }, [tab]);
 
-  const list = tab === 'new' ? newList : tab === 'keyword' ? keywordList : deadlineList;
+  // 키워드매치: 특정 키워드 칩 선택 시 그 키워드로 필터
+  const keywordVisible = kwFilter === null
+    ? keywordList
+    : keywordList.filter((n) => matchKeyword(`${n.title} ${n.body_text ?? ''}`.toLowerCase(), kwFilter));
+  const list = tab === 'new' ? newList : tab === 'keyword' ? keywordVisible : deadlineList;
   const emptyText =
     tab === 'new' ? '최근 24시간 내 새 공지가 없어요'
-    : tab === 'keyword' ? '최근 24시간 내 키워드 매칭 공지가 없어요'
+    : tab === 'keyword' ? (kwFilter ? `'${kwFilter}' 매칭 공지가 없어요` : '최근 24시간 내 키워드 매칭 공지가 없어요')
     : '24시간 내 마감인 공지가 없어요';
 
   return (
@@ -99,31 +107,69 @@ export function HomeFilterTabs({ newList, keywordList, deadlineList, keywords, o
         })}
       </View>
 
-      {list.length === 0 ? (
+      {tab === 'keyword' && keywords.length === 0 ? (
+        // 등록된 키워드가 아예 없을 때 — 추가 유도
         <View style={styles.empty}>
-          <Text style={styles.emptyText}>{emptyText}</Text>
+          <Text style={styles.emptyText}>관심 키워드를 추가하면 매칭 공지를 모아드려요</Text>
+          <TouchableOpacity style={styles.ctaBtn} onPress={onManageKeywords} activeOpacity={0.85} accessibilityRole="button" accessibilityLabel="키워드 추가하러 가기">
+            <Text style={styles.ctaText}>키워드 추가하러 가기</Text>
+          </TouchableOpacity>
         </View>
       ) : (
-        <FlatList
-          horizontal
-          data={list}
-          keyExtractor={(n) => n.id}
-          showsHorizontalScrollIndicator={false}
-          contentContainerStyle={styles.cards}
-          renderItem={({ item }) => (
-            <NoticeCard
-              notice={item}
-              width={CARD_W}
-              minHeight={CARD_MIN_H}
-              titleLines={4}
-              keywordTag={tab === 'keyword' ? (firstMatchedKeyword(item, keywords) ?? undefined) : undefined}
-              countdown={tab === 'deadline' ? (formatTimeRemaining(metaOf(item)?.deadline_at ?? null) ?? undefined) : undefined}
-              onPress={() => onPressNotice(item)}
+        <>
+          {tab === 'keyword' ? (
+            <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.kwChips}>
+              <KwChip label="전체" active={kwFilter === null} onPress={() => setKwFilter(null)} />
+              {keywords.map((k) => (
+                <KwChip key={k.keyword} label={k.keyword} active={kwFilter === k.keyword} onPress={() => setKwFilter(k.keyword)} />
+              ))}
+              <TouchableOpacity style={styles.addChip} onPress={onManageKeywords} activeOpacity={0.7} accessibilityRole="button" accessibilityLabel="키워드 추가">
+                <Text style={styles.addChipText}>＋ 키워드</Text>
+              </TouchableOpacity>
+            </ScrollView>
+          ) : null}
+
+          {list.length === 0 ? (
+            <View style={styles.empty}>
+              <Text style={styles.emptyText}>{emptyText}</Text>
+            </View>
+          ) : (
+            <FlatList
+              horizontal
+              data={list}
+              keyExtractor={(n) => n.id}
+              showsHorizontalScrollIndicator={false}
+              contentContainerStyle={styles.cards}
+              renderItem={({ item }) => (
+                <NoticeCard
+                  notice={item}
+                  width={CARD_W}
+                  minHeight={CARD_MIN_H}
+                  titleLines={4}
+                  keywordTag={tab === 'keyword' ? (firstMatchedKeyword(item, keywords) ?? undefined) : undefined}
+                  countdown={tab === 'deadline' ? (formatTimeRemaining(metaOf(item)?.deadline_at ?? null) ?? undefined) : undefined}
+                  onPress={() => onPressNotice(item)}
+                />
+              )}
             />
           )}
-        />
+        </>
       )}
     </View>
+  );
+}
+
+function KwChip({ label, active, onPress }: { label: string; active: boolean; onPress: () => void }) {
+  return (
+    <TouchableOpacity
+      style={[styles.kwChip, active && styles.kwChipActive]}
+      onPress={onPress}
+      activeOpacity={0.7}
+      accessibilityRole="button"
+      accessibilityState={{ selected: active }}
+    >
+      <Text style={[styles.kwChipText, active && styles.kwChipTextActive]}>{label}</Text>
+    </TouchableOpacity>
   );
 }
 
@@ -143,8 +189,39 @@ const styles = StyleSheet.create({
     marginHorizontal: SPACING.lg,
     paddingVertical: SPACING.xl,
     alignItems: 'center',
+    gap: SPACING.md,
     backgroundColor: COLORS.surface,
     borderRadius: RADIUS.card,
   },
-  emptyText: { fontSize: FONT.body, color: COLORS.textSecondary },
+  emptyText: { fontSize: FONT.body, color: COLORS.textSecondary, textAlign: 'center' },
+  ctaBtn: {
+    backgroundColor: COLORS.accent,
+    borderRadius: RADIUS.pill,
+    paddingVertical: SPACING.sm + 2,
+    paddingHorizontal: SPACING.xl,
+  },
+  ctaText: { fontSize: FONT.caption, fontWeight: WEIGHT.bold, color: '#fff' },
+  // 키워드 필터 칩 행
+  kwChips: { flexDirection: 'row', gap: SPACING.sm, paddingHorizontal: SPACING.lg, paddingBottom: SPACING.md, alignItems: 'center' },
+  kwChip: {
+    borderRadius: RADIUS.pill,
+    paddingHorizontal: SPACING.md,
+    paddingVertical: SPACING.xs + 1,
+    borderWidth: 1,
+    borderColor: COLORS.border,
+    backgroundColor: COLORS.surface,
+  },
+  kwChipActive: { backgroundColor: COLORS.accentSoft, borderColor: COLORS.accent },
+  kwChipText: { fontSize: FONT.caption, fontWeight: WEIGHT.semibold, color: COLORS.textSecondary },
+  kwChipTextActive: { color: COLORS.accentText },
+  // 점선 테두리 '＋ 키워드' 추가 칩
+  addChip: {
+    borderRadius: RADIUS.pill,
+    paddingHorizontal: SPACING.md,
+    paddingVertical: SPACING.xs + 1,
+    borderWidth: 1,
+    borderColor: COLORS.textTertiary,
+    borderStyle: 'dashed',
+  },
+  addChipText: { fontSize: FONT.caption, fontWeight: WEIGHT.semibold, color: COLORS.textTertiary },
 });
