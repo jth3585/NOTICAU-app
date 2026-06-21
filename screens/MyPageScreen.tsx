@@ -25,7 +25,7 @@ type Profile = {
 
 // 상단 컬러 워시 — 홈과 동일하게 ScrollView '뒤'에 절대배치해, 위로 당겨도(오버스크롤)
 // 흰 바탕 대신 이 색이 이어져 보이게 한다.
-const TOP_TINT = ['rgba(110,124,238,0.22)', 'rgba(110,124,238,0.07)', 'transparent'] as const;
+const TOP_TINT = ['rgba(110,124,238,0.42)', 'rgba(110,124,238,0.16)', 'transparent'] as const;
 
 const CAMPUS_LABEL: Record<string, string> = { seoul: '서울', davinci: '다빈치' };
 const STATUS_LABEL: Record<string, string> = {
