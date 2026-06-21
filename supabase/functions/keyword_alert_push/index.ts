@@ -47,6 +47,13 @@ function campusMatch(profile: Profile, targetCampuses: string[]): boolean {
   return false;
 }
 
+// 출처(게시판) 자체의 캠퍼스 귀속. 'both'(본교)·null은 모든 캠퍼스 통과.
+function sourceCampusMatch(profile: Profile, sourceCampus: string): boolean {
+  if (sourceCampus === profile.campus) return true;
+  if (sourceCampus === "anseong" && profile.campus === "davinci") return true;
+  return false;
+}
+
 function isMismatch(
   notice: any,
   meta: Meta | null,
@@ -55,6 +62,9 @@ function isMismatch(
   readIds: Set<string>,
 ): boolean {
   if (readIds.has(notice.id)) return true;
+  // 출처 캠퍼스 귀속: 특정 캠퍼스 게시판인데 내 캠퍼스가 아니면 제외 (meta 없어도 적용).
+  const src = one<{ campus: string | null }>(notice.sources);
+  if (src?.campus && src.campus !== "both" && !sourceCampusMatch(profile, src.campus)) return true;
   if (!meta) return false;
   if (meta.topic && disabledTopics.has(meta.topic)) return true;
   if (meta.target_grades && meta.target_grades.length > 0 && !meta.target_grades.includes(profile.grade)) return true;
@@ -102,7 +112,7 @@ Deno.serve(async (req) => {
   // ---- 지난 1시간 새 공지 (crawled_at 기준) ----
   const { data: notices, error: noticesErr } = await supabase
     .from("notices")
-    .select("id, title, body_text, crawled_at, notice_meta(topic,target_grades,target_campuses,target_enrollment_status,targets_freshmen,excludes_undergrad)")
+    .select("id, title, body_text, crawled_at, notice_meta(topic,target_grades,target_campuses,target_enrollment_status,targets_freshmen,excludes_undergrad), sources(campus)")
     .gte("crawled_at", windowStart)
     .order("crawled_at", { ascending: false });
   if (noticesErr) {

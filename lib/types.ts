@@ -23,6 +23,7 @@ export type NoticeMeta = {
 export type Source = {
   parser_key: string | null;
   name: string | null;
+  campus?: string | null; // 'seoul' | 'anseong' | 'both' — 게시판 자체의 캠퍼스 귀속
 };
 
 export type Notice = {

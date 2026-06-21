@@ -1,4 +1,5 @@
 import type { Notice, NoticeMeta, Profile, Source, UserKeyword } from './types';
+import { sourceOf } from './format';
 
 function escapeRegex(s: string): string {
   return s.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
@@ -29,6 +30,14 @@ function campusMatch(profile: Profile, targetCampuses: string[]): boolean {
   return false;
 }
 
+// 출처(게시판) 자체의 캠퍼스 귀속 검사. 'both'(본교)·null은 모든 캠퍼스 통과.
+// source.campus는 'seoul'|'anseong'|'both', profile.campus는 'seoul'|'davinci'.
+function sourceCampusMatch(profile: Profile, sourceCampus: string): boolean {
+  if (sourceCampus === profile.campus) return true;
+  if (sourceCampus === 'anseong' && profile.campus === 'davinci') return true;
+  return false;
+}
+
 export function isMismatch(
   notice: Notice,
   meta: NoticeMeta | null,
@@ -38,6 +47,12 @@ export function isMismatch(
 ): boolean {
   // 이미 읽음
   if (readIds.has(notice.id)) return true;
+
+  // 출처(게시판) 캠퍼스 귀속: 특정 캠퍼스 게시판인데 내 캠퍼스가 아니면 제외.
+  // 'both'(본교)는 통과 — 그 안의 캠퍼스별 공지는 아래 target_campuses로 한 번 더 거른다.
+  // (meta가 없어도 적용되는 가장 확실한 신호이므로 meta 체크보다 위에 둔다.)
+  const src = sourceOf(notice);
+  if (src?.campus && src.campus !== 'both' && !sourceCampusMatch(profile, src.campus)) return true;
 
   if (!meta) return false;
 

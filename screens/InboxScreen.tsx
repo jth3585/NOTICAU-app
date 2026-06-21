@@ -12,7 +12,7 @@ import type { Notice, RootStackParamList } from '../lib/types';
 import { CHIP_TOPICS } from '../lib/constants';
 import { orderedCategories } from '../lib/categories';
 import { COLORS, FONT, RADIUS, SPACING, TEXT, WEIGHT } from '../lib/theme';
-import { isPostedToday, metaOf, sortNotices, type SortMode } from '../lib/format';
+import { isPostedToday, metaOf, sourceOf, sortNotices, type SortMode } from '../lib/format';
 import { CategoryChips } from '../components/CategoryChips';
 import { NoticeCard } from '../components/NoticeCard';
 import { SwipeToBookmark } from '../components/SwipeToBookmark';
@@ -87,6 +87,17 @@ export default function InboxScreen() {
   // 카테고리 OFF 프리프 (topic → false인 것들) + 사용자 정렬 칩 순서
   const [disabledTopics, setDisabledTopics] = useState<Set<string>>(new Set());
   const [chipTopics, setChipTopics] = useState<string[]>([...CHIP_TOPICS]);
+  // 내 캠퍼스 ('seoul' | 'davinci'). 타 캠퍼스 전용 게시판 공지를 전체 공지에서 숨기기 위함.
+  const [campus, setCampus] = useState<string | null>(null);
+
+  // 출처(게시판) 캠퍼스 귀속 필터. 'both'(본교)·null·캠퍼스 미확인은 통과.
+  const campusAllows = useCallback((n: Notice) => {
+    const sc = sourceOf(n)?.campus;
+    if (!sc || sc === 'both' || !campus) return true;
+    if (sc === campus) return true;
+    if (sc === 'anseong' && campus === 'davinci') return true;
+    return false;
+  }, [campus]);
 
   useFocusEffect(useCallback(() => {
     refreshRead();
@@ -96,9 +107,10 @@ export default function InboxScreen() {
     (async () => {
       const { data: { session } } = await supabase.auth.getSession();
       if (!session) return;
-      const [prefRes, kwRes] = await Promise.all([
+      const [prefRes, kwRes, profRes] = await Promise.all([
         supabase.from('user_category_prefs').select('topic,is_enabled,sort_order').eq('user_id', session.user.id),
         supabase.from('user_keywords').select('keyword').eq('user_id', session.user.id),
+        supabase.from('profiles').select('campus').eq('user_id', session.user.id).maybeSingle(),
       ]);
       const rows = (prefRes.data ?? []) as any[];
       const disabled = new Set<string>();
@@ -106,6 +118,7 @@ export default function InboxScreen() {
       setDisabledTopics(disabled);
       setChipTopics(['전체', ...orderedCategories(rows)]);
       setMyKeywords(((kwRes.data ?? []) as any[]).map((k) => k.keyword));
+      setCampus(((profRes.data as any)?.campus) ?? null);
     })();
   }, [refreshRead, refreshBookmarks]));
 
@@ -179,15 +192,15 @@ export default function InboxScreen() {
   }, [isRead, lastSeenAt]);
 
   const visible = useMemo(() => {
-    if (query.trim()) return searchResults;
+    if (query.trim()) return searchResults.filter(campusAllows);
     let f = selected === '전체'
       ? notices.filter((n) => {
           const topic = metaOf(n)?.topic;
           return !topic || !disabledTopics.has(topic);
         })
       : notices.filter((n) => metaOf(n)?.topic === selected);
-    return sortNotices(f, sortMode);
-  }, [notices, selected, sortMode, query, searchResults, disabledTopics]);
+    return sortNotices(f.filter(campusAllows), sortMode);
+  }, [notices, selected, sortMode, query, searchResults, disabledTopics, campusAllows]);
 
   if (loading) return (
     <SafeAreaView style={styles.container} edges={['top']}>
