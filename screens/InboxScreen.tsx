@@ -4,7 +4,7 @@ import {
   TouchableOpacity, TouchableWithoutFeedback, View,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import Animated, { FadeInDown, FadeOutUp } from 'react-native-reanimated';
+import Animated, { Easing, FadeInDown, FadeOutUp } from 'react-native-reanimated';
 import { useFocusEffect, useNavigation } from '@react-navigation/native';
 import { useCallback } from 'react';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
@@ -265,8 +265,8 @@ export default function InboxScreen() {
             {searchFocused && !submitted && (recents.length > 0 || myKeywords.length > 0) ? (
               <Animated.View
                 style={styles.suggest}
-                entering={FadeInDown.duration(140).withInitialValues({ transform: [{ translateY: -8 }] })}
-                exiting={FadeOutUp.duration(140)}
+                entering={FadeInDown.duration(140).easing(Easing.out(Easing.cubic)).withInitialValues({ transform: [{ translateY: -8 }] })}
+                exiting={FadeOutUp.duration(140).easing(Easing.in(Easing.cubic))}
               >
                 {recents.length > 0 ? (
                   <>
