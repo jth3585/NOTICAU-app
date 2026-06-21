@@ -20,6 +20,7 @@ import { AddBookmarksModal } from '../components/AddBookmarksModal';
 import { SwipeToRemoveBookmark } from '../components/SwipeToRemoveBookmark';
 import { BackButton } from '../components/ui/BackButton';
 import { NoticeListSkeleton } from '../components/ui/Skeleton';
+import { EmptyState } from '../components/ui/EmptyState';
 
 type Props = NativeStackScreenProps<RootStackParamList, 'BookmarkFolder'>;
 
@@ -152,25 +153,18 @@ export default function BookmarkFolderScreen({ route }: Props) {
         <NoticeListSkeleton count={5} />
       ) : folder === 'keyword' && keywords.length === 0 ? (
         // 등록된 키워드가 아예 없을 때 — 키워드 관리로 유도
-        <View style={styles.center}>
-          <BookmarkIcon size={40} filled={false} color={COLORS.textTertiary} />
-          <Text style={styles.emptyTitle}>등록된 키워드가 없어요</Text>
-          <Text style={styles.sub}>관심 키워드를 추가하면 매칭 북마크를 모아드려요</Text>
-          <TouchableOpacity
-            style={styles.ctaBtn}
-            onPress={() => navigation.navigate('KeywordManage')}
-            activeOpacity={0.85}
-            accessibilityRole="button"
-            accessibilityLabel="키워드 추가하러 가기"
-          >
-            <Text style={styles.ctaText}>키워드 추가하러 가기</Text>
-          </TouchableOpacity>
-        </View>
+        <EmptyState
+          icon={<BookmarkIcon size={30} filled={false} color={COLORS.accent} />}
+          title="등록된 키워드가 없어요"
+          subtitle="관심 키워드를 추가하면 매칭 북마크를 모아드려요"
+          actionLabel="키워드 추가하러 가기"
+          onAction={() => navigation.navigate('KeywordManage')}
+        />
       ) : list.length === 0 ? (
-        <View style={styles.center}>
-          <BookmarkIcon size={40} filled={false} color={COLORS.textTertiary} />
-          <Text style={styles.emptyTitle}>{emptyText}</Text>
-        </View>
+        <EmptyState
+          icon={<BookmarkIcon size={30} filled={false} color={COLORS.accent} />}
+          title={emptyText}
+        />
       ) : (
         <FlashList
           data={list}

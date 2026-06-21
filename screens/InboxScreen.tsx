@@ -4,7 +4,7 @@ import {
   TouchableOpacity, TouchableWithoutFeedback, View,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import Animated, { Easing, FadeInDown, FadeOutUp } from 'react-native-reanimated';
+import Animated, { Easing, FadeIn, FadeOut, FadeInDown, FadeOutUp } from 'react-native-reanimated';
 import { useFocusEffect, useNavigation, useScrollToTop } from '@react-navigation/native';
 import { useTabReselect } from '../lib/useTabReselect';
 import { useCallback } from 'react';
@@ -20,7 +20,7 @@ import { NoticeCard } from '../components/NoticeCard';
 import { SwipeToBookmark } from '../components/SwipeToBookmark';
 import { SearchIcon } from '../components/ui/SearchIcon';
 import { SortIcon } from '../components/ui/SortIcon';
-import { CloseIcon, CheckIcon, ClipboardListIcon } from '../components/ui/icons';
+import { CloseIcon, CheckIcon, ClipboardListIcon, ChevronUpIcon } from '../components/ui/icons';
 import { EmptyState } from '../components/ui/EmptyState';
 import { NoticeListSkeleton } from '../components/ui/Skeleton';
 import { useReadSet } from '../lib/read';
@@ -160,6 +160,16 @@ export default function InboxScreen() {
   useScrollToTop(listRef);
   useTabReselect(onRefresh);
 
+  // 아래로 스크롤하면 뜨는 '맨 위로' 플로팅 버튼
+  const [showTop, setShowTop] = useState(false);
+  const onListScroll = useCallback((e: { nativeEvent: { contentOffset: { y: number } } }) => {
+    const y = e.nativeEvent.contentOffset.y;
+    setShowTop((prev) => (prev === y > 600 ? prev : y > 600));
+  }, []);
+  const scrollTop = useCallback(() => {
+    listRef.current?.getScrollResponder()?.scrollTo({ y: 0, animated: true });
+  }, []);
+
   useEffect(() => {
     if (debounceRef.current) clearTimeout(debounceRef.current);
     if (!query.trim()) { setSearchResults([]); setSearching(false); return; }
@@ -230,6 +240,8 @@ export default function InboxScreen() {
         }
         keyboardShouldPersistTaps="handled"
         keyboardDismissMode="on-drag"
+        onScroll={onListScroll}
+        scrollEventThrottle={16}
         stickySectionHeadersEnabled
         // 제목 + 검색/정렬 → 스크롤하면 함께 사라짐
         ListHeaderComponent={
@@ -356,6 +368,20 @@ export default function InboxScreen() {
         contentContainerStyle={styles.listContent}
       />
 
+      {showTop ? (
+        <Animated.View entering={FadeIn.duration(160)} exiting={FadeOut.duration(160)} style={styles.toTop}>
+          <TouchableOpacity
+            onPress={scrollTop}
+            activeOpacity={0.85}
+            style={styles.toTopBtn}
+            accessibilityRole="button"
+            accessibilityLabel="맨 위로"
+          >
+            <ChevronUpIcon size={22} color={COLORS.accent} />
+          </TouchableOpacity>
+        </Animated.View>
+      ) : null}
+
       {/* 정렬 말풍선 팝오버 (정렬 버튼 anchor 기준) */}
       <Modal
         visible={sortSheetOpen}
@@ -471,6 +497,16 @@ const styles = StyleSheet.create({
   kwSuggestChip: { backgroundColor: COLORS.accentSoft, borderColor: COLORS.accentSoft },
   suggestChipText: { fontSize: FONT.caption, color: COLORS.textSecondary },
   listContent: { paddingBottom: SPACING.xl },
+  // '맨 위로' 플로팅 버튼 (우하단)
+  toTop: { position: 'absolute', right: SPACING.lg, bottom: SPACING.xl },
+  toTopBtn: {
+    width: 44, height: 44, borderRadius: 22,
+    backgroundColor: COLORS.surface,
+    alignItems: 'center', justifyContent: 'center',
+    borderWidth: StyleSheet.hairlineWidth, borderColor: COLORS.border,
+    shadowColor: '#000', shadowOpacity: 0.12, shadowRadius: 10, shadowOffset: { width: 0, height: 4 },
+    elevation: 4,
+  },
   empty: {
     textAlign: 'center',
     color: COLORS.textSecondary,

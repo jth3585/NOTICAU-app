@@ -21,6 +21,7 @@ import { FolderPickerSheet } from '../components/FolderPickerSheet';
 import { SwipeToRemoveBookmark } from '../components/SwipeToRemoveBookmark';
 import { FolderIcon, HashIcon, MailIcon } from '../components/ui/icons';
 import { NoticeListSkeleton } from '../components/ui/Skeleton';
+import { EmptyState } from '../components/ui/EmptyState';
 
 export default function BookmarkScreen() {
   const navigation = useNavigation<NativeStackNavigationProp<RootStackParamList>>();
@@ -166,15 +167,11 @@ export default function BookmarkScreen() {
           loading ? (
             <NoticeListSkeleton count={5} />
           ) : (
-            <View style={styles.empty}>
-              <BookmarkIcon size={40} filled={false} color={COLORS.textTertiary} />
-              <Text style={styles.emptyTitle}>아직 북마크한 공지가 없어요</Text>
-              <View style={styles.emptyHint}>
-                <Text style={styles.sub}>공지 상세 화면에서 </Text>
-                <BookmarkIcon size={14} filled={false} color={COLORS.textSecondary} />
-                <Text style={styles.sub}> 아이콘을 눌러보세요.</Text>
-              </View>
-            </View>
+            <EmptyState
+              icon={<BookmarkIcon size={30} filled={false} color={COLORS.accent} />}
+              title="아직 북마크한 공지가 없어요"
+              subtitle="공지 상세 화면에서 북마크 아이콘을 눌러 모아보세요"
+            />
           )
         }
         renderItem={({ item }) => (
