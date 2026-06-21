@@ -247,13 +247,15 @@ const styles = StyleSheet.create({
   chipActive: { backgroundColor: COLORS.accent },
   chipText: { fontSize: FONT.caption, color: COLORS.textSecondary, fontWeight: WEIGHT.semibold },
   chipTextActive: { color: '#fff' },
-  // 점선 테두리 '＋ 키워드' 추가 칩 → 키워드 관리로
+  // 점선 테두리 '＋ 키워드' 추가 칩 → 키워드 관리로.
+  // 테두리는 연한 border 색(새 폴더 점선 박스와 동일 톤)으로 시각 무게를 낮춰
+  // 옆 칩들보다 커 보이지 않게 한다.
   addChip: {
     paddingHorizontal: SPACING.md,
     paddingVertical: SPACING.xs,
     borderRadius: RADIUS.pill,
     borderWidth: 1,
-    borderColor: COLORS.textTertiary,
+    borderColor: COLORS.border,
     borderStyle: 'dashed',
   },
   addChipText: { fontSize: FONT.caption, fontWeight: WEIGHT.semibold, color: COLORS.textTertiary },
