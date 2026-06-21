@@ -27,6 +27,9 @@ export function CategoryChips({
             onPress={() => onSelect(t)}
             activeOpacity={0.7}
             style={[styles.chip, active ? styles.chipActive : styles.chipInactive]}
+            accessibilityRole="button"
+            accessibilityState={{ selected: active }}
+            accessibilityLabel={`${t} 카테고리`}
           >
             <Text style={[styles.label, active ? styles.labelActive : styles.labelInactive]}>
               {t}

@@ -53,7 +53,7 @@ export function NoticeCard({
       onLongPress={onLongPress}
       delayLongPress={300}
       accessibilityRole="button"
-      accessibilityLabel={notice.title}
+      accessibilityLabel={[topic, notice.title, countdown ?? badge?.label, isRead ? '읽음' : undefined].filter(Boolean).join(', ')}
       // 스와이프로 감싼 카드(dimOnPress=false)는 스케일 끔 — 미는 제스처와 겹치지 않게.
       scaleTo={dimOnPress ? 0.97 : 1}
       style={[

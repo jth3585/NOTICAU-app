@@ -71,7 +71,7 @@ export function HomeFilterTabs({ newList, keywordList, deadlineList, keywords, o
           const active = t.key === tab;
           if (active) {
             return (
-              <TouchableOpacity key={t.key} onPress={() => setTab(t.key)} activeOpacity={0.85}>
+              <TouchableOpacity key={t.key} onPress={() => setTab(t.key)} activeOpacity={0.85} accessibilityRole="button" accessibilityState={{ selected: true }} accessibilityLabel={t.label}>
                 <LinearGradient
                   colors={COLORS.accentGradient}
                   start={{ x: 0, y: 0 }}
@@ -89,6 +89,9 @@ export function HomeFilterTabs({ newList, keywordList, deadlineList, keywords, o
               style={[styles.tab, styles.tabInactive]}
               onPress={() => setTab(t.key)}
               activeOpacity={0.7}
+              accessibilityRole="button"
+              accessibilityState={{ selected: false }}
+              accessibilityLabel={t.label}
             >
               <Text style={styles.tabText}>{t.label}</Text>
             </TouchableOpacity>

@@ -291,6 +291,8 @@ export default function InboxScreen() {
                       key={mode}
                       style={styles.popOption}
                       onPress={() => { setSortMode(mode); setSortSheetOpen(false); }}
+                      accessibilityRole="button"
+                      accessibilityState={{ selected: sortMode === mode }}
                     >
                       <Text style={[styles.popOptionText, sortMode === mode && styles.popOptionActive]}>
                         {SORT_LABELS[mode]}

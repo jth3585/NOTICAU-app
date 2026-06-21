@@ -11,7 +11,7 @@ export const COLORS = {
   // 텍스트 3단계
   text: '#1A1D21',
   textSecondary: '#5B6470',
-  textTertiary: '#9AA3AE',
+  textTertiary: '#6B7280', // WCAG AA(약 4.8:1) — 기존 #9AA3AE는 대비 미달이라 한 단계 진하게
 
   // CAU Blue accent
   accent: '#4A90E2',
