@@ -9,7 +9,6 @@ import { supabase } from '../lib/supabase';
 import type { RootStackParamList } from '../lib/types';
 import { COLORS, FONT, RADIUS, SHADOW, SPACING, TEXT, WEIGHT } from '../lib/theme';
 import { HashIcon, FolderIcon, BellIcon, UserIcon } from '../components/ui/icons';
-import { BookmarkIcon } from '../components/ui/BookmarkIcon';
 import { SettingsGroup, SettingsRow } from '../components/ui/SettingsRow';
 
 type Nav = NativeStackNavigationProp<RootStackParamList>;
@@ -24,6 +23,9 @@ type Profile = {
   is_dormitory: boolean;
 };
 
+// 히어로 세로 그라데이션 — 위는 파랑·보라 틴트, 아래로 투명(배경에 녹아듦). 레퍼런스 톤.
+const HERO_TINT = ['rgba(110,124,238,0.30)', 'rgba(120,140,238,0.10)', 'transparent'] as const;
+
 const CAMPUS_LABEL: Record<string, string> = { seoul: '서울', davinci: '다빈치' };
 const STATUS_LABEL: Record<string, string> = {
   enrolled: '재학중', on_leave: '휴학중', graduating: '졸업예정',
@@ -35,14 +37,11 @@ export default function MyPageScreen() {
   const [profile, setProfile] = useState<Profile | null>(null);
   const [collegeName, setCollegeName] = useState('');
   const [deptName, setDeptName] = useState('');
-  const [bookmarkCount, setBookmarkCount] = useState(0);
-  const [keywordCount, setKeywordCount] = useState(0);
 
   const load = useCallback(async () => {
     const { data: { session } } = await supabase.auth.getSession();
     if (!session) return;
-    const uid = session.user.id;
-    const { data } = await supabase.from('profiles').select('*').eq('user_id', uid).maybeSingle();
+    const { data } = await supabase.from('profiles').select('*').eq('user_id', session.user.id).maybeSingle();
     if (!data) return;
     setProfile(data as Profile);
     if (data.college) {
@@ -53,14 +52,6 @@ export default function MyPageScreen() {
       const { data: dep } = await supabase.from('departments').select('name').eq('code', data.dept).maybeSingle();
       setDeptName((dep as any)?.name ?? data.dept);
     }
-    // 활동 요약 카운트
-    const [bm, kw] = await Promise.all([
-      supabase.from('user_feed_state').select('notice_id', { count: 'exact', head: true })
-        .eq('user_id', uid).not('bookmarked_at', 'is', null),
-      supabase.from('user_keywords').select('keyword', { count: 'exact', head: true }).eq('user_id', uid),
-    ]);
-    setBookmarkCount(bm.count ?? 0);
-    setKeywordCount(kw.count ?? 0);
   }, []);
 
   useFocusEffect(useCallback(() => { load(); }, [load]));
@@ -70,16 +61,21 @@ export default function MyPageScreen() {
   return (
     <View style={styles.container}>
       <ScrollView contentContainerStyle={styles.scroll} showsVerticalScrollIndicator={false}>
-        {/* 풀블리드 그라데이션 헤더 (상태바 뒤까지, 좌우 끝까지) */}
+        {/* 히어로: 위→아래로 흐려져 배경에 녹아드는 세로 그라데이션 + 은은한 동심원 (레퍼런스) */}
         {profile && (
-          <LinearGradient
-            colors={COLORS.accentGradient}
-            start={{ x: 0, y: 0 }}
-            end={{ x: 1, y: 1 }}
-            style={[styles.hero, { paddingTop: insets.top + SPACING.lg }]}
-          >
+          <View style={[styles.hero, { paddingTop: insets.top + SPACING.xxl }]}>
+            <LinearGradient
+              colors={HERO_TINT}
+              start={{ x: 0.5, y: 0 }}
+              end={{ x: 0.5, y: 1 }}
+              style={StyleSheet.absoluteFill}
+              pointerEvents="none"
+            />
+            <View style={[styles.ring, styles.ring1]} pointerEvents="none" />
+            <View style={[styles.ring, styles.ring2]} pointerEvents="none" />
+
             <TouchableOpacity
-              style={[styles.editChip, { top: insets.top + SPACING.xs }]}
+              style={[styles.editChip, { top: insets.top + SPACING.sm }]}
               onPress={() => navigation.navigate('ProfileEdit')}
               activeOpacity={0.8}
               hitSlop={8}
@@ -88,11 +84,11 @@ export default function MyPageScreen() {
             </TouchableOpacity>
 
             <View style={styles.heroRow}>
-              <View style={styles.heroAvatar}>
+              <LinearGradient colors={COLORS.accentGradient} start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }} style={styles.heroAvatar}>
                 <Text style={styles.heroAvatarText}>
                   {(profile.nickname?.trim()?.[0]) ?? `${profile.grade}`}
                 </Text>
-              </View>
+              </LinearGradient>
               <View style={styles.heroInfo}>
                 <Text style={styles.heroName} numberOfLines={1}>
                   {profile.nickname ? `${profile.nickname}님` : '프로필'}
@@ -105,24 +101,10 @@ export default function MyPageScreen() {
                 </Text>
               </View>
             </View>
-          </LinearGradient>
+          </View>
         )}
 
         <View style={styles.body}>
-        {/* 내 활동 요약 */}
-        <View style={styles.statsRow}>
-          <TouchableOpacity style={styles.statCard} activeOpacity={0.8} onPress={() => navigation.navigate('Bookmark' as never)}>
-            <BookmarkIcon size={18} filled color={COLORS.accent} />
-            <Text style={styles.statNum}>{bookmarkCount}</Text>
-            <Text style={styles.statLabel}>북마크</Text>
-          </TouchableOpacity>
-          <TouchableOpacity style={styles.statCard} activeOpacity={0.8} onPress={() => navigation.navigate('KeywordManage')}>
-            <HashIcon size={18} color={COLORS.accent} />
-            <Text style={styles.statNum}>{keywordCount}</Text>
-            <Text style={styles.statLabel}>키워드</Text>
-          </TouchableOpacity>
-        </View>
-
         {/* 내 설정 */}
         <Text style={styles.groupLabel}>내 설정</Text>
         <SettingsGroup>
@@ -147,47 +129,35 @@ const styles = StyleSheet.create({
   scroll: { paddingBottom: SPACING.xxl },
   body: { paddingHorizontal: SPACING.lg },
 
-  // 풀블리드 그라데이션 헤더 (떠있는 카드 X → 화면 헤더 O). 아래 모서리만 둥글게.
+  // 히어로: 카드가 아니라 배경에 녹아드는 그라데이션 영역(투명 bg + absoluteFill 그라데이션).
   hero: {
     paddingHorizontal: SPACING.lg,
     paddingBottom: SPACING.xl,
-    borderBottomLeftRadius: 28,
-    borderBottomRightRadius: 28,
-    marginBottom: SPACING.xl,
-    ...SHADOW.accent,
+    marginBottom: SPACING.lg,
+    overflow: 'hidden', // 동심원/그라데이션이 영역 밖으로 안 새게
   },
+  // 은은한 동심원 장식 (우상단)
+  ring: { position: 'absolute', borderWidth: 1.5, borderColor: 'rgba(110,124,238,0.13)', borderRadius: 999 },
+  ring1: { width: 250, height: 250, top: -80, right: -50 },
+  ring2: { width: 380, height: 380, top: -150, right: -120 },
   heroRow: { flexDirection: 'row', alignItems: 'center', gap: SPACING.md },
   heroAvatar: {
     width: 56, height: 56, borderRadius: 28,
-    backgroundColor: 'rgba(255,255,255,0.22)',
     alignItems: 'center', justifyContent: 'center',
+    overflow: 'hidden',
   },
   heroAvatarText: { fontSize: FONT.title, fontWeight: WEIGHT.bold, color: '#fff' },
   heroInfo: { flex: 1, gap: 4 },
-  heroName: { fontSize: FONT.display, fontWeight: WEIGHT.bold, color: '#fff' },
-  heroMeta: { fontSize: FONT.caption, color: 'rgba(255,255,255,0.92)', lineHeight: 18 },
+  heroName: { fontSize: FONT.display, fontWeight: WEIGHT.bold, color: COLORS.text },
+  heroMeta: { fontSize: FONT.caption, color: COLORS.textSecondary, lineHeight: 18 },
   editChip: {
-    position: 'absolute', top: SPACING.md, right: SPACING.md,
-    backgroundColor: 'rgba(255,255,255,0.22)',
+    position: 'absolute', right: SPACING.lg,
+    backgroundColor: COLORS.accentSoft,
     borderRadius: RADIUS.pill,
     paddingVertical: 5, paddingHorizontal: SPACING.md,
     zIndex: 1,
   },
-  editChipText: { fontSize: FONT.caption, fontWeight: WEIGHT.bold, color: '#fff' },
-
-  // 내 활동 요약
-  statsRow: { flexDirection: 'row', gap: SPACING.md, marginBottom: SPACING.xl },
-  statCard: {
-    flex: 1,
-    backgroundColor: COLORS.surface,
-    borderRadius: RADIUS.card,
-    paddingVertical: SPACING.lg,
-    alignItems: 'center',
-    gap: 4,
-    ...SHADOW.card,
-  },
-  statNum: { fontSize: FONT.title, fontWeight: WEIGHT.bold, color: COLORS.text, fontVariant: ['tabular-nums'] },
-  statLabel: { fontSize: FONT.caption, color: COLORS.textSecondary },
+  editChipText: { fontSize: FONT.caption, fontWeight: WEIGHT.bold, color: COLORS.accentText },
 
   groupLabel: { ...TEXT.sectionLabel, marginBottom: SPACING.sm },
   groupLabelGap: { marginTop: SPACING.xl }, // 그룹 사이 간격

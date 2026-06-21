@@ -44,5 +44,5 @@ const styles = StyleSheet.create({
   wrap: { paddingHorizontal: SPACING.lg, paddingTop: SPACING.lg, paddingBottom: SPACING.xl },
   title: { ...TEXT.pageTitle, lineHeight: 34 },
   sub: { fontSize: FONT.body, color: COLORS.textSecondary, marginTop: SPACING.sm },
-  subStrong: { fontWeight: WEIGHT.bold, color: COLORS.accentText, fontVariant: ['tabular-nums'] },
+  subStrong: { fontWeight: WEIGHT.bold, color: COLORS.textSecondary, fontVariant: ['tabular-nums'] },
 });
