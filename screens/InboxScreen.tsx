@@ -265,7 +265,7 @@ export default function InboxScreen() {
             {searchFocused && !submitted && (recents.length > 0 || myKeywords.length > 0) ? (
               <Animated.View
                 style={styles.suggest}
-                entering={FadeInDown.springify().damping(20).stiffness(220).mass(0.5).withInitialValues({ transform: [{ translateY: -8 }] })}
+                entering={FadeInDown.springify().damping(26).stiffness(220).mass(0.5).restDisplacementThreshold(0.5).restSpeedThreshold(2).withInitialValues({ transform: [{ translateY: -8 }] })}
                 exiting={FadeOutUp.duration(140).easing(Easing.in(Easing.cubic))}
               >
                 {recents.length > 0 ? (
