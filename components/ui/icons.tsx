@@ -210,6 +210,16 @@ export function CheckCircleIcon({ size = 22, color }: IconProps) {
   );
 }
 
+// ✏️ 연필 (pencil) — 수정
+export function PencilIcon({ size = 22, color }: IconProps) {
+  return (
+    <Base size={size}>
+      <Path d="M12 20h9" stroke={color} />
+      <Path d="M16.5 3.5a2.12 2.12 0 0 1 3 3L7 19l-4 1 1-4 12.5-12.5Z" stroke={color} />
+    </Base>
+  );
+}
+
 // ⠿ 드래그 손잡이 (grip, 점 6개)
 export function GripIcon({ size = 22, color }: IconProps) {
   return (

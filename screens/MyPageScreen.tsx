@@ -8,7 +8,7 @@ import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { supabase } from '../lib/supabase';
 import type { RootStackParamList } from '../lib/types';
 import { COLORS, FONT, RADIUS, SHADOW, SPACING, TEXT, WEIGHT } from '../lib/theme';
-import { HashIcon, FolderIcon, BellIcon, UserIcon } from '../components/ui/icons';
+import { HashIcon, FolderIcon, BellIcon, UserIcon, PencilIcon } from '../components/ui/icons';
 import { SettingsGroup, SettingsRow } from '../components/ui/SettingsRow';
 
 type Nav = NativeStackNavigationProp<RootStackParamList>;
@@ -74,15 +74,6 @@ export default function MyPageScreen() {
             <View style={[styles.ring, styles.ring1]} pointerEvents="none" />
             <View style={[styles.ring, styles.ring2]} pointerEvents="none" />
 
-            <TouchableOpacity
-              style={[styles.editChip, { top: insets.top + SPACING.sm }]}
-              onPress={() => navigation.navigate('ProfileEdit')}
-              activeOpacity={0.8}
-              hitSlop={8}
-            >
-              <Text style={styles.editChipText}>수정</Text>
-            </TouchableOpacity>
-
             <View style={styles.heroRow}>
               <LinearGradient colors={COLORS.accentGradient} start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }} style={styles.heroAvatar}>
                 <Text style={styles.heroAvatarText}>
@@ -90,9 +81,19 @@ export default function MyPageScreen() {
                 </Text>
               </LinearGradient>
               <View style={styles.heroInfo}>
-                <Text style={styles.heroName} numberOfLines={1}>
-                  {profile.nickname ? `${profile.nickname}님` : '프로필'}
-                </Text>
+                <View style={styles.nameRow}>
+                  <Text style={styles.heroName} numberOfLines={1}>
+                    {profile.nickname ?? '프로필'}
+                  </Text>
+                  <TouchableOpacity
+                    onPress={() => navigation.navigate('ProfileEdit')}
+                    hitSlop={10}
+                    accessibilityRole="button"
+                    accessibilityLabel="프로필 수정"
+                  >
+                    <PencilIcon size={16} color={COLORS.textSecondary} />
+                  </TouchableOpacity>
+                </View>
                 <Text style={styles.heroMeta} numberOfLines={2}>
                   {[CAMPUS_LABEL[profile.campus] ?? profile.campus, deptName || collegeName || null, `${profile.grade}학년`]
                     .filter(Boolean).join(' · ')}
@@ -148,16 +149,9 @@ const styles = StyleSheet.create({
   },
   heroAvatarText: { fontSize: FONT.title, fontWeight: WEIGHT.bold, color: '#fff' },
   heroInfo: { flex: 1, gap: 4 },
-  heroName: { fontSize: FONT.display, fontWeight: WEIGHT.bold, color: COLORS.text },
+  nameRow: { flexDirection: 'row', alignItems: 'center', gap: SPACING.sm },
+  heroName: { flexShrink: 1, fontSize: FONT.display, fontWeight: WEIGHT.bold, color: COLORS.text },
   heroMeta: { fontSize: FONT.caption, color: COLORS.textSecondary, lineHeight: 18 },
-  editChip: {
-    position: 'absolute', right: SPACING.lg,
-    backgroundColor: COLORS.accentSoft,
-    borderRadius: RADIUS.pill,
-    paddingVertical: 5, paddingHorizontal: SPACING.md,
-    zIndex: 1,
-  },
-  editChipText: { fontSize: FONT.caption, fontWeight: WEIGHT.bold, color: COLORS.accentText },
 
   groupLabel: { ...TEXT.sectionLabel, marginBottom: SPACING.sm },
   groupLabelGap: { marginTop: SPACING.xl }, // 그룹 사이 간격
