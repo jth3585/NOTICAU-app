@@ -6,11 +6,6 @@
     "orientation": "portrait",
     "icon": "./assets/icon.png",
     "userInterfaceStyle": "light",
-    "splash": {
-      "image": "./assets/splash-icon.png",
-      "resizeMode": "cover",
-      "backgroundColor": "#2850A7"
-    },
     "ios": {
       "supportsTablet": true,
       "bundleIdentifier": "com.noticau.app",
@@ -44,7 +39,16 @@
           "calendarPermission": "공지 마감일을 캘린더에 추가하기 위해 캘린더 접근이 필요합니다."
         }
       ],
-      "expo-font"
+      "expo-font",
+      [
+        "expo-splash-screen",
+        {
+          "image": "./assets/splash-icon.png",
+          "imageWidth": 300,
+          "resizeMode": "contain",
+          "backgroundColor": "#2850A7"
+        }
+      ]
     ],
     "extra": {
       "eas": {
