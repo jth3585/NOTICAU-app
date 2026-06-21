@@ -1,8 +1,9 @@
-import { useCallback, useEffect } from 'react';
+import { useCallback, useEffect, useRef } from 'react';
 import { RefreshControl, ScrollView, StyleSheet, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { LinearGradient } from 'expo-linear-gradient';
-import { useFocusEffect, useNavigation, useRoute, type RouteProp } from '@react-navigation/native';
+import { useFocusEffect, useNavigation, useRoute, useScrollToTop, type RouteProp } from '@react-navigation/native';
+import { useTabReselect } from '../lib/useTabReselect';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { useDigest } from '../lib/digest';
 import { useHomeFeed } from '../lib/homeFeed';
@@ -46,6 +47,11 @@ export default function HomeScreen() {
     await Promise.all([feed.refresh(), digestRefresh()]);
   }, [feed, digestRefresh]);
 
+  // 홈 탭 재탭 → 맨 위로 스크롤 + 새로고침
+  const scrollRef = useRef<ScrollView>(null);
+  useScrollToTop(scrollRef);
+  useTabReselect(onRefresh);
+
   const onPressNotice = useCallback((n: Notice) => {
     navigation.navigate('Detail', { notice: n });
   }, [navigation]);
@@ -74,6 +80,7 @@ export default function HomeScreen() {
       <LinearGradient colors={TOP_TINT} style={styles.topTint} pointerEvents="none" />
       <SafeAreaView style={styles.flex} edges={['top']}>
       <ScrollView
+        ref={scrollRef}
         contentContainerStyle={styles.scroll}
         refreshControl={<RefreshControl refreshing={feed.refreshing} onRefresh={onRefresh} tintColor={COLORS.accent} />}
       >

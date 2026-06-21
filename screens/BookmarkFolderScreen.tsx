@@ -246,6 +246,9 @@ const styles = StyleSheet.create({
     paddingVertical: SPACING.xs,
     borderRadius: RADIUS.pill,
     backgroundColor: COLORS.surface,
+    // ＋키워드(점선 테두리 1px) 버튼과 높이를 맞추기 위한 투명 테두리
+    borderWidth: 1,
+    borderColor: 'transparent',
   },
   chipActive: { backgroundColor: COLORS.accent },
   chipText: { fontSize: FONT.caption, color: COLORS.textSecondary, fontWeight: WEIGHT.semibold },

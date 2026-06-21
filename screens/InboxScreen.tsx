@@ -5,7 +5,8 @@ import {
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import Animated, { Easing, FadeInDown, FadeOutUp } from 'react-native-reanimated';
-import { useFocusEffect, useNavigation } from '@react-navigation/native';
+import { useFocusEffect, useNavigation, useScrollToTop } from '@react-navigation/native';
+import { useTabReselect } from '../lib/useTabReselect';
 import { useCallback } from 'react';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { supabase } from '../lib/supabase';
@@ -154,6 +155,11 @@ export default function InboxScreen() {
     setRefreshing(false);
   }, [loadNotices]);
 
+  // 전체 공지 탭 재탭 → 맨 위로 스크롤 + 새로고침
+  const listRef = useRef<SectionList<Notice>>(null);
+  useScrollToTop(listRef);
+  useTabReselect(onRefresh);
+
   useEffect(() => {
     if (debounceRef.current) clearTimeout(debounceRef.current);
     if (!query.trim()) { setSearchResults([]); setSearching(false); return; }
@@ -216,6 +222,7 @@ export default function InboxScreen() {
   return (
     <SafeAreaView style={styles.container} edges={['top']}>
       <SectionList
+        ref={listRef}
         sections={[{ data: visible }]}
         keyExtractor={(item) => item.id}
         refreshControl={

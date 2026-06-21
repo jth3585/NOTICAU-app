@@ -1,8 +1,9 @@
-import { useCallback, useState } from 'react';
+import { useCallback, useRef, useState } from 'react';
 import { Alert, ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
-import { FlashList } from '@shopify/flash-list';
+import { FlashList, type FlashListRef } from '@shopify/flash-list';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { useFocusEffect, useNavigation } from '@react-navigation/native';
+import { useFocusEffect, useNavigation, useScrollToTop } from '@react-navigation/native';
+import { useTabReselect } from '../lib/useTabReselect';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { useBookmarkNotices, useUserKeywords, removeBookmark, type BookmarkNotice } from '../lib/bookmarks';
 import { useFolders, createFolder, renameFolder, deleteFolder, setBookmarkFolder, type Folder } from '../lib/folders';
@@ -49,6 +50,11 @@ export default function BookmarkScreen() {
   useFocusEffect(useCallback(() => {
     refresh(); refreshRead(); refreshFolders();
   }, [refresh, refreshRead, refreshFolders]));
+
+  // 북마크 탭 재탭 → 맨 위로 스크롤 + 새로고침
+  const listRef = useRef<FlashListRef<BookmarkNotice>>(null);
+  useScrollToTop(listRef as any);
+  useTabReselect(useCallback(() => { refresh(); refreshFolders(); }, [refresh, refreshFolders]));
 
   const visibleNotices = notices.filter((n) => !removedIds.has(n.id));
   const unreadCount = notices.filter((n) => !isRead(n.id)).length;
@@ -109,9 +115,6 @@ export default function BookmarkScreen() {
     <View>
       <View style={styles.collectionRow}>
         <Text style={styles.collectionTitle}>내 컬렉션</Text>
-        <TouchableOpacity onPress={() => setModal({ mode: 'create' })} hitSlop={10} activeOpacity={0.7} accessibilityRole="button" accessibilityLabel="폴더 만들기">
-          <Text style={styles.plus}>＋</Text>
-        </TouchableOpacity>
       </View>
 
       <ScrollView
@@ -154,6 +157,7 @@ export default function BookmarkScreen() {
   return (
     <SafeAreaView style={styles.container} edges={['top']}>
       <FlashList
+        ref={listRef}
         data={visibleNotices}
         keyExtractor={(n) => n.id}
         ListHeaderComponent={Header}
@@ -238,7 +242,6 @@ const styles = StyleSheet.create({
   },
   // 중간 위계 섹션 헤딩(최근 추가 북마크의 작은 라벨보다 한 단계 위). 큰 페이지 제목은 아님.
   collectionTitle: { fontSize: FONT.subtitle, fontWeight: WEIGHT.bold, color: COLORS.text },
-  plus: { fontSize: 22, color: COLORS.accent, fontWeight: WEIGHT.bold, lineHeight: 24 },
   folderRow: { flexDirection: 'row', gap: SPACING.md, paddingHorizontal: SPACING.lg },
   folderCard: {
     width: 130,
