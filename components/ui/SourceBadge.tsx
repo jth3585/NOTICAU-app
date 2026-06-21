@@ -11,5 +11,5 @@ export function SourceBadge({ parserKey }: { parserKey: string | null }) {
 }
 
 const styles = StyleSheet.create({
-  text: { fontSize: FONT.micro, color: COLORS.textTertiary },
+  text: { fontSize: FONT.micro, lineHeight: 14, color: COLORS.textTertiary, includeFontPadding: false },
 });

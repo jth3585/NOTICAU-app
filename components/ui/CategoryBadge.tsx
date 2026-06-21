@@ -25,6 +25,6 @@ const styles = StyleSheet.create({
     paddingHorizontal: SPACING.md,
     borderRadius: RADIUS.box,
   },
-  text: { fontSize: FONT.micro, fontWeight: WEIGHT.semibold },
+  text: { fontSize: FONT.micro, lineHeight: 14, fontWeight: WEIGHT.semibold, includeFontPadding: false },
   textMd: { fontSize: FONT.body },
 });
