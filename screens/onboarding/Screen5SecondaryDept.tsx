@@ -3,6 +3,7 @@ import { StyleSheet, Text, View } from 'react-native';
 import type { NativeStackScreenProps } from '@react-navigation/native-stack';
 import { OnboardingLayout } from '../../components/onboarding/OnboardingLayout';
 import { OptionButton } from '../../components/onboarding/OptionButton';
+import { LayersIcon } from '../../components/ui/icons';
 import { useOnboarding } from '../../contexts/OnboardingContext';
 import { supabase } from '../../lib/supabase';
 import type { OnboardingStackParamList } from '../../lib/types';
@@ -63,7 +64,7 @@ export default function Screen5SecondaryDept({ navigation }: Props) {
   const collegeName = colleges.find(c => c.code === selectedCollege)?.name ?? '';
 
   return (
-    <OnboardingLayout step={5} title={titleMap[step]} onBack={handleBack}>
+    <OnboardingLayout step={5} title={titleMap[step]} icon={<LayersIcon size={26} color={COLORS.accent} />} onBack={handleBack}>
       {step === 'choice' && (
         <>
           <OptionButton label="없음" selected={false} onPress={handleNone} />

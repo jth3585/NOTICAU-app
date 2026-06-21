@@ -2,6 +2,8 @@ import { useEffect, useState } from 'react';
 import type { NativeStackScreenProps } from '@react-navigation/native-stack';
 import { OnboardingLayout } from '../../components/onboarding/OnboardingLayout';
 import { OptionButton } from '../../components/onboarding/OptionButton';
+import { BookOpenIcon } from '../../components/ui/icons';
+import { COLORS } from '../../lib/theme';
 import { useOnboarding } from '../../contexts/OnboardingContext';
 import { supabase } from '../../lib/supabase';
 import type { OnboardingStackParamList } from '../../lib/types';
@@ -29,7 +31,7 @@ export default function Screen3College({ navigation }: Props) {
   };
 
   return (
-    <OnboardingLayout step={3} title="단과대학을 선택해 주세요" onBack={() => navigation.goBack()}>
+    <OnboardingLayout step={3} title="단과대학을 선택해 주세요" icon={<BookOpenIcon size={26} color={COLORS.accent} />} onBack={() => navigation.goBack()}>
       {colleges.map((c) => (
         <OptionButton
           key={c.code}

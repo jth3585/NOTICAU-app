@@ -1,6 +1,8 @@
 import type { NativeStackScreenProps } from '@react-navigation/native-stack';
 import { OnboardingLayout } from '../../components/onboarding/OnboardingLayout';
 import { OptionButton } from '../../components/onboarding/OptionButton';
+import { GraduationCapIcon } from '../../components/ui/icons';
+import { COLORS } from '../../lib/theme';
 import { useOnboarding } from '../../contexts/OnboardingContext';
 import type { OnboardingStackParamList } from '../../lib/types';
 
@@ -17,7 +19,7 @@ export default function Screen1Grade({ navigation }: Props) {
   };
 
   return (
-    <OnboardingLayout step={1} title="학년을 선택해 주세요">
+    <OnboardingLayout step={1} title="학년을 선택해 주세요" icon={<GraduationCapIcon size={26} color={COLORS.accent} />}>
       {GRADES.map((g) => (
         <OptionButton
           key={g}

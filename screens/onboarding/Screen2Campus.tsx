@@ -1,6 +1,8 @@
 import type { NativeStackScreenProps } from '@react-navigation/native-stack';
 import { OnboardingLayout } from '../../components/onboarding/OnboardingLayout';
 import { OptionButton } from '../../components/onboarding/OptionButton';
+import { BuildingIcon } from '../../components/ui/icons';
+import { COLORS } from '../../lib/theme';
 import { useOnboarding } from '../../contexts/OnboardingContext';
 import type { OnboardingStackParamList } from '../../lib/types';
 
@@ -15,7 +17,7 @@ export default function Screen2Campus({ navigation }: Props) {
   };
 
   return (
-    <OnboardingLayout step={2} title="캠퍼스를 선택해 주세요" onBack={() => navigation.goBack()}>
+    <OnboardingLayout step={2} title="캠퍼스를 선택해 주세요" icon={<BuildingIcon size={26} color={COLORS.accent} />} onBack={() => navigation.goBack()}>
       <OptionButton label="서울" selected={campus === 'seoul'} onPress={() => handleSelect('seoul')} />
       <OptionButton label="다빈치" selected={campus === 'davinci'} onPress={() => handleSelect('davinci')} />
     </OnboardingLayout>

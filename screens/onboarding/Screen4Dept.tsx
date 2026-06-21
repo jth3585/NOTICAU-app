@@ -3,6 +3,7 @@ import { StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import type { NativeStackScreenProps } from '@react-navigation/native-stack';
 import { OnboardingLayout } from '../../components/onboarding/OnboardingLayout';
 import { OptionButton } from '../../components/onboarding/OptionButton';
+import { BookOpenIcon } from '../../components/ui/icons';
 import { useOnboarding } from '../../contexts/OnboardingContext';
 import { supabase } from '../../lib/supabase';
 import type { OnboardingStackParamList } from '../../lib/types';
@@ -34,7 +35,7 @@ export default function Screen4Dept({ navigation, route }: Props) {
   };
 
   return (
-    <OnboardingLayout step={4} title="학과를 선택해 주세요" onBack={() => navigation.goBack()}>
+    <OnboardingLayout step={4} title="학과를 선택해 주세요" icon={<BookOpenIcon size={26} color={COLORS.accent} />} onBack={() => navigation.goBack()}>
       {loaded && depts.length === 0 ? (
         <View style={styles.empty}>
           <Text style={styles.emptyText}>현재 학과 정보를 준비 중이에요.</Text>

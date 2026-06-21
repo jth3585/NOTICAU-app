@@ -4,10 +4,13 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { COLORS, FONT, RADIUS, SPACING, WEIGHT } from '../../lib/theme';
 import { ProgressBar } from './ProgressBar';
 
+const TOTAL_STEPS = 7;
+
 type Props = {
   step: number;
   title: string;
   subtitle?: string;
+  icon?: ReactNode; // 단계별 시각 앵커 (틴트 원 안에 표시)
   onBack?: () => void;
   onNext?: () => void;
   nextLabel?: string;
@@ -16,7 +19,7 @@ type Props = {
 };
 
 export function OnboardingLayout({
-  step, title, subtitle, onBack, onNext,
+  step, title, subtitle, icon, onBack, onNext,
   nextLabel = '다음', nextEnabled = false, children,
 }: Props) {
   return (
@@ -31,11 +34,12 @@ export function OnboardingLayout({
         <View style={styles.progress}>
           <ProgressBar step={step} />
         </View>
-        <View style={styles.backBtn} />
+        <Text style={styles.stepText}>{step} / {TOTAL_STEPS}</Text>
       </View>
 
       {/* 본문 */}
       <ScrollView contentContainerStyle={styles.body} keyboardShouldPersistTaps="handled">
+        {icon ? <View style={styles.iconCircle}>{icon}</View> : null}
         <Text style={styles.title}>{title}</Text>
         {subtitle ? <Text style={styles.subtitle}>{subtitle}</Text> : null}
         <View style={styles.options}>{children}</View>
@@ -71,6 +75,13 @@ const styles = StyleSheet.create({
   backBtn: { width: 32 },
   backText: { fontSize: 24, color: COLORS.text, lineHeight: 28 },
   progress: { flex: 1 },
+  stepText: { width: 38, textAlign: 'right', fontSize: FONT.caption, fontWeight: WEIGHT.semibold, color: COLORS.textTertiary, fontVariant: ['tabular-nums'] },
+  iconCircle: {
+    width: 56, height: 56, borderRadius: 28,
+    backgroundColor: COLORS.accentSoft,
+    alignItems: 'center', justifyContent: 'center',
+    marginBottom: SPACING.lg,
+  },
   body: { paddingHorizontal: SPACING.lg, paddingBottom: SPACING.xl },
   title: {
     fontSize: FONT.display,

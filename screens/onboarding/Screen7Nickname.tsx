@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { StyleSheet, Text, TextInput, TouchableOpacity } from 'react-native';
 import type { NativeStackScreenProps } from '@react-navigation/native-stack';
 import { OnboardingLayout } from '../../components/onboarding/OnboardingLayout';
+import { UserIcon } from '../../components/ui/icons';
 import { useOnboarding } from '../../contexts/OnboardingContext';
 import { supabase } from '../../lib/supabase';
 import type { OnboardingStackParamList } from '../../lib/types';
@@ -51,6 +52,7 @@ export default function Screen7Nickname({ navigation }: Props) {
       step={7}
       title="어떻게 불러드릴까요?"
       subtitle="홈 화면 인사에 쓰여요. 입력하지 않아도 괜찮아요."
+      icon={<UserIcon size={26} color={COLORS.accent} />}
       onBack={() => navigation.goBack()}
       onNext={() => finish(trimmed)}
       nextLabel={saving ? '저장 중…' : '완료'}

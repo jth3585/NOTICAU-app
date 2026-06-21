@@ -155,6 +155,61 @@ export function ShieldIcon({ size = 22, color }: IconProps) {
   );
 }
 
+// 🎓 학사모 (graduation-cap) — 학년
+export function GraduationCapIcon({ size = 22, color }: IconProps) {
+  return (
+    <Base size={size}>
+      <Path d="M22 10 12 5 2 10l10 5 10-5Z" stroke={color} />
+      <Path d="M6 12v5c0 1.7 2.7 3 6 3s6-1.3 6-3v-5" stroke={color} />
+      <Path d="M22 10v6" stroke={color} />
+    </Base>
+  );
+}
+
+// 🏛 건물 (building) — 캠퍼스
+export function BuildingIcon({ size = 22, color }: IconProps) {
+  return (
+    <Base size={size}>
+      <Path d="M6 21V5a2 2 0 0 1 2-2h8a2 2 0 0 1 2 2v16" stroke={color} />
+      <Line x1="3" y1="21" x2="21" y2="21" stroke={color} />
+      <Line x1="10" y1="8" x2="14" y2="8" stroke={color} />
+      <Line x1="10" y1="12" x2="14" y2="12" stroke={color} />
+      <Line x1="10" y1="16" x2="14" y2="16" stroke={color} />
+    </Base>
+  );
+}
+
+// 📖 펼친 책 (book-open) — 단과대/학과
+export function BookOpenIcon({ size = 22, color }: IconProps) {
+  return (
+    <Base size={size}>
+      <Path d="M2 4h6a3 3 0 0 1 3 3v13a2.5 2.5 0 0 0-2.5-2H2z" stroke={color} />
+      <Path d="M22 4h-6a3 3 0 0 0-3 3v13a2.5 2.5 0 0 1 2.5-2H22z" stroke={color} />
+    </Base>
+  );
+}
+
+// ▤ 레이어 (layers) — 복수전공
+export function LayersIcon({ size = 22, color }: IconProps) {
+  return (
+    <Base size={size}>
+      <Path d="M12 2 2 7l10 5 10-5z" stroke={color} />
+      <Path d="M2 17l10 5 10-5" stroke={color} />
+      <Path d="M2 12l10 5 10-5" stroke={color} />
+    </Base>
+  );
+}
+
+// ✓ 원형 체크 (check-circle) — 재학상태
+export function CheckCircleIcon({ size = 22, color }: IconProps) {
+  return (
+    <Base size={size}>
+      <Circle cx="12" cy="12" r="9" stroke={color} />
+      <Polyline points="8.5 12 11 14.5 15.5 9.5" stroke={color} />
+    </Base>
+  );
+}
+
 // ⠿ 드래그 손잡이 (grip, 점 6개)
 export function GripIcon({ size = 22, color }: IconProps) {
   return (

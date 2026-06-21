@@ -2,6 +2,7 @@ import { StyleSheet, Text, View } from 'react-native';
 import type { NativeStackScreenProps } from '@react-navigation/native-stack';
 import { OnboardingLayout } from '../../components/onboarding/OnboardingLayout';
 import { OptionButton } from '../../components/onboarding/OptionButton';
+import { CheckCircleIcon } from '../../components/ui/icons';
 import { useOnboarding } from '../../contexts/OnboardingContext';
 import type { OnboardingStackParamList } from '../../lib/types';
 import { COLORS, FONT, SPACING } from '../../lib/theme';
@@ -36,6 +37,7 @@ export default function Screen6Enrollment({ navigation }: Props) {
       step={6}
       title="현재 상태를 선택해 주세요"
       subtitle="여러 개 선택할 수 있어요"
+      icon={<CheckCircleIcon size={26} color={COLORS.accent} />}
       onBack={() => navigation.goBack()}
       onNext={handleNext}
       nextLabel="다음"

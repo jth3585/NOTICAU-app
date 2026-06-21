@@ -1,5 +1,7 @@
-import { StyleSheet, Text, TouchableOpacity } from 'react-native';
+import { StyleSheet, Text, View } from 'react-native';
 import { COLORS, FONT, RADIUS, SPACING, WEIGHT } from '../../lib/theme';
+import { PressableScale } from '../ui/PressableScale';
+import { CheckIcon } from '../ui/icons';
 
 type Props = {
   label: string;
@@ -10,21 +12,30 @@ type Props = {
 
 export function OptionButton({ label, selected, onPress, sublabel }: Props) {
   return (
-    <TouchableOpacity
+    <PressableScale
       style={[styles.btn, selected && styles.btnSelected]}
       onPress={onPress}
-      activeOpacity={0.7}
+      accessibilityRole="button"
+      accessibilityState={{ selected }}
+      accessibilityLabel={label}
     >
-      <Text style={[styles.label, selected && styles.labelSelected]}>{label}</Text>
-      {sublabel ? (
-        <Text style={[styles.sublabel, selected && styles.sublabelSelected]}>{sublabel}</Text>
-      ) : null}
-    </TouchableOpacity>
+      <View style={styles.textCol}>
+        <Text style={[styles.label, selected && styles.labelSelected]}>{label}</Text>
+        {sublabel ? (
+          <Text style={[styles.sublabel, selected && styles.sublabelSelected]}>{sublabel}</Text>
+        ) : null}
+      </View>
+      {selected ? <CheckIcon size={18} color={COLORS.accentText} /> : null}
+    </PressableScale>
   );
 }
 
 const styles = StyleSheet.create({
   btn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    gap: SPACING.sm,
     borderWidth: 1.5,
     borderColor: COLORS.border,
     borderRadius: RADIUS.card,
@@ -36,6 +47,7 @@ const styles = StyleSheet.create({
     borderColor: COLORS.accent,
     backgroundColor: COLORS.accentSoft,
   },
+  textCol: { flex: 1 },
   label: {
     fontSize: FONT.body,
     fontWeight: WEIGHT.semibold,
