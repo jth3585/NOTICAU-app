@@ -238,7 +238,7 @@ export default function InboxScreen() {
                   onBlur={() => setSearchFocused(false)}
                   onSubmitEditing={() => rememberSearch(query)}
                   returnKeyType="search"
-                  clearButtonMode="while-editing"
+                  clearButtonMode="never"
                 />
                 {query.length > 0 ? (
                   <TouchableOpacity onPress={() => setQuery('')} hitSlop={8} style={{ paddingLeft: SPACING.sm }} accessibilityRole="button" accessibilityLabel="검색어 지우기">
@@ -419,8 +419,21 @@ const styles = StyleSheet.create({
   sortBtnActive: { backgroundColor: COLORS.accentSoft },
   // 필터 칩 줄(sticky). 칩 풀폭 + 카드와 간격 확보.
   filterRow: { backgroundColor: COLORS.bg, paddingBottom: SPACING.sm },
-  // 검색 제안 패널 (최근 검색 / 내 키워드)
-  suggest: { paddingHorizontal: SPACING.lg, paddingBottom: SPACING.md },
+  // 검색 제안 패널 (최근 검색 / 내 키워드) — 검색창에서 펼쳐진 드롭다운 카드.
+  suggest: {
+    marginHorizontal: SPACING.lg,
+    marginBottom: SPACING.md,
+    padding: SPACING.md,
+    backgroundColor: COLORS.surface,
+    borderRadius: RADIUS.box,
+    borderWidth: StyleSheet.hairlineWidth,
+    borderColor: COLORS.border,
+    shadowColor: '#000',
+    shadowOpacity: 0.06,
+    shadowRadius: 12,
+    shadowOffset: { width: 0, height: 4 },
+    elevation: 3,
+  },
   suggestHead: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: SPACING.sm },
   suggestTitle: { fontSize: FONT.caption, fontWeight: WEIGHT.bold, color: COLORS.textTertiary },
   suggestClear: { fontSize: FONT.caption, color: COLORS.textTertiary },
@@ -430,7 +443,7 @@ const styles = StyleSheet.create({
     borderRadius: RADIUS.pill,
     paddingHorizontal: SPACING.md,
     paddingVertical: SPACING.xs + 1,
-    backgroundColor: COLORS.surface,
+    backgroundColor: COLORS.bg,
     borderWidth: 1,
     borderColor: COLORS.border,
   },
