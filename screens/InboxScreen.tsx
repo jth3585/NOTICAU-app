@@ -58,6 +58,8 @@ export default function InboxScreen() {
   const [searchResults, setSearchResults] = useState<Notice[]>([]);
   const [searching, setSearching] = useState(false);
   const [searchFocused, setSearchFocused] = useState(false);
+  // 제안 패널은 '제출(엔터/칩선택)' 전까지 유지 → 타이핑 중 깜빡 사라지지 않게.
+  const [submitted, setSubmitted] = useState(false);
   const [recents, setRecents] = useState<string[]>([]);
   const [myKeywords, setMyKeywords] = useState<string[]>([]);
   const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -233,15 +235,15 @@ export default function InboxScreen() {
                   placeholder="공지 검색"
                   placeholderTextColor={COLORS.textTertiary}
                   value={query}
-                  onChangeText={setQuery}
-                  onFocus={() => setSearchFocused(true)}
+                  onChangeText={(t) => { setQuery(t); setSubmitted(false); }}
+                  onFocus={() => { setSearchFocused(true); setSubmitted(false); }}
                   onBlur={() => setSearchFocused(false)}
-                  onSubmitEditing={() => rememberSearch(query)}
+                  onSubmitEditing={() => { rememberSearch(query); setSubmitted(true); }}
                   returnKeyType="search"
                   clearButtonMode="never"
                 />
                 {query.length > 0 ? (
-                  <TouchableOpacity onPress={() => setQuery('')} hitSlop={8} style={{ paddingLeft: SPACING.sm }} accessibilityRole="button" accessibilityLabel="검색어 지우기">
+                  <TouchableOpacity onPress={() => { setQuery(''); setSubmitted(false); }} hitSlop={8} style={{ paddingLeft: SPACING.sm }} accessibilityRole="button" accessibilityLabel="검색어 지우기">
                     <CloseIcon size={16} color={COLORS.textTertiary} />
                   </TouchableOpacity>
                 ) : null}
@@ -258,7 +260,7 @@ export default function InboxScreen() {
               </TouchableOpacity>
             </View>
 
-            {searchFocused && !query.trim() && (recents.length > 0 || myKeywords.length > 0) ? (
+            {searchFocused && !submitted && (recents.length > 0 || myKeywords.length > 0) ? (
               <View style={styles.suggest}>
                 {recents.length > 0 ? (
                   <>
@@ -270,7 +272,7 @@ export default function InboxScreen() {
                     </View>
                     <View style={styles.suggestChips}>
                       {recents.map((q) => (
-                        <TouchableOpacity key={q} style={styles.suggestChip} onPress={() => { setQuery(q); rememberSearch(q); }} accessibilityRole="button">
+                        <TouchableOpacity key={q} style={styles.suggestChip} onPress={() => { setQuery(q); rememberSearch(q); setSubmitted(true); }} accessibilityRole="button">
                           <Text style={styles.suggestChipText} numberOfLines={1}>{q}</Text>
                         </TouchableOpacity>
                       ))}
@@ -282,7 +284,7 @@ export default function InboxScreen() {
                     <Text style={[styles.suggestTitle, { marginTop: recents.length ? SPACING.md : 0, marginBottom: SPACING.sm }]}>내 키워드</Text>
                     <View style={styles.suggestChips}>
                       {myKeywords.map((k) => (
-                        <TouchableOpacity key={k} style={[styles.suggestChip, styles.kwSuggestChip]} onPress={() => { setQuery(k); rememberSearch(k); }} accessibilityRole="button">
+                        <TouchableOpacity key={k} style={[styles.suggestChip, styles.kwSuggestChip]} onPress={() => { setQuery(k); rememberSearch(k); setSubmitted(true); }} accessibilityRole="button">
                           <Text style={[styles.suggestChipText, { color: COLORS.accentText }]} numberOfLines={1}>#{k}</Text>
                         </TouchableOpacity>
                       ))}
