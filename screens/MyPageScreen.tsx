@@ -73,14 +73,6 @@ export default function MyPageScreen() {
             />
             <View style={[styles.ring, styles.ring1]} pointerEvents="none" />
             <View style={[styles.ring, styles.ring2]} pointerEvents="none" />
-            {/* 바닥 페이드 — 동심원이 경계에서 뚝 잘리지 않고 배경에 녹아들게 (링 위·콘텐츠 아래) */}
-            <LinearGradient
-              colors={['transparent', COLORS.bg]}
-              start={{ x: 0.5, y: 0 }}
-              end={{ x: 0.5, y: 1 }}
-              style={styles.heroFade}
-              pointerEvents="none"
-            />
 
             <View style={styles.heroRow}>
               <LinearGradient colors={COLORS.accentGradient} start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }} style={styles.heroAvatar}>
@@ -149,8 +141,6 @@ const styles = StyleSheet.create({
   ring: { position: 'absolute', borderWidth: 1.5, borderColor: 'rgba(110,124,238,0.13)', borderRadius: 999 },
   ring1: { width: 250, height: 250, top: -80, right: -50 },
   ring2: { width: 380, height: 380, top: -150, right: -120 },
-  // 히어로 바닥 페이드 (동심원이 잘리는 경계를 배경색으로 부드럽게 흡수)
-  heroFade: { position: 'absolute', left: 0, right: 0, bottom: 0, height: 130 },
   heroRow: { flexDirection: 'row', alignItems: 'center', gap: SPACING.md },
   heroAvatar: {
     width: 56, height: 56, borderRadius: 28,
