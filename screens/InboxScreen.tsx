@@ -26,6 +26,7 @@ import { NOTICE_LIST_SELECT } from '../lib/notices';
 import { useBookmarkSet, addBookmark } from '../lib/bookmarks';
 import { lightHaptic, softHaptic } from '../lib/haptics';
 import { toast } from '../lib/toast';
+import { getRecentSearches, addRecentSearch, clearRecentSearches } from '../lib/recentSearches';
 import { useLastSeenAt, touchLastSeenAt } from '../lib/new-badge';
 
 const SORT_LABELS: Record<SortMode, string> = {
@@ -56,7 +57,14 @@ export default function InboxScreen() {
   const [query, setQuery] = useState('');
   const [searchResults, setSearchResults] = useState<Notice[]>([]);
   const [searching, setSearching] = useState(false);
+  const [searchFocused, setSearchFocused] = useState(false);
+  const [recents, setRecents] = useState<string[]>([]);
+  const [myKeywords, setMyKeywords] = useState<string[]>([]);
   const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  const rememberSearch = useCallback((q: string) => {
+    if (q.trim()) addRecentSearch(q).then(setRecents);
+  }, []);
 
   // 읽음 / NEW
   const { isRead, refresh: refreshRead } = useReadSet();
@@ -83,17 +91,21 @@ export default function InboxScreen() {
   useFocusEffect(useCallback(() => {
     refreshRead();
     refreshBookmarks();
-    // 카테고리 프리프 새로고침 (CategoryPrefsScreen에서 변경/정렬 후 돌아올 때)
+    getRecentSearches().then(setRecents);
+    // 카테고리 프리프 + 내 키워드 새로고침
     (async () => {
       const { data: { session } } = await supabase.auth.getSession();
       if (!session) return;
-      const { data } = await supabase.from('user_category_prefs')
-        .select('topic,is_enabled,sort_order').eq('user_id', session.user.id);
-      const rows = (data ?? []) as any[];
+      const [prefRes, kwRes] = await Promise.all([
+        supabase.from('user_category_prefs').select('topic,is_enabled,sort_order').eq('user_id', session.user.id),
+        supabase.from('user_keywords').select('keyword').eq('user_id', session.user.id),
+      ]);
+      const rows = (prefRes.data ?? []) as any[];
       const disabled = new Set<string>();
       rows.forEach((r) => { if (!r.is_enabled) disabled.add(r.topic); });
       setDisabledTopics(disabled);
       setChipTopics(['전체', ...orderedCategories(rows)]);
+      setMyKeywords(((kwRes.data ?? []) as any[]).map((k) => k.keyword));
     })();
   }, [refreshRead, refreshBookmarks]));
 
@@ -209,6 +221,9 @@ export default function InboxScreen() {
                   placeholderTextColor={COLORS.textTertiary}
                   value={query}
                   onChangeText={setQuery}
+                  onFocus={() => setSearchFocused(true)}
+                  onBlur={() => setSearchFocused(false)}
+                  onSubmitEditing={() => rememberSearch(query)}
                   returnKeyType="search"
                   clearButtonMode="while-editing"
                 />
@@ -229,6 +244,40 @@ export default function InboxScreen() {
                 <SortIcon size={18} color={sortMode !== 'deadline' ? COLORS.accent : COLORS.textSecondary} />
               </TouchableOpacity>
             </View>
+
+            {searchFocused && !query.trim() && (recents.length > 0 || myKeywords.length > 0) ? (
+              <View style={styles.suggest}>
+                {recents.length > 0 ? (
+                  <>
+                    <View style={styles.suggestHead}>
+                      <Text style={styles.suggestTitle}>최근 검색</Text>
+                      <TouchableOpacity onPress={() => { clearRecentSearches(); setRecents([]); }} hitSlop={8}>
+                        <Text style={styles.suggestClear}>전체 삭제</Text>
+                      </TouchableOpacity>
+                    </View>
+                    <View style={styles.suggestChips}>
+                      {recents.map((q) => (
+                        <TouchableOpacity key={q} style={styles.suggestChip} onPress={() => { setQuery(q); rememberSearch(q); }} accessibilityRole="button">
+                          <Text style={styles.suggestChipText} numberOfLines={1}>{q}</Text>
+                        </TouchableOpacity>
+                      ))}
+                    </View>
+                  </>
+                ) : null}
+                {myKeywords.length > 0 ? (
+                  <>
+                    <Text style={[styles.suggestTitle, { marginTop: recents.length ? SPACING.md : 0, marginBottom: SPACING.sm }]}>내 키워드</Text>
+                    <View style={styles.suggestChips}>
+                      {myKeywords.map((k) => (
+                        <TouchableOpacity key={k} style={[styles.suggestChip, styles.kwSuggestChip]} onPress={() => { setQuery(k); rememberSearch(k); }} accessibilityRole="button">
+                          <Text style={[styles.suggestChipText, { color: COLORS.accentText }]} numberOfLines={1}>#{k}</Text>
+                        </TouchableOpacity>
+                      ))}
+                    </View>
+                  </>
+                ) : null}
+              </View>
+            ) : null}
           </View>
         }
         // 필터 칩(스크롤) + 정렬 칩(우측 고정) → 상단 고정(sticky). 검색 중엔 숨김.
@@ -250,7 +299,7 @@ export default function InboxScreen() {
               isRead={isRead(item.id)}
               isNew={isNew(item)}
               dimOnPress={false}
-              onPress={() => navigation.navigate('Detail', { notice: item })}
+              onPress={() => { rememberSearch(query); navigation.navigate('Detail', { notice: item }); }}
             />
           </SwipeToBookmark>
         )}
@@ -357,6 +406,23 @@ const styles = StyleSheet.create({
   sortBtnActive: { backgroundColor: COLORS.accentSoft },
   // 필터 칩 줄(sticky). 칩 풀폭 + 카드와 간격 확보.
   filterRow: { backgroundColor: COLORS.bg, paddingBottom: SPACING.sm },
+  // 검색 제안 패널 (최근 검색 / 내 키워드)
+  suggest: { paddingHorizontal: SPACING.lg, paddingBottom: SPACING.md },
+  suggestHead: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: SPACING.sm },
+  suggestTitle: { fontSize: FONT.caption, fontWeight: WEIGHT.bold, color: COLORS.textTertiary },
+  suggestClear: { fontSize: FONT.caption, color: COLORS.textTertiary },
+  suggestChips: { flexDirection: 'row', flexWrap: 'wrap', gap: SPACING.sm },
+  suggestChip: {
+    maxWidth: 200,
+    borderRadius: RADIUS.pill,
+    paddingHorizontal: SPACING.md,
+    paddingVertical: SPACING.xs + 1,
+    backgroundColor: COLORS.surface,
+    borderWidth: 1,
+    borderColor: COLORS.border,
+  },
+  kwSuggestChip: { backgroundColor: COLORS.accentSoft, borderColor: COLORS.accentSoft },
+  suggestChipText: { fontSize: FONT.caption, color: COLORS.textSecondary },
   listContent: { paddingBottom: SPACING.xl },
   empty: {
     textAlign: 'center',
