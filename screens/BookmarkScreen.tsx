@@ -198,7 +198,7 @@ export default function BookmarkScreen() {
         visible={modal !== null}
         title={modal?.mode === 'rename' ? '폴더 이름 변경' : '새 폴더'}
         initialValue={modal?.mode === 'rename' ? modal.folder.name : ''}
-        submitLabel={modal?.mode === 'rename' ? '변경' : '생성'}
+        submitLabel={modal?.mode === 'rename' ? '저장' : '만들기'}
         onSubmit={submitModal}
         onClose={() => setModal(null)}
       />

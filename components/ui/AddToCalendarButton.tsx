@@ -68,14 +68,14 @@ export function AddToCalendarButton({ notice, deadlineAt }: { notice: Notice; de
           successHaptic();
         } else if (res.reason === 'permission') {
           Alert.alert(
-            '캘린더 권한 필요',
-            '설정에서 NOTICAU의 캘린더 접근을 허용해주세요.',
-            [{ text: '취소', style: 'cancel' }, { text: '설정 열기', onPress: () => Linking.openSettings() }],
+            '캘린더 접근이 필요해요',
+            '설정에서 캘린더 접근을 허용하면 마감일을 바로 담을 수 있어요.',
+            [{ text: '닫기', style: 'cancel' }, { text: '설정 열기', onPress: () => Linking.openSettings() }],
           );
         } else if (res.reason === 'no-calendar') {
-          Alert.alert('캘린더 없음', '추가할 수 있는 캘린더를 찾지 못했습니다.');
+          Alert.alert('캘린더를 찾을 수 없어요', '기기에서 쓸 수 있는 캘린더가 없어요.');
         } else {
-          Alert.alert('추가 실패', '캘린더에 추가하지 못했습니다. 잠시 후 다시 시도해주세요.');
+          Alert.alert('잠시 후 다시 시도해 주세요', '캘린더에 담지 못했어요.');
         }
       }
     } finally {
