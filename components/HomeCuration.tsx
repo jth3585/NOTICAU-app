@@ -5,6 +5,7 @@ import { NoticeCard } from './NoticeCard';
 import { COLORS, FONT, RADIUS, SPACING, TEXT, WEIGHT } from '../lib/theme';
 import { SparkleIcon } from './ui/SparkleIcon';
 import { ChevronRightIcon } from './ui/icons';
+import { Celebration } from './ui/Celebration';
 
 type Props = {
   notices: Notice[];
@@ -21,6 +22,7 @@ export function HomeCuration({ notices, allSeen, onGoToAll, onPressNotice, isNew
 
       {allSeen ? (
         <Animated.View style={styles.doneCard} entering={FadeIn.duration(360)}>
+          <Celebration />
           <View style={styles.doneTitleRow}>
             <Text style={styles.doneTitle}>오늘 추천 공지를 다 읽었어요</Text>
             <SparkleIcon size={16} color={COLORS.accent} />
