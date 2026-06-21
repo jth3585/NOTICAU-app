@@ -12,12 +12,15 @@ import { BackButton } from '../components/ui/BackButton';
 
 type Keyword = { id: string; keyword: string; notify: boolean };
 
-// 학교 공지 빈출 추천 키워드 (이미 등록한 건 제외하고 노출)
+// 폴백/시드 추천 키워드. 실제로는 popular_keywords RPC(전체 사용자 인기)를 우선하고,
+// 데이터가 부족할 때 이 목록으로 채운다. 두 줄 안에 들어가도록 최대 8개만 노출.
 const RECOMMENDED = ['장학', '등록금', '수강신청', '계절학기', '교환학생', '인턴', '공모전', '졸업', '현장실습', '비교과'];
+const MAX_RECO = 8;
 
 export default function KeywordManageScreen() {
   const navigation = useNavigation();
   const [keywords, setKeywords] = useState<Keyword[]>([]);
+  const [popular, setPopular] = useState<string[]>([]); // 전체 사용자 인기 키워드
   const [input, setInput] = useState('');
   const [adding, setAdding] = useState(false);
   const inputRef = useRef<TextInput>(null);
@@ -32,6 +35,13 @@ export default function KeywordManageScreen() {
   };
 
   useEffect(() => { loadKeywords(); }, []);
+
+  // 전체 사용자 인기 키워드 로드 (최소 3명 이상 등록). 적으면 큐레이션으로 폴백.
+  useEffect(() => {
+    supabase.rpc('popular_keywords', { p_limit: MAX_RECO }).then(({ data }) => {
+      if (data) setPopular((data as { keyword: string }[]).map(r => r.keyword));
+    });
+  }, []);
 
   const addKeyword = async (text: string) => {
     if (!text || adding) return;
@@ -53,7 +63,11 @@ export default function KeywordManageScreen() {
     await addKeyword(text);
   };
 
-  const recommended = RECOMMENDED.filter(r => !keywords.some(k => k.keyword === r));
+  // 인기 키워드 우선 + 큐레이션으로 채움 → 중복/이미등록 제거 → 최대 8개(두 줄).
+  const recommended = [...popular, ...RECOMMENDED]
+    .filter((v, i, a) => a.indexOf(v) === i)
+    .filter(r => !keywords.some(k => k.keyword === r))
+    .slice(0, MAX_RECO);
 
   const handleDelete = async (id: string) => {
     await supabase.from('user_keywords').delete().eq('id', id);
