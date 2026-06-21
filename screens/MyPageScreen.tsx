@@ -57,7 +57,16 @@ export default function MyPageScreen() {
 
   useFocusEffect(useCallback(() => { load(); }, [load]));
 
-  const statusText = profile?.enrollment_status?.map(s => STATUS_LABEL[s] ?? s).join(' · ') ?? '';
+  // 프로필 메타를 칩(배지) 목록으로 — 캠퍼스 · 학과/단과대 · 학년 · 재학상태 · 기숙사
+  const chips = profile
+    ? ([
+        CAMPUS_LABEL[profile.campus] ?? profile.campus,
+        deptName || collegeName || null,
+        `${profile.grade}학년`,
+        ...(profile.enrollment_status ?? []).map(s => STATUS_LABEL[s] ?? s),
+        profile.is_dormitory ? '기숙사' : null,
+      ].filter(Boolean) as string[])
+    : [];
 
   return (
     <View style={styles.container}>
@@ -92,12 +101,13 @@ export default function MyPageScreen() {
                     <PencilIcon size={16} color={COLORS.textSecondary} />
                   </TouchableOpacity>
                 </View>
-                <Text style={styles.heroMeta} numberOfLines={2}>
-                  {[CAMPUS_LABEL[profile.campus] ?? profile.campus, deptName || collegeName || null, `${profile.grade}학년`]
-                    .filter(Boolean).join(' · ')}
-                  {statusText ? `\n${statusText}` : ''}
-                  {profile.is_dormitory ? ' · 기숙사' : ''}
-                </Text>
+                <View style={styles.chipRow}>
+                  {chips.map((c) => (
+                    <View key={c} style={styles.metaChip}>
+                      <Text style={styles.metaChipText}>{c}</Text>
+                    </View>
+                  ))}
+                </View>
               </View>
             </View>
           </View>
@@ -146,7 +156,17 @@ const styles = StyleSheet.create({
   heroInfo: { flex: 1, gap: 4 },
   nameRow: { flexDirection: 'row', alignItems: 'center', gap: SPACING.sm },
   heroName: { flexShrink: 1, fontSize: FONT.display, fontWeight: WEIGHT.bold, color: COLORS.text },
-  heroMeta: { fontSize: FONT.caption, color: COLORS.textSecondary, lineHeight: 18 },
+  // 프로필 정보 칩(배지)
+  chipRow: { flexDirection: 'row', flexWrap: 'wrap', gap: SPACING.xs, marginTop: SPACING.xs },
+  metaChip: {
+    backgroundColor: COLORS.surface,
+    borderRadius: RADIUS.pill,
+    paddingHorizontal: SPACING.sm + 2,
+    paddingVertical: 3,
+    borderWidth: StyleSheet.hairlineWidth,
+    borderColor: COLORS.border,
+  },
+  metaChipText: { fontSize: FONT.micro, color: COLORS.textSecondary, fontWeight: WEIGHT.semibold },
 
   groupLabel: { ...TEXT.sectionLabel, marginBottom: SPACING.sm },
   groupLabelGap: { marginTop: SPACING.xl }, // 그룹 사이 간격
