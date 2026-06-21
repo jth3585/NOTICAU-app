@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react';
 import { ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { LinearGradient } from 'expo-linear-gradient';
-import Svg, { Circle, Defs, RadialGradient, Stop } from 'react-native-svg';
+import Svg, { Circle, Defs, LinearGradient as SvgLinearGradient, Stop } from 'react-native-svg';
 import { useFocusEffect, useNavigation } from '@react-navigation/native';
 import { useCallback } from 'react';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
@@ -24,10 +24,8 @@ type Profile = {
   is_dormitory: boolean;
 };
 
-// 히어로 베이스 톤. 컨테이너 배경을 이 색으로 칠해 위로 당길 때(오버스크롤)도 색이 이어지게 한다.
-const HERO_BG = '#E6EAF8';
-// 히어로 세로 그라데이션 — 위는 HERO_BG(투명으로 비침)에서 아래로 기본 배경(bg)에 녹아듦.
-const HERO_TINT = ['transparent', 'transparent', COLORS.bg] as const;
+// 히어로 세로 그라데이션 — 위는 파랑·보라 틴트, 아래로 투명(배경에 녹아듦). 레퍼런스 톤.
+const HERO_TINT = ['rgba(110,124,238,0.30)', 'rgba(120,140,238,0.10)', 'transparent'] as const;
 
 const CAMPUS_LABEL: Record<string, string> = { seoul: '서울', davinci: '다빈치' };
 const STATUS_LABEL: Record<string, string> = {
@@ -79,21 +77,18 @@ export default function MyPageScreen() {
               style={StyleSheet.absoluteFill}
               pointerEvents="none"
             />
-            {/* 부드러운 글로우 — 우측 상단에 브랜드 컬러 원형 그라데이션이 흐릿하게 번짐(가장자리 투명) */}
+            {/* 동심원 장식 — stroke에 세로 그라데이션을 줘 바닥 경계에서 선이 부드럽게 사라지게 */}
             {heroSize.w > 0 && heroSize.h > 0 ? (
               <Svg width={heroSize.w} height={heroSize.h} style={StyleSheet.absoluteFill} pointerEvents="none">
                 <Defs>
-                  <RadialGradient id="glowA" cx="50%" cy="50%" r="50%">
-                    <Stop offset="0" stopColor="#6E7CEE" stopOpacity={0.33} />
+                  <SvgLinearGradient id="ringFade" x1="0" y1="0" x2="0" y2={heroSize.h} gradientUnits="userSpaceOnUse">
+                    <Stop offset="0" stopColor="#6E7CEE" stopOpacity={0.16} />
+                    <Stop offset={Math.max(0, (heroSize.h - 56) / heroSize.h)} stopColor="#6E7CEE" stopOpacity={0.16} />
                     <Stop offset="1" stopColor="#6E7CEE" stopOpacity={0} />
-                  </RadialGradient>
-                  <RadialGradient id="glowB" cx="50%" cy="50%" r="50%">
-                    <Stop offset="0" stopColor="#4A90E2" stopOpacity={0.20} />
-                    <Stop offset="1" stopColor="#4A90E2" stopOpacity={0} />
-                  </RadialGradient>
+                  </SvgLinearGradient>
                 </Defs>
-                <Circle cx={heroSize.w - 24} cy={6} r={170} fill="url(#glowA)" />
-                <Circle cx={heroSize.w - 120} cy={78} r={120} fill="url(#glowB)" />
+                <Circle cx={heroSize.w - 75} cy={45} r={125} stroke="url(#ringFade)" strokeWidth={1.5} fill="none" />
+                <Circle cx={heroSize.w - 70} cy={40} r={190} stroke="url(#ringFade)" strokeWidth={1.5} fill="none" />
               </Svg>
             ) : null}
 
@@ -149,17 +144,16 @@ export default function MyPageScreen() {
 }
 
 const styles = StyleSheet.create({
-  // 컨테이너 배경을 히어로 톤으로 → 위로 당겨도(오버스크롤) 흰 바탕 대신 색이 이어짐.
-  container: { flex: 1, backgroundColor: HERO_BG },
-  scroll: { flexGrow: 1, paddingBottom: SPACING.xxl },
-  // 본문은 기본 배경으로 히어로 아래를 덮고, 남는 높이를 채워 하단 바운스도 bg가 보이게.
-  body: { flex: 1, backgroundColor: COLORS.bg, paddingHorizontal: SPACING.lg, paddingTop: SPACING.xs },
+  container: { flex: 1, backgroundColor: COLORS.bg },
+  scroll: { paddingBottom: SPACING.xxl },
+  body: { paddingHorizontal: SPACING.lg },
 
   // 히어로: 카드가 아니라 배경에 녹아드는 그라데이션 영역(투명 bg + absoluteFill 그라데이션).
   hero: {
     paddingHorizontal: SPACING.lg,
-    paddingBottom: SPACING.xxl,
-    overflow: 'hidden', // 글로우/그라데이션이 영역 밖으로 안 새게
+    paddingBottom: SPACING.xl,
+    marginBottom: SPACING.lg,
+    overflow: 'hidden', // 동심원/그라데이션이 영역 밖으로 안 새게
   },
   heroRow: { flexDirection: 'row', alignItems: 'center', gap: SPACING.md },
   heroAvatar: {
