@@ -170,7 +170,7 @@ export default function BookmarkScreen() {
             <EmptyState
               icon={<BookmarkIcon size={30} filled={false} color={COLORS.accent} />}
               title="아직 북마크한 공지가 없어요"
-              subtitle="공지 상세 화면에서 북마크 아이콘을 눌러 모아보세요"
+              subtitle="공지를 옆으로 밀거나 상세 화면의 북마크 아이콘을 눌러 모아보세요"
             />
           )
         }
