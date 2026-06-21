@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react';
 import { ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { LinearGradient } from 'expo-linear-gradient';
+import Svg, { Circle, Defs, LinearGradient as SvgLinearGradient, Stop } from 'react-native-svg';
 import { useFocusEffect, useNavigation } from '@react-navigation/native';
 import { useCallback } from 'react';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
@@ -37,6 +38,8 @@ export default function MyPageScreen() {
   const [profile, setProfile] = useState<Profile | null>(null);
   const [collegeName, setCollegeName] = useState('');
   const [deptName, setDeptName] = useState('');
+  // 히어로 실제 크기 측정 → SVG 동심원의 바닥 페이드를 정확히 경계에 맞춘다.
+  const [heroSize, setHeroSize] = useState({ w: 0, h: 0 });
 
   const load = useCallback(async () => {
     const { data: { session } } = await supabase.auth.getSession();
@@ -63,7 +66,10 @@ export default function MyPageScreen() {
       <ScrollView contentContainerStyle={styles.scroll} showsVerticalScrollIndicator={false}>
         {/* 히어로: 위→아래로 흐려져 배경에 녹아드는 세로 그라데이션 + 은은한 동심원 (레퍼런스) */}
         {profile && (
-          <View style={[styles.hero, { paddingTop: insets.top + SPACING.xxl }]}>
+          <View
+            style={[styles.hero, { paddingTop: insets.top + SPACING.xxl }]}
+            onLayout={(e) => setHeroSize({ w: e.nativeEvent.layout.width, h: e.nativeEvent.layout.height })}
+          >
             <LinearGradient
               colors={HERO_TINT}
               start={{ x: 0.5, y: 0 }}
@@ -71,8 +77,20 @@ export default function MyPageScreen() {
               style={StyleSheet.absoluteFill}
               pointerEvents="none"
             />
-            <View style={[styles.ring, styles.ring1]} pointerEvents="none" />
-            <View style={[styles.ring, styles.ring2]} pointerEvents="none" />
+            {/* 동심원 장식 — stroke에 세로 그라데이션을 줘 바닥 경계에서 선이 부드럽게 사라지게 */}
+            {heroSize.w > 0 && heroSize.h > 0 ? (
+              <Svg width={heroSize.w} height={heroSize.h} style={StyleSheet.absoluteFill} pointerEvents="none">
+                <Defs>
+                  <SvgLinearGradient id="ringFade" x1="0" y1="0" x2="0" y2={heroSize.h} gradientUnits="userSpaceOnUse">
+                    <Stop offset="0" stopColor="#6E7CEE" stopOpacity={0.16} />
+                    <Stop offset={Math.max(0, (heroSize.h - 56) / heroSize.h)} stopColor="#6E7CEE" stopOpacity={0.16} />
+                    <Stop offset="1" stopColor="#6E7CEE" stopOpacity={0} />
+                  </SvgLinearGradient>
+                </Defs>
+                <Circle cx={heroSize.w - 75} cy={45} r={125} stroke="url(#ringFade)" strokeWidth={1.5} fill="none" />
+                <Circle cx={heroSize.w - 70} cy={40} r={190} stroke="url(#ringFade)" strokeWidth={1.5} fill="none" />
+              </Svg>
+            ) : null}
 
             <View style={styles.heroRow}>
               <LinearGradient colors={COLORS.accentGradient} start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }} style={styles.heroAvatar}>
@@ -137,10 +155,6 @@ const styles = StyleSheet.create({
     marginBottom: SPACING.lg,
     overflow: 'hidden', // 동심원/그라데이션이 영역 밖으로 안 새게
   },
-  // 은은한 동심원 장식 (우상단)
-  ring: { position: 'absolute', borderWidth: 1.5, borderColor: 'rgba(110,124,238,0.13)', borderRadius: 999 },
-  ring1: { width: 250, height: 250, top: -80, right: -50 },
-  ring2: { width: 380, height: 380, top: -150, right: -120 },
   heroRow: { flexDirection: 'row', alignItems: 'center', gap: SPACING.md },
   heroAvatar: {
     width: 56, height: 56, borderRadius: 28,
