@@ -57,16 +57,7 @@ export default function MyPageScreen() {
 
   useFocusEffect(useCallback(() => { load(); }, [load]));
 
-  // 프로필 메타를 칩(배지) 목록으로 — 캠퍼스 · 학과/단과대 · 학년 · 재학상태 · 기숙사
-  const chips = profile
-    ? ([
-        CAMPUS_LABEL[profile.campus] ?? profile.campus,
-        deptName || collegeName || null,
-        `${profile.grade}학년`,
-        ...(profile.enrollment_status ?? []).map(s => STATUS_LABEL[s] ?? s),
-        profile.is_dormitory ? '기숙사' : null,
-      ].filter(Boolean) as string[])
-    : [];
+  const statusText = profile?.enrollment_status?.map(s => STATUS_LABEL[s] ?? s).join(' · ') ?? '';
 
   return (
     <View style={styles.container}>
@@ -81,6 +72,8 @@ export default function MyPageScreen() {
       <ScrollView contentContainerStyle={styles.scroll} showsVerticalScrollIndicator={false}>
         {profile && (
           <View style={[styles.hero, { paddingTop: insets.top + SPACING.xxl }]}>
+            <View style={[styles.ring, styles.ring1]} pointerEvents="none" />
+            <View style={[styles.ring, styles.ring2]} pointerEvents="none" />
             <View style={styles.heroRow}>
               <LinearGradient colors={COLORS.accentGradient} start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }} style={styles.heroAvatar}>
                 <Text style={styles.heroAvatarText}>
@@ -101,13 +94,12 @@ export default function MyPageScreen() {
                     <PencilIcon size={16} color={COLORS.textSecondary} />
                   </TouchableOpacity>
                 </View>
-                <View style={styles.chipRow}>
-                  {chips.map((c) => (
-                    <View key={c} style={styles.metaChip}>
-                      <Text style={styles.metaChipText}>{c}</Text>
-                    </View>
-                  ))}
-                </View>
+                <Text style={styles.heroMeta} numberOfLines={2}>
+                  {[CAMPUS_LABEL[profile.campus] ?? profile.campus, deptName || collegeName || null, `${profile.grade}학년`]
+                    .filter(Boolean).join(' · ')}
+                  {statusText ? `\n${statusText}` : ''}
+                  {profile.is_dormitory ? ' · 기숙사' : ''}
+                </Text>
               </View>
             </View>
           </View>
@@ -140,12 +132,17 @@ const styles = StyleSheet.create({
   scroll: { paddingBottom: SPACING.xxl },
   body: { paddingHorizontal: SPACING.lg },
 
-  // 히어로: 투명 영역(뒤 워시가 비침). 아바타·이름만 배치.
+  // 히어로: 투명 영역(뒤 워시가 비침) + 은은한 동심원 장식.
   hero: {
     paddingHorizontal: SPACING.lg,
     paddingBottom: SPACING.xl,
     marginBottom: SPACING.lg,
+    overflow: 'hidden', // 동심원이 영역 밖으로 안 새게
   },
+  // 은은한 동심원 장식 (우상단)
+  ring: { position: 'absolute', borderWidth: 1.5, borderColor: 'rgba(110,124,238,0.13)', borderRadius: 999 },
+  ring1: { width: 250, height: 250, top: -80, right: -50 },
+  ring2: { width: 380, height: 380, top: -150, right: -120 },
   heroRow: { flexDirection: 'row', alignItems: 'center', gap: SPACING.md },
   heroAvatar: {
     width: 56, height: 56, borderRadius: 28,
@@ -156,17 +153,7 @@ const styles = StyleSheet.create({
   heroInfo: { flex: 1, gap: 4 },
   nameRow: { flexDirection: 'row', alignItems: 'center', gap: SPACING.sm },
   heroName: { flexShrink: 1, fontSize: FONT.display, fontWeight: WEIGHT.bold, color: COLORS.text },
-  // 프로필 정보 칩(배지)
-  chipRow: { flexDirection: 'row', flexWrap: 'wrap', gap: SPACING.xs, marginTop: SPACING.xs },
-  metaChip: {
-    backgroundColor: COLORS.surface,
-    borderRadius: RADIUS.pill,
-    paddingHorizontal: SPACING.sm + 2,
-    paddingVertical: 3,
-    borderWidth: StyleSheet.hairlineWidth,
-    borderColor: COLORS.border,
-  },
-  metaChipText: { fontSize: FONT.micro, color: COLORS.textSecondary, fontWeight: WEIGHT.semibold },
+  heroMeta: { fontSize: FONT.caption, color: COLORS.textSecondary, lineHeight: 18 },
 
   groupLabel: { ...TEXT.sectionLabel, marginBottom: SPACING.sm },
   groupLabelGap: { marginTop: SPACING.xl }, // 그룹 사이 간격
