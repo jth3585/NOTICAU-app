@@ -224,7 +224,8 @@ const styles = StyleSheet.create({
   chipActive: { backgroundColor: COLORS.accent },
   chipText: { fontSize: FONT.caption, color: COLORS.textSecondary, fontWeight: WEIGHT.semibold },
   chipTextActive: { color: '#fff' },
-  listContent: { paddingHorizontal: SPACING.lg, paddingBottom: SPACING.xxl },
+  // 카드는 자체 marginHorizontal(lg)을 가지므로 리스트에 가로 패딩을 또 주지 않음(중복 시 다른 화면보다 좁아짐)
+  listContent: { paddingBottom: SPACING.xxl },
   center: { flex: 1, justifyContent: 'center', alignItems: 'center', gap: SPACING.sm, paddingHorizontal: SPACING.xl },
   emptyTitle: { fontSize: FONT.subtitle, fontWeight: WEIGHT.semibold, color: COLORS.text },
   sub: { fontSize: FONT.caption, color: COLORS.textSecondary, textAlign: 'center' },
