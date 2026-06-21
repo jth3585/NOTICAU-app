@@ -213,7 +213,7 @@ export default function InboxScreen() {
                   clearButtonMode="while-editing"
                 />
                 {query.length > 0 ? (
-                  <TouchableOpacity onPress={() => setQuery('')} hitSlop={8} style={{ paddingLeft: SPACING.sm }}>
+                  <TouchableOpacity onPress={() => setQuery('')} hitSlop={8} style={{ paddingLeft: SPACING.sm }} accessibilityRole="button" accessibilityLabel="검색어 지우기">
                     <CloseIcon size={16} color={COLORS.textTertiary} />
                   </TouchableOpacity>
                 ) : null}
@@ -223,6 +223,8 @@ export default function InboxScreen() {
                 style={[styles.sortBtn, sortMode !== 'deadline' && styles.sortBtnActive]}
                 onPress={openSort}
                 hitSlop={6}
+                accessibilityRole="button"
+                accessibilityLabel={`정렬: ${SORT_LABELS[sortMode]}`}
               >
                 <SortIcon size={18} color={sortMode !== 'deadline' ? COLORS.accent : COLORS.textSecondary} />
               </TouchableOpacity>

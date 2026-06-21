@@ -52,6 +52,8 @@ export function NoticeCard({
       onPress={onPress}
       onLongPress={onLongPress}
       delayLongPress={300}
+      accessibilityRole="button"
+      accessibilityLabel={notice.title}
       // 스와이프로 감싼 카드(dimOnPress=false)는 스케일 끔 — 미는 제스처와 겹치지 않게.
       scaleTo={dimOnPress ? 0.97 : 1}
       style={[

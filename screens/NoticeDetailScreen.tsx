@@ -133,10 +133,16 @@ export default function NoticeDetailScreen({ route, navigation }: Props) {
         <View style={styles.headerMeta}>
           {topic ? <CategoryBadge topic={topic} /> : null}
           <SourceBadge parserKey={src?.parser_key ?? null} />
-          <TouchableOpacity onPress={onShare} hitSlop={8}>
+          <TouchableOpacity onPress={onShare} hitSlop={8} accessibilityRole="button" accessibilityLabel="공유">
             <ShareIcon size={22} color={COLORS.textTertiary} />
           </TouchableOpacity>
-          <TouchableOpacity onPress={toggleBookmark} hitSlop={8}>
+          <TouchableOpacity
+            onPress={toggleBookmark}
+            hitSlop={8}
+            accessibilityRole="button"
+            accessibilityState={{ selected: bookmarked }}
+            accessibilityLabel={bookmarked ? '북마크 해제' : '북마크'}
+          >
             <Animated.View style={bmStyle}>
               <BookmarkIcon size={22} filled={bookmarked} color={bookmarked ? COLORS.accent : COLORS.textTertiary} />
             </Animated.View>

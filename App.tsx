@@ -51,7 +51,11 @@ if (!TextAny.__fontPatched && typeof TextAny.render === 'function') {
     const el = origRender.apply(this, args);
     // 예외 시 원본 그대로 반환 → 글꼴 패치가 어떤 경우에도 크래시를 내지 않게 보호.
     try {
-      return cloneElement(el, { style: [{ fontFamily: 'Pretendard' }, el?.props?.style] });
+      return cloneElement(el, {
+        style: [{ fontFamily: 'Pretendard' }, el?.props?.style],
+        // Dynamic Type 지원하되 과도한 확대로 레이아웃이 깨지지 않게 상한(1.6배).
+        maxFontSizeMultiplier: el?.props?.maxFontSizeMultiplier ?? 1.6,
+      });
     } catch {
       return el;
     }

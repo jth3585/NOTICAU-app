@@ -108,7 +108,7 @@ export default function BookmarkScreen() {
     <View>
       <View style={styles.collectionRow}>
         <Text style={styles.collectionTitle}>내 컬렉션</Text>
-        <TouchableOpacity onPress={() => setModal({ mode: 'create' })} hitSlop={10} activeOpacity={0.7}>
+        <TouchableOpacity onPress={() => setModal({ mode: 'create' })} hitSlop={10} activeOpacity={0.7} accessibilityRole="button" accessibilityLabel="폴더 만들기">
           <Text style={styles.plus}>＋</Text>
         </TouchableOpacity>
       </View>
