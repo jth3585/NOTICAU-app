@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
 import {
-  AppState, Dimensions, Modal, RefreshControl, SectionList, StyleSheet, Text, TextInput,
+  AppState, Dimensions, Keyboard, Modal, RefreshControl, SectionList, StyleSheet, Text, TextInput,
   TouchableOpacity, TouchableWithoutFeedback, View,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
@@ -221,6 +221,7 @@ export default function InboxScreen() {
           <RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={COLORS.accent} />
         }
         keyboardShouldPersistTaps="handled"
+        keyboardDismissMode="on-drag"
         stickySectionHeadersEnabled
         // 제목 + 검색/정렬 → 스크롤하면 함께 사라짐
         ListHeaderComponent={
@@ -314,7 +315,13 @@ export default function InboxScreen() {
               isRead={isRead(item.id)}
               isNew={isNew(item)}
               dimOnPress={false}
-              onPress={() => { rememberSearch(query); navigation.navigate('Detail', { notice: item }); }}
+              onPress={() => {
+                // 검색 중(키보드 올라온 상태)이면 카드 진입 대신 검색을 먼저 취소.
+                // (빈 공간을 노려 누르려다 카드가 눌리는 것을 방지 — 표준 '첫 탭은 키보드 닫기')
+                if (Keyboard.isVisible()) { Keyboard.dismiss(); return; }
+                rememberSearch(query);
+                navigation.navigate('Detail', { notice: item });
+              }}
             />
           </SwipeToBookmark>
         )}
