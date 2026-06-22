@@ -37,6 +37,13 @@ jobs:
         run: |
           node -e "const fs=require('fs');const p='app.json';const j=JSON.parse(fs.readFileSync(p));j.expo.ios.buildNumber=String(100+${{ github.run_number }});fs.writeFileSync(p,JSON.stringify(j,null,2));console.log('iOS buildNumber =',j.expo.ios.buildNumber);"
 
+      # Supabase 키는 EXPO_PUBLIC_* 로 빌드 시 인라인됨. .env는 커밋 안 하므로
+      # CI에서 GitHub Secrets로 생성해 둔다. (없으면 앱이 Supabase에 연결 못 함)
+      - name: Create .env from secrets
+        run: |
+          printf 'EXPO_PUBLIC_SUPABASE_URL=%s\n' "${{ secrets.EXPO_PUBLIC_SUPABASE_URL }}" > .env
+          printf 'EXPO_PUBLIC_SUPABASE_ANON_KEY=%s\n' "${{ secrets.EXPO_PUBLIC_SUPABASE_ANON_KEY }}" >> .env
+
       - name: Build IPA locally (no EAS build credit used)
         env:
           EXPO_TOKEN: ${{ secrets.EXPO_TOKEN }}
