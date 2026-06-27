@@ -415,6 +415,7 @@ Deno.serve(async (req) => {
     cau_bne: "경영경제대학",
     cau_stat: "응용통계학과",
     cau_adpr: "광고홍보학부",
+    cau_security: "산업보안학과",
   };
   const { data: allSrc } = await supabase.from("sources").select("id,parser_key,owner_unit");
   const ownerBySourceId = new Map<string, string>();
