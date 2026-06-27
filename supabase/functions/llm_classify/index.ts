@@ -395,6 +395,11 @@ Deno.serve(async (req) => {
     return new Response(JSON.stringify({ error: qErr.message }), { status: 500 });
   }
 
+  // '전체 대상' 출처: 모든 학생에게 의미 있어 학과/캠퍼스로 한정하지 않는다(예: 공학교육혁신센터).
+  const NO_TARGET_PARSER_KEYS = ["cau_abeek"];
+  const { data: ntSources } = await supabase.from("sources").select("id").in("parser_key", NO_TARGET_PARSER_KEYS);
+  const noTargetSourceIds = new Set<string>((ntSources ?? []).map((s: { id: string }) => s.id));
+
   const stats = { fetched: (notices ?? []).length, classified: 0, failed: 0 };
   const results: { id: string; topic?: string; error?: string }[] = [];
 
@@ -415,6 +420,11 @@ Deno.serve(async (req) => {
         posted_at: n.posted_at,
         file_count: (n.attachment_urls?.length ?? 0),
       });
+      // 전체 대상 출처는 학과/캠퍼스 한정을 비워 모든 학생에게 노출
+      if (noTargetSourceIds.has(n.source_id)) {
+        meta.target_depts = null;
+        meta.target_campuses = null;
+      }
       const { error: upErr } = await supabase.from("notice_meta").upsert({ notice_id: n.id, ...meta });
       if (upErr) throw upErr;
       await supabase.from("notices").update({ classify_last_error: null }).eq("id", n.id);
