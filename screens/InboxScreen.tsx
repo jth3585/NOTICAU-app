@@ -267,7 +267,7 @@ export default function InboxScreen() {
                 ) : null}
               </View>
               <TouchableOpacity
-                style={[styles.sortBtn, sortMode !== 'deadline' && styles.sortBtnActive]}
+                style={styles.sortBtn}
                 onPress={cycleSort}
                 hitSlop={6}
                 accessibilityRole="button"
@@ -426,7 +426,6 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
   },
-  sortBtnActive: { backgroundColor: COLORS.accentSoft },
   // 필터 칩 줄(sticky). 칩 풀폭 + 카드와 간격 확보.
   filterRow: { backgroundColor: COLORS.bg, paddingBottom: SPACING.sm },
   // 검색 제안 패널 (최근 검색 / 내 키워드) — 검색창에서 펼쳐진 드롭다운 카드.
