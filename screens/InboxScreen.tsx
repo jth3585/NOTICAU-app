@@ -50,7 +50,7 @@ export default function InboxScreen() {
     const next: SortMode = sortMode === 'deadline' ? 'posted' : 'deadline';
     setSortMode(next);
     softHaptic();
-    toast(`${SORT_LABELS[next]}으로 바꿨어요`);
+    toast(`${SORT_LABELS[next]}으로 바꿨어요`, 'sort');
   };
 
   // 검색

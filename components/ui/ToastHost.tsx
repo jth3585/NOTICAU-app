@@ -4,6 +4,7 @@ import Animated, { FadeInDown, FadeOutDown } from 'react-native-reanimated';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { COLORS, FONT, RADIUS, SHADOW, SPACING, WEIGHT } from '../../lib/theme';
 import { CheckIcon, CloseIcon } from './icons';
+import { SortIcon } from './SortIcon';
 import { setToastHandler, type ToastType } from '../../lib/toast';
 
 type Item = { id: number; message: string; type: ToastType };
@@ -42,6 +43,8 @@ export function ToastHost() {
           <CheckIcon size={15} color="#fff" />
         ) : item.type === 'error' ? (
           <CloseIcon size={15} color="#fff" />
+        ) : item.type === 'sort' ? (
+          <SortIcon size={15} color="#fff" />
         ) : null}
         <Text style={styles.text} numberOfLines={1}>{item.message}</Text>
       </Animated.View>
