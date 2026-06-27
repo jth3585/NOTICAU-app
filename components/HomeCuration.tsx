@@ -18,7 +18,10 @@ type Props = {
 export function HomeCuration({ notices, allSeen, onGoToAll, onPressNotice, isNew }: Props) {
   return (
     <View style={styles.section}>
-      <Text style={styles.label}>AI 큐레이션</Text>
+      <View style={styles.labelRow}>
+        <SparkleIcon size={16} color={COLORS.accent} />
+        <Text style={styles.label}>AI 큐레이션</Text>
+      </View>
 
       {allSeen ? (
         <Animated.View style={styles.doneCard} entering={FadeIn.duration(360)}>
@@ -52,10 +55,11 @@ export function HomeCuration({ notices, allSeen, onGoToAll, onPressNotice, isNew
 
 const styles = StyleSheet.create({
   section: { paddingTop: SPACING.xl },
-  label: {
-    ...TEXT.sectionLabel,
+  labelRow: {
+    flexDirection: 'row', alignItems: 'center', gap: SPACING.xs,
     paddingHorizontal: SPACING.lg, paddingBottom: SPACING.lg,
   },
+  label: { ...TEXT.sectionLabel },
   doneCard: {
     marginHorizontal: SPACING.lg,
     backgroundColor: COLORS.surface,
