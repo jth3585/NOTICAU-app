@@ -414,11 +414,13 @@ Deno.serve(async (req) => {
     cau_bne: "경영경제대학",
     cau_stat: "응용통계학과",
   };
-  const { data: allSrc } = await supabase.from("sources").select("id,parser_key");
+  const { data: allSrc } = await supabase.from("sources").select("id,parser_key,owner_unit");
   const ownerBySourceId = new Map<string, string>();
-  for (const s of (allSrc ?? []) as { id: string; parser_key: string }[]) {
+  const ownerUnitBySourceId = new Map<string, string>(); // 게시판 소속 코드(dept/college)
+  for (const s of (allSrc ?? []) as { id: string; parser_key: string; owner_unit: string | null }[]) {
     const o = SOURCE_OWNER[s.parser_key];
     if (o) ownerBySourceId.set(s.id, o);
+    if (s.owner_unit) ownerUnitBySourceId.set(s.id, s.owner_unit);
   }
 
   // 학과/단과대 이름→코드 맵: target_depts를 코드로 정규화해 앱의 profile(코드)과 직접 비교 가능하게.
@@ -427,7 +429,8 @@ Deno.serve(async (req) => {
     supabase.from("colleges").select("code,name"),
   ]);
   const nameToCode = new Map<string, string>();
-  for (const c of (colls ?? []) as { code: string; name: string }[]) nameToCode.set(c.name, c.code);
+  const collegeCodes = new Set<string>();
+  for (const c of (colls ?? []) as { code: string; name: string }[]) { nameToCode.set(c.name, c.code); collegeCodes.add(c.code); }
   for (const d of (depts ?? []) as { code: string; name: string }[]) nameToCode.set(d.name, d.code); // 학과가 단과대명과 겹치면 학과 우선
 
   const stats = { fetched: (notices ?? []).length, classified: 0, failed: 0 };
@@ -455,6 +458,12 @@ Deno.serve(async (req) => {
       if (Array.isArray(meta.target_depts)) {
         const codes = meta.target_depts.map((nm: string) => nameToCode.get(nm)).filter(Boolean) as string[];
         meta.target_depts = codes.length ? [...new Set(codes)] : null;
+      }
+      // 단과대 게시판의 학과 한정 공지는 단과대 전체(college)로 정규화 — 본문에 일부 학과만
+      // 나열돼도 그 단과대 학생 전원에게 노출(일부 학과 누락 방지). 전체대상(null)은 그대로.
+      const ou = ownerUnitBySourceId.get(n.source_id);
+      if (ou && collegeCodes.has(ou) && Array.isArray(meta.target_depts) && meta.target_depts.length > 0) {
+        meta.target_depts = [ou];
       }
       const { error: upErr } = await supabase.from("notice_meta").upsert({ notice_id: n.id, ...meta });
       if (upErr) throw upErr;
