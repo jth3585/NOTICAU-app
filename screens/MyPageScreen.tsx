@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react';
 import { ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { LinearGradient } from 'expo-linear-gradient';
-import Svg, { Image as SvgImage, Defs, LinearGradient as SvgLinearGradient, Stop, Mask, Rect } from 'react-native-svg';
+import Svg, { Image as SvgImage, Defs, LinearGradient as SvgLinearGradient, Stop, Mask, Rect, G } from 'react-native-svg';
 import { useFocusEffect, useNavigation } from '@react-navigation/native';
 import { useCallback } from 'react';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
@@ -86,18 +86,19 @@ export default function MyPageScreen() {
                   <Stop offset="0.5" stopColor="#fff" stopOpacity="1" />
                   <Stop offset="0.82" stopColor="#fff" stopOpacity="0" />
                 </SvgLinearGradient>
-                <Mask id="heroMask">
-                  <Rect width={HERO_LOGO_SIZE} height={HERO_LOGO_SIZE} fill="url(#heroFade)" />
+                <Mask id="heroMask" x="0" y="0" width={HERO_LOGO_SIZE} height={HERO_LOGO_SIZE} maskUnits="userSpaceOnUse">
+                  <Rect x="0" y="0" width={HERO_LOGO_SIZE} height={HERO_LOGO_SIZE} fill="url(#heroFade)" />
                 </Mask>
               </Defs>
-              <SvgImage
-                href={require('../assets/icon-foreground.png')}
-                width={HERO_LOGO_SIZE}
-                height={HERO_LOGO_SIZE}
-                preserveAspectRatio="xMidYMid meet"
-                opacity={HERO_LOGO_OPACITY}
-                mask="url(#heroMask)"
-              />
+              <G mask="url(#heroMask)">
+                <SvgImage
+                  href={require('../assets/icon-foreground.png')}
+                  width={HERO_LOGO_SIZE}
+                  height={HERO_LOGO_SIZE}
+                  preserveAspectRatio="xMidYMid meet"
+                  opacity={HERO_LOGO_OPACITY}
+                />
+              </G>
             </Svg>
             <View style={styles.heroRow}>
               <LinearGradient colors={COLORS.accentGradient} start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }} style={styles.heroAvatar}>
