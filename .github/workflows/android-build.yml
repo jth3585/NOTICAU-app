@@ -43,10 +43,16 @@ jobs:
       # ephemeral 러너라 autoIncrement가 유지되지 않으므로 versionCode를 직접 주입.
       # run_number는 re-run 시 동일해 충돌하므로, 빌드 시각 Unix 타임스탬프로 항상
       # 고유·단조증가하게 한다(정수 한계 2.1B 미만이라 안전).
+      # eas build --local은 git에 '커밋된' 파일만 빌드에 포함하므로, app.json 수정 후
+      # 반드시 로컬 커밋(push 아님)해야 새 versionCode가 빌드에 반영된다.
       - name: Set unique Android versionCode
         run: |
           VC=$(date +%s)
           node -e "const fs=require('fs');const p='app.json';const j=JSON.parse(fs.readFileSync(p));j.expo.android.versionCode=$VC;fs.writeFileSync(p,JSON.stringify(j,null,2));console.log('Android versionCode =',j.expo.android.versionCode);"
+          git config user.email "ci@noticau.app"
+          git config user.name "NOTICAU CI"
+          git add app.json
+          git commit -m "ci: Android versionCode $VC"
 
       - name: Build AAB locally (no EAS build credit used)
         env:
