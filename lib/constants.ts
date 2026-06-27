@@ -16,7 +16,7 @@ export const CHIP_TOPICS = [
 // sources.parser_key → 짧은 표시 라벨
 export const SOURCE_LABELS: Record<string, string> = {
   cau_main: '본교',
-  cau_bne: '경영대',
+  cau_bne: '경영경제대학',
   cau_biz: '경영학부',
   cau_biz_career: '경력개발센터',
   cau_econ: '경제학부',
