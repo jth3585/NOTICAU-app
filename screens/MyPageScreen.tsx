@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react';
 import { Image, ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { LinearGradient } from 'expo-linear-gradient';
+import MaskedView from '@react-native-masked-view/masked-view';
 import { useFocusEffect, useNavigation } from '@react-navigation/native';
 import { useCallback } from 'react';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
@@ -74,12 +75,27 @@ export default function MyPageScreen() {
       <ScrollView contentContainerStyle={styles.scroll} showsVerticalScrollIndicator={false}>
         {profile && (
           <View style={[styles.hero, { paddingTop: insets.top + SPACING.xxl }]}>
-            {/* 브랜드 로고를 우상단에 크게 블리드 — 단색 tint + 낮은 불투명도로 워터마크처럼 */}
-            <Image
-              source={require('../assets/icon-foreground.png')}
-              style={[styles.heroLogo, { tintColor: HERO_LOGO_TINT }]}
-              resizeMode="contain"
-            />
+            {/* 브랜드 로고를 좌하단에 크게 블리드 — 단색 tint 워터마크 + 가장자리로 갈수록
+                부드럽게 페이드(MaskedView)해서 딱 잘리지 않게 */}
+            <MaskedView
+              style={styles.heroLogo}
+              pointerEvents="none"
+              maskElement={
+                <LinearGradient
+                  colors={['#000', '#000', 'transparent']}
+                  locations={[0, 0.4, 1]}
+                  start={{ x: 0.85, y: 0.15 }}
+                  end={{ x: 0.1, y: 0.95 }}
+                  style={StyleSheet.absoluteFill}
+                />
+              }
+            >
+              <Image
+                source={require('../assets/icon-foreground.png')}
+                style={[StyleSheet.absoluteFill, { tintColor: HERO_LOGO_TINT, width: '100%', height: '100%' }]}
+                resizeMode="contain"
+              />
+            </MaskedView>
             <View style={styles.heroRow}>
               <LinearGradient colors={COLORS.accentGradient} start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }} style={styles.heroAvatar}>
                 <Text style={styles.heroAvatarText}>
@@ -145,8 +161,8 @@ const styles = StyleSheet.create({
     marginBottom: SPACING.lg,
     overflow: 'hidden', // 동심원이 영역 밖으로 안 새게
   },
-  // 우상단 블리드 브랜드 로고 (크게 확대, 모서리 잘림). 크기·위치는 보면서 조절.
-  heroLogo: { position: 'absolute', width: 280, height: 280, top: -40, right: -70 },
+  // 좌하단 블리드 브랜드 로고 (크게 확대 + 가장자리 페이드). 크기·위치는 보면서 조절.
+  heroLogo: { position: 'absolute', width: 300, height: 300, bottom: -90, left: -80 },
   heroRow: { flexDirection: 'row', alignItems: 'center', gap: SPACING.md },
   heroAvatar: {
     width: 56, height: 56, borderRadius: 28,
