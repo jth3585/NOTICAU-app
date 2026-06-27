@@ -77,10 +77,8 @@ export default function MyPageScreen() {
             {/* 브랜드 로고를 우상단에 크게 블리드 — 단색 tint + 낮은 불투명도로 워터마크처럼 */}
             <Image
               source={require('../assets/icon-foreground.png')}
-              style={styles.heroLogo}
-              tintColor={HERO_LOGO_TINT}
+              style={[styles.heroLogo, { tintColor: HERO_LOGO_TINT }]}
               resizeMode="contain"
-              pointerEvents="none"
             />
             <View style={styles.heroRow}>
               <LinearGradient colors={COLORS.accentGradient} start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }} style={styles.heroAvatar}>
