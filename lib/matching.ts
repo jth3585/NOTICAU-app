@@ -65,6 +65,12 @@ export function isMismatch(
   // 캠퍼스 명시 + 본인 포함 안 됨
   if (meta.target_campuses && meta.target_campuses.length > 0 && !campusMatch(profile, meta.target_campuses)) return true;
 
+  // 학과 명시 + 본인(주전공·복수전공·단과대) 미포함. target_depts는 코드로 정규화되어 있음.
+  if (meta.target_depts && meta.target_depts.length > 0) {
+    const mine = [profile.dept, profile.dept_secondary, profile.college].filter(Boolean) as string[];
+    if (!meta.target_depts.some((d) => mine.includes(d))) return true;
+  }
+
   // 재학상태 명시 + 교집합 없음
   if (meta.target_enrollment_status && meta.target_enrollment_status.length > 0) {
     const userStatuses = new Set(profile.enrollment_status);

@@ -421,6 +421,15 @@ Deno.serve(async (req) => {
     if (o) ownerBySourceId.set(s.id, o);
   }
 
+  // 학과/단과대 이름→코드 맵: target_depts를 코드로 정규화해 앱의 profile(코드)과 직접 비교 가능하게.
+  const [{ data: depts }, { data: colls }] = await Promise.all([
+    supabase.from("departments").select("code,name"),
+    supabase.from("colleges").select("code,name"),
+  ]);
+  const nameToCode = new Map<string, string>();
+  for (const c of (colls ?? []) as { code: string; name: string }[]) nameToCode.set(c.name, c.code);
+  for (const d of (depts ?? []) as { code: string; name: string }[]) nameToCode.set(d.name, d.code); // 학과가 단과대명과 겹치면 학과 우선
+
   const stats = { fetched: (notices ?? []).length, classified: 0, failed: 0 };
   const results: { id: string; topic?: string; error?: string }[] = [];
 
@@ -442,6 +451,11 @@ Deno.serve(async (req) => {
         file_count: (n.attachment_urls?.length ?? 0),
         owner: ownerBySourceId.get(n.source_id) ?? null,
       });
+      // target_depts 이름 → 코드 정규화(매칭 안 되는 이름은 드롭, 전부 드롭이면 null=전체노출)
+      if (Array.isArray(meta.target_depts)) {
+        const codes = meta.target_depts.map((nm: string) => nameToCode.get(nm)).filter(Boolean) as string[];
+        meta.target_depts = codes.length ? [...new Set(codes)] : null;
+      }
       const { error: upErr } = await supabase.from("notice_meta").upsert({ notice_id: n.id, ...meta });
       if (upErr) throw upErr;
       await supabase.from("notices").update({ classify_last_error: null }).eq("id", n.id);

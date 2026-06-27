@@ -22,6 +22,7 @@ type Meta = {
   action: string | null;
   deadline_at: string | null;
   target_grades: number[] | null;
+  target_depts: string[] | null;
   target_campuses: string[] | null;
   target_enrollment_status: string[] | null;
   targets_freshmen: boolean | null;
@@ -31,6 +32,9 @@ type Profile = {
   user_id: string;
   grade: number;
   campus: string;
+  dept: string | null;
+  dept_secondary: string | null;
+  college: string | null;
   enrollment_status: string[];
   is_dormitory: boolean;
   last_daily_push_at: string | null;
@@ -77,6 +81,10 @@ function isMismatch(
   if (meta.topic && disabledTopics.has(meta.topic)) return true;
   if (meta.target_grades && meta.target_grades.length > 0 && !meta.target_grades.includes(profile.grade)) return true;
   if (meta.target_campuses && meta.target_campuses.length > 0 && !campusMatch(profile, meta.target_campuses)) return true;
+  if (meta.target_depts && meta.target_depts.length > 0) {
+    const mine = [profile.dept, profile.dept_secondary, profile.college].filter(Boolean) as string[];
+    if (!meta.target_depts.some((d) => mine.includes(d))) return true;
+  }
   if (meta.target_enrollment_status && meta.target_enrollment_status.length > 0) {
     const userStatuses = new Set(profile.enrollment_status);
     if (!meta.target_enrollment_status.some((s) => userStatuses.has(s))) return true;
@@ -127,7 +135,7 @@ Deno.serve(async (req) => {
   // ---- 최근 공지 1회 fetch (유저 루프 밖) ----
   const { data: notices, error: noticesErr } = await supabase
     .from("notices")
-    .select("id, title, body_text, posted_at, notice_meta(topic,action,deadline_at,target_grades,target_campuses,target_enrollment_status,targets_freshmen,excludes_undergrad), sources(campus)")
+    .select("id, title, body_text, posted_at, notice_meta(topic,action,deadline_at,target_grades,target_depts,target_campuses,target_enrollment_status,targets_freshmen,excludes_undergrad), sources(campus)")
     .order("posted_at", { ascending: false })
     .limit(300);
   if (noticesErr) {
@@ -140,7 +148,7 @@ Deno.serve(async (req) => {
   // ---- 알림 ON 유저 ----
   const { data: profiles, error: profErr } = await supabase
     .from("profiles")
-    .select("user_id, grade, campus, enrollment_status, is_dormitory, last_daily_push_at")
+    .select("user_id, grade, campus, dept, dept_secondary, college, enrollment_status, is_dormitory, last_daily_push_at")
     .eq("notifications_enabled", true);
   if (profErr) {
     return new Response(JSON.stringify({ error: profErr.message }), { status: 500 });
