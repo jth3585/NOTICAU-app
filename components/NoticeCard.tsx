@@ -68,7 +68,10 @@ export function NoticeCard({
           {(isNew || unread) ? <View style={styles.newDot} /> : null}
           {topic ? <CategoryBadge topic={topic} /> : null}
         </View>
-        <SourceBadge parserKey={src?.parser_key ?? null} />
+        <View style={styles.topRight}>
+          <SourceBadge parserKey={src?.parser_key ?? null} />
+          {notice.dup_count ? <Text style={styles.dupTag}>· 외 {notice.dup_count}곳</Text> : null}
+        </View>
       </View>
 
       <Text style={[styles.title, isRead && styles.titleRead]} numberOfLines={titleLines} lineBreakStrategyIOS="hangul-word">
@@ -82,7 +85,6 @@ export function NoticeCard({
           <Text style={[styles.dday, { color: badgeColor }]}>{badge.label}</Text>
         ) : null}
         <Text style={styles.dim}>{postedMD}</Text>
-        {notice.dup_count ? <Text style={styles.dim}>· 외 {notice.dup_count}곳</Text> : null}
         {keywordTag ? <Text style={[styles.kwTag, styles.kwTagRight]}>#{keywordTag}</Text> : null}
       </View>
     </PressableScale>
@@ -105,6 +107,9 @@ const styles = StyleSheet.create({
     marginBottom: SPACING.sm + 2, // 메타↔제목 살짝 더 분리(히어로 강조)
   },
   topLeft: { flexDirection: 'row', alignItems: 'center', gap: 6, flexShrink: 1 },
+  topRight: { flexDirection: 'row', alignItems: 'center', gap: 3, flexShrink: 0 },
+  // SourceBadge와 동일한 메타 스타일(micro, tertiary)
+  dupTag: { fontSize: FONT.micro, lineHeight: 14, color: COLORS.textTertiary, includeFontPadding: false },
   // 안읽은 새 공지: 좌상단 accent 점 하나로 통일
   newDot: { width: 7, height: 7, borderRadius: 3.5, backgroundColor: COLORS.accent },
   title: {

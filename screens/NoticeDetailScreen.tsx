@@ -34,6 +34,7 @@ import ImageViewing from 'react-native-image-viewing';
 import { useBookmark } from '../lib/bookmarks';
 import { BookmarkIcon } from '../components/ui/BookmarkIcon';
 import { ShareIcon } from '../components/ui/ShareIcon';
+import { InfoIcon } from '../components/ui/icons';
 import { markAsRead } from '../lib/read';
 import { supabase } from '../lib/supabase';
 import { PressableScale } from '../components/ui/PressableScale';
@@ -171,9 +172,12 @@ export default function NoticeDetailScreen({ route, navigation }: Props) {
         </Text>
 
         {notice.dup_count && notice.dup_source_keys?.length ? (
-          <Text style={styles.dupLine}>
-            {notice.dup_source_keys.map(sourceLabel).join(', ')} 게시판에도 올라온 공지예요
-          </Text>
+          <View style={styles.dupRow}>
+            <InfoIcon size={13} color={COLORS.textTertiary} />
+            <Text style={styles.dupLine}>
+              {notice.dup_source_keys.map(sourceLabel).join(', ')} 게시판에도 올라온 공지예요
+            </Text>
+          </View>
         ) : null}
 
         <DeadlineBox applyStartAt={applyStartAt} deadlineAt={deadlineAt} />
@@ -330,7 +334,8 @@ const styles = StyleSheet.create({
     lineHeight: 32,
   },
   metaLine: { fontSize: FONT.caption, color: COLORS.textSecondary, marginTop: SPACING.sm },
-  dupLine: { fontSize: FONT.caption, color: COLORS.textTertiary, marginTop: SPACING.xs },
+  dupRow: { flexDirection: 'row', alignItems: 'center', gap: 5, marginTop: SPACING.xs },
+  dupLine: { fontSize: FONT.caption, color: COLORS.textTertiary, flexShrink: 1 },
   bodyWrap: { marginTop: SPACING.xs },
   summaryLabelRow: {
     flexDirection: 'row',

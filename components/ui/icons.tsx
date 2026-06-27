@@ -246,6 +246,17 @@ export function TrashIcon({ size = 22, color }: IconProps) {
   );
 }
 
+// ⓘ 정보 (info)
+export function InfoIcon({ size = 22, color }: IconProps) {
+  return (
+    <Base size={size}>
+      <Circle cx="12" cy="12" r="10" stroke={color} />
+      <Line x1="12" y1="11" x2="12" y2="16" stroke={color} />
+      <Path d="M12 8h.01" stroke={color} />
+    </Base>
+  );
+}
+
 // ✓ 체크
 export function CheckIcon({ size = 22, color }: IconProps) {
   return (
