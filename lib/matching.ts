@@ -54,6 +54,15 @@ export function isMismatch(
   const src = sourceOf(notice);
   if (src?.campus && src.campus !== 'both' && !sourceCampusMatch(profile, src.campus)) return true;
 
+  // 타 학과 게시판의 '전공무관 전체 공지'(채용·세미나·대회 등 target_depts 없음) 토글.
+  // show_cross_dept=false면, 내 소속이 아닌 학과 게시판의 전체대상 공지를 숨긴다.
+  // (내 소속 게시판이거나, 학과 한정 공지(target_depts 있음)는 아래 학과 필터가 처리.)
+  if (profile.show_cross_dept === false && src?.owner_unit) {
+    const mine = [profile.dept, profile.dept_secondary, profile.college].filter(Boolean) as string[];
+    const noDeptTarget = !meta?.target_depts || meta.target_depts.length === 0;
+    if (!mine.includes(src.owner_unit) && noDeptTarget) return true;
+  }
+
   if (!meta) return false;
 
   // 카테고리 OFF

@@ -24,6 +24,7 @@ export type Source = {
   parser_key: string | null;
   name: string | null;
   campus?: string | null; // 'seoul' | 'anseong' | 'both' — 게시판 자체의 캠퍼스 귀속
+  owner_unit?: string | null; // 학과 게시판의 소속 단위 코드(dept/college). null=전체 게시판
 };
 
 export type Notice = {
@@ -57,6 +58,7 @@ export type Profile = {
   enrollment_status: string[];
   is_dormitory: boolean;
   nickname: string | null;
+  show_cross_dept?: boolean; // 타 학과 게시판의 전공무관 공지 노출 여부(기본 true)
 };
 
 export type UserKeyword = {
