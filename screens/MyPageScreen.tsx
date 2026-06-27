@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import { Image, ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useFocusEffect, useNavigation } from '@react-navigation/native';
@@ -26,6 +26,8 @@ type Profile = {
 // 상단 컬러 워시 — 홈과 동일하게 ScrollView '뒤'에 절대배치해, 위로 당겨도(오버스크롤)
 // 흰 바탕 대신 이 색이 이어져 보이게 한다.
 const TOP_TINT = ['rgba(110,124,238,0.42)', 'rgba(110,124,238,0.16)', 'transparent'] as const;
+// 히어로 우상단 블리드 로고의 단색 tint (브랜드 인디고 톤다운, 낮은 알파로 워터마크처럼)
+const HERO_LOGO_TINT = 'rgba(90,104,200,0.12)';
 
 const CAMPUS_LABEL: Record<string, string> = { seoul: '서울', davinci: '다빈치' };
 const STATUS_LABEL: Record<string, string> = {
@@ -72,8 +74,14 @@ export default function MyPageScreen() {
       <ScrollView contentContainerStyle={styles.scroll} showsVerticalScrollIndicator={false}>
         {profile && (
           <View style={[styles.hero, { paddingTop: insets.top + SPACING.xxl }]}>
-            <View style={[styles.ring, styles.ring1]} pointerEvents="none" />
-            <View style={[styles.ring, styles.ring2]} pointerEvents="none" />
+            {/* 브랜드 로고를 우상단에 크게 블리드 — 단색 tint + 낮은 불투명도로 워터마크처럼 */}
+            <Image
+              source={require('../assets/icon-foreground.png')}
+              style={styles.heroLogo}
+              tintColor={HERO_LOGO_TINT}
+              resizeMode="contain"
+              pointerEvents="none"
+            />
             <View style={styles.heroRow}>
               <LinearGradient colors={COLORS.accentGradient} start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }} style={styles.heroAvatar}>
                 <Text style={styles.heroAvatarText}>
@@ -139,10 +147,8 @@ const styles = StyleSheet.create({
     marginBottom: SPACING.lg,
     overflow: 'hidden', // 동심원이 영역 밖으로 안 새게
   },
-  // 은은한 동심원 장식 (우상단)
-  ring: { position: 'absolute', borderWidth: 1.5, borderColor: 'rgba(110,124,238,0.13)', borderRadius: 999 },
-  ring1: { width: 250, height: 250, top: -80, right: -50 },
-  ring2: { width: 380, height: 380, top: -150, right: -120 },
+  // 우상단 블리드 브랜드 로고 (크게 확대, 모서리 잘림). 크기·위치는 보면서 조절.
+  heroLogo: { position: 'absolute', width: 280, height: 280, top: -40, right: -70 },
   heroRow: { flexDirection: 'row', alignItems: 'center', gap: SPACING.md },
   heroAvatar: {
     width: 56, height: 56, borderRadius: 28,
