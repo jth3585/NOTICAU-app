@@ -26,5 +26,6 @@ const styles = StyleSheet.create({
     borderRadius: RADIUS.box,
   },
   text: { fontSize: FONT.micro, lineHeight: 14, fontWeight: WEIGHT.semibold, includeFontPadding: false },
-  textMd: { fontSize: FONT.body },
+  // md는 fontSize가 커지므로 lineHeight도 함께 키워야 위쪽 글자가 잘리지 않음
+  textMd: { fontSize: FONT.body, lineHeight: FONT.body + 6 },
 });
