@@ -41,6 +41,12 @@ export type Notice = {
   crawled_at: string | null; // 우리 DB에 적재된 시각 (새공지 판별용)
   is_pinned: boolean | null;
 
+  // 교차출처 중복 처리: 비대표 공지는 duplicate_of=대표id(피드에서 제외).
+  // 대표 공지는 dup_count(다른 게시판 수)/dup_source_keys(다른 출처 parser_key)를 가짐.
+  duplicate_of: string | null;
+  dup_count: number | null;
+  dup_source_keys: string[] | null;
+
   // PostgREST 임베드. 1:1/N:1이라 보통 단일 객체로 오지만,
   // 방어적으로 배열 가능성도 허용 (format.ts의 one()으로 정규화).
   notice_meta: NoticeMeta | NoticeMeta[] | null;

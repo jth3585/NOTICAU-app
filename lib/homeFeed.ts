@@ -51,7 +51,7 @@ export function useHomeFeed() {
       supabase.from('profiles').select('*').eq('user_id', session.user.id).maybeSingle(),
       supabase.from('user_keywords').select('*').eq('user_id', session.user.id),
       supabase.from('user_category_prefs').select('topic,is_enabled').eq('user_id', session.user.id),
-      supabase.from('notices').select(NOTICE_LIST_SELECT).order('posted_at', { ascending: false }).limit(300),
+      supabase.from('notices').select(NOTICE_LIST_SELECT).is('duplicate_of', null).order('posted_at', { ascending: false }).limit(300),
     ]);
 
     const profile = profileRes.data as Profile | null;

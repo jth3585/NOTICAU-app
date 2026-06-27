@@ -137,6 +137,7 @@ export default function InboxScreen() {
     const { data, error } = await supabase
       .from('notices')
       .select(NOTICE_LIST_SELECT)
+      .is('duplicate_of', null) // 교차출처 중복은 대표 1건만
       .order('posted_at', { ascending: false })
       .limit(100);
     if (error) { setError(error.message); return; }
@@ -181,6 +182,7 @@ export default function InboxScreen() {
             .from('notices')
             .select(NOTICE_LIST_SELECT)
             .in('id', (ids as { id: string }[]).map((r) => r.id))
+            .is('duplicate_of', null)
             .order('posted_at', { ascending: false });
           setSearchResults((data ?? []) as Notice[]);
         } else if (!rpcErr) {
@@ -190,6 +192,7 @@ export default function InboxScreen() {
             .from('notices')
             .select(NOTICE_LIST_SELECT)
             .ilike('title', `%${query.trim()}%`)
+            .is('duplicate_of', null)
             .order('posted_at', { ascending: false })
             .limit(50);
           setSearchResults((data ?? []) as Notice[]);

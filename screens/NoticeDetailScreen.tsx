@@ -21,6 +21,7 @@ import type { RootStackParamList } from '../lib/types';
 import { COLORS, FONT, RADIUS, SPACING, WEIGHT } from '../lib/theme';
 import { BackButton } from '../components/ui/BackButton';
 import { formatDateFull, metaOf, sourceOf } from '../lib/format';
+import { sourceLabel } from '../lib/constants';
 import { CategoryBadge } from '../components/ui/CategoryBadge';
 import { SourceBadge } from '../components/ui/SourceBadge';
 import { DeadlineBox } from '../components/ui/DeadlineBox';
@@ -168,6 +169,12 @@ export default function NoticeDetailScreen({ route, navigation }: Props) {
           {formatDateFull(notice.posted_at)}
           {notice.author ? ` · ${notice.author}` : ''}
         </Text>
+
+        {notice.dup_count && notice.dup_source_keys?.length ? (
+          <Text style={styles.dupLine}>
+            {notice.dup_source_keys.map(sourceLabel).join(', ')} 게시판에도 올라온 공지예요
+          </Text>
+        ) : null}
 
         <DeadlineBox applyStartAt={applyStartAt} deadlineAt={deadlineAt} />
         {canAddCalendar ? <AddToCalendarButton notice={notice} deadlineAt={deadlineAt!} /> : null}
@@ -323,6 +330,7 @@ const styles = StyleSheet.create({
     lineHeight: 32,
   },
   metaLine: { fontSize: FONT.caption, color: COLORS.textSecondary, marginTop: SPACING.sm },
+  dupLine: { fontSize: FONT.caption, color: COLORS.textTertiary, marginTop: SPACING.xs },
   bodyWrap: { marginTop: SPACING.xs },
   summaryLabelRow: {
     flexDirection: 'row',

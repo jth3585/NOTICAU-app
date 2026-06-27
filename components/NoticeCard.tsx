@@ -82,6 +82,7 @@ export function NoticeCard({
           <Text style={[styles.dday, { color: badgeColor }]}>{badge.label}</Text>
         ) : null}
         <Text style={styles.dim}>{postedMD}</Text>
+        {notice.dup_count ? <Text style={styles.dim}>· 외 {notice.dup_count}곳</Text> : null}
         {keywordTag ? <Text style={[styles.kwTag, styles.kwTagRight]}>#{keywordTag}</Text> : null}
       </View>
     </PressableScale>
