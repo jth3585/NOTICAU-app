@@ -23,6 +23,7 @@ import { SortIcon } from '../components/ui/SortIcon';
 import { CloseIcon, ClipboardListIcon, ChevronUpIcon } from '../components/ui/icons';
 import { EmptyState } from '../components/ui/EmptyState';
 import { NoticeListSkeleton } from '../components/ui/Skeleton';
+import { PressableScale } from '../components/ui/PressableScale';
 import { useReadSet } from '../lib/read';
 import { NOTICE_LIST_SELECT } from '../lib/notices';
 import { useBookmarkSet, addBookmark } from '../lib/bookmarks';
@@ -266,7 +267,7 @@ export default function InboxScreen() {
                   </TouchableOpacity>
                 ) : null}
               </View>
-              <TouchableOpacity
+              <PressableScale
                 style={styles.sortBtn}
                 onPress={cycleSort}
                 hitSlop={6}
@@ -274,7 +275,7 @@ export default function InboxScreen() {
                 accessibilityLabel={`정렬: ${SORT_LABELS[sortMode]}. 탭하면 바꿔요`}
               >
                 <SortIcon size={18} color={sortMode !== 'deadline' ? COLORS.accent : COLORS.textSecondary} />
-              </TouchableOpacity>
+              </PressableScale>
             </View>
 
             {searchFocused && !submitted && (recents.length > 0 || myKeywords.length > 0) ? (
