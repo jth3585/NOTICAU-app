@@ -1,8 +1,8 @@
 import { useEffect, useState } from 'react';
-import { Image, ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import { ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { LinearGradient } from 'expo-linear-gradient';
-import MaskedView from '@react-native-masked-view/masked-view';
+import Svg, { Image as SvgImage, Defs, LinearGradient as SvgLinearGradient, Stop, Mask, Rect } from 'react-native-svg';
 import { useFocusEffect, useNavigation } from '@react-navigation/native';
 import { useCallback } from 'react';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
@@ -30,6 +30,7 @@ type Profile = {
 const TOP_TINT = ['rgba(110,140,238,0.42)', 'rgba(74,144,226,0.18)', 'transparent'] as const;
 // 히어로 블리드 로고는 원본 풀컬러를 낮은 불투명도로 — 두 마름모의 색·톤 차이를 살림.
 const HERO_LOGO_OPACITY = 0.22;
+const HERO_LOGO_SIZE = 300;
 
 const CAMPUS_LABEL: Record<string, string> = { seoul: '서울', davinci: '다빈치' };
 const STATUS_LABEL: Record<string, string> = {
@@ -77,26 +78,27 @@ export default function MyPageScreen() {
         {profile && (
           <View style={[styles.hero, { paddingTop: insets.top + SPACING.xxl }]}>
             {/* 브랜드 로고를 우측에 크게 블리드 — 원본 풀컬러(낮은 불투명도)로 두 마름모의
-                색·톤 차이를 살리고, 가장자리로 갈수록 부드럽게 페이드(MaskedView) */}
-            <MaskedView
-              style={styles.heroLogo}
-              pointerEvents="none"
-              maskElement={
-                <LinearGradient
-                  colors={['#000', '#000', 'transparent']}
-                  locations={[0, 0.4, 1]}
-                  start={{ x: 0.15, y: 0.15 }}
-                  end={{ x: 0.9, y: 0.95 }}
-                  style={StyleSheet.absoluteFill}
-                />
-              }
-            >
-              <Image
-                source={require('../assets/icon-foreground.png')}
-                style={[StyleSheet.absoluteFill, { width: '100%', height: '100%', opacity: HERO_LOGO_OPACITY }]}
-                resizeMode="contain"
+                색·톤 차이를 살리고, 아래로 갈수록 부드럽게 페이드(SVG 마스크) */}
+            <Svg width={HERO_LOGO_SIZE} height={HERO_LOGO_SIZE} style={styles.heroLogo} pointerEvents="none">
+              <Defs>
+                <SvgLinearGradient id="heroFade" x1="0" y1="0" x2="0" y2="1">
+                  <Stop offset="0" stopColor="#fff" stopOpacity="1" />
+                  <Stop offset="0.5" stopColor="#fff" stopOpacity="1" />
+                  <Stop offset="0.82" stopColor="#fff" stopOpacity="0" />
+                </SvgLinearGradient>
+                <Mask id="heroMask">
+                  <Rect width={HERO_LOGO_SIZE} height={HERO_LOGO_SIZE} fill="url(#heroFade)" />
+                </Mask>
+              </Defs>
+              <SvgImage
+                href={require('../assets/icon-foreground.png')}
+                width={HERO_LOGO_SIZE}
+                height={HERO_LOGO_SIZE}
+                preserveAspectRatio="xMidYMid meet"
+                opacity={HERO_LOGO_OPACITY}
+                mask="url(#heroMask)"
               />
-            </MaskedView>
+            </Svg>
             <View style={styles.heroRow}>
               <LinearGradient colors={COLORS.accentGradient} start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }} style={styles.heroAvatar}>
                 <Text style={styles.heroAvatarText}>
@@ -162,8 +164,8 @@ const styles = StyleSheet.create({
     marginBottom: SPACING.lg,
     overflow: 'hidden', // 동심원이 영역 밖으로 안 새게
   },
-  // 우측 블리드 브랜드 로고 (크게 확대 + 가장자리 페이드). 크기·위치는 보면서 조절.
-  heroLogo: { position: 'absolute', width: 300, height: 300, top: -30, right: -80 },
+  // 우측 블리드 브랜드 로고 (크게 확대 + 하단 페이드). 크기는 HERO_LOGO_SIZE, 위치는 여기서 조절.
+  heroLogo: { position: 'absolute', top: -30, right: -80 },
   heroRow: { flexDirection: 'row', alignItems: 'center', gap: SPACING.md },
   heroAvatar: {
     width: 56, height: 56, borderRadius: 28,
