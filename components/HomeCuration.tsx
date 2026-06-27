@@ -59,7 +59,8 @@ const styles = StyleSheet.create({
     flexDirection: 'row', alignItems: 'center', gap: SPACING.xs,
     paddingHorizontal: SPACING.lg, paddingBottom: SPACING.lg,
   },
-  label: { ...TEXT.sectionLabel },
+  // AI 큐레이션은 시그니처 섹션 → 별 아이콘과 같은 accent 계열 색으로 포인트(위계는 동일)
+  label: { ...TEXT.sectionLabel, color: COLORS.accentText },
   doneCard: {
     marginHorizontal: SPACING.lg,
     backgroundColor: COLORS.surface,
