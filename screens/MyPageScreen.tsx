@@ -26,9 +26,10 @@ type Profile = {
 
 // 상단 컬러 워시 — 홈과 동일하게 ScrollView '뒤'에 절대배치해, 위로 당겨도(오버스크롤)
 // 흰 바탕 대신 이 색이 이어져 보이게 한다.
-const TOP_TINT = ['rgba(74,144,226,0.42)', 'rgba(74,144,226,0.16)', 'transparent'] as const;
-// 히어로 블리드 로고의 단색 tint (브랜드 블루 톤다운, 낮은 알파로 워터마크처럼)
-const HERO_LOGO_TINT = 'rgba(74,144,226,0.13)';
+// accentGradient(#6E8CEE→#4A90E2→#3A79CE) 색을 알파로 입힌 세로 워시 — 단색보다 깊이감.
+const TOP_TINT = ['rgba(110,140,238,0.42)', 'rgba(74,144,226,0.18)', 'transparent'] as const;
+// 히어로 블리드 로고의 단색 tint (accentGradient 딥블루 계열, 낮은 알파로 워터마크처럼)
+const HERO_LOGO_TINT = 'rgba(58,121,206,0.14)';
 
 const CAMPUS_LABEL: Record<string, string> = { seoul: '서울', davinci: '다빈치' };
 const STATUS_LABEL: Record<string, string> = {
