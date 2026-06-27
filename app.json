@@ -9,7 +9,7 @@
     "ios": {
       "supportsTablet": true,
       "bundleIdentifier": "com.noticau.app",
-      "buildNumber": "16",
+      "buildNumber": "124",
       "usesAppleSignIn": false,
       "config": {
         "usesNonExemptEncryption": false
