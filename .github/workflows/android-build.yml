@@ -1,0 +1,60 @@
+name: Android → AAB (local build, no EAS build quota)
+
+# 수동 실행 전용. EAS '클라우드 빌드' 횟수를 쓰지 않고, GitHub의 ubuntu 러너에서
+# `eas build --local`로 Play 스토어용 .aab(App Bundle)를 만든다.
+# 안드로이드는 macOS가 필요 없어 ubuntu 무료 러너로 빠르게 빌드된다.
+# 산출물은 아티팩트로 다운로드 → Play Console에 직접 업로드.
+on:
+  workflow_dispatch:
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      # eas build(android) local은 JDK 17 필요.
+      - name: Setup Java
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: 17
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Install eas-cli
+        run: npm install -g eas-cli
+
+      # Supabase 키는 EXPO_PUBLIC_* 로 빌드 시 인라인됨. .env는 커밋 안 하므로
+      # CI에서 GitHub Secrets로 생성. (없으면 앱이 Supabase에 연결 못 함)
+      - name: Create .env from secrets
+        run: |
+          printf 'EXPO_PUBLIC_SUPABASE_URL=%s\n' "${{ secrets.EXPO_PUBLIC_SUPABASE_URL }}" > .env
+          printf 'EXPO_PUBLIC_SUPABASE_ANON_KEY=%s\n' "${{ secrets.EXPO_PUBLIC_SUPABASE_ANON_KEY }}" >> .env
+
+      # ephemeral 러너라 autoIncrement가 유지되지 않으므로,
+      # GitHub run_number로 매번 고유·단조증가하는 versionCode를 직접 주입.
+      - name: Set unique Android versionCode
+        run: |
+          node -e "const fs=require('fs');const p='app.json';const j=JSON.parse(fs.readFileSync(p));j.expo.android.versionCode=1+${{ github.run_number }};fs.writeFileSync(p,JSON.stringify(j,null,2));console.log('Android versionCode =',j.expo.android.versionCode);"
+
+      - name: Build AAB locally (no EAS build credit used)
+        env:
+          EXPO_TOKEN: ${{ secrets.EXPO_TOKEN }}
+        run: eas build --local --non-interactive --platform android --profile production-ci --output "$RUNNER_TEMP/app.aab"
+
+      - name: Upload AAB artifact
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: android-aab
+          path: ${{ runner.temp }}/app.aab
+          if-no-files-found: ignore
