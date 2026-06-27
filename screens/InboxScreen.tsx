@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
 import {
-  AppState, Dimensions, Keyboard, Modal, RefreshControl, SectionList, StyleSheet, Text, TextInput,
-  TouchableOpacity, TouchableWithoutFeedback, View,
+  AppState, Keyboard, RefreshControl, SectionList, StyleSheet, Text, TextInput,
+  TouchableOpacity, View,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import Animated, { Easing, FadeIn, FadeOut, FadeInDown, FadeOutUp } from 'react-native-reanimated';
@@ -20,7 +20,7 @@ import { NoticeCard } from '../components/NoticeCard';
 import { SwipeToBookmark } from '../components/SwipeToBookmark';
 import { SearchIcon } from '../components/ui/SearchIcon';
 import { SortIcon } from '../components/ui/SortIcon';
-import { CloseIcon, CheckIcon, ClipboardListIcon, ChevronUpIcon } from '../components/ui/icons';
+import { CloseIcon, ClipboardListIcon, ChevronUpIcon } from '../components/ui/icons';
 import { EmptyState } from '../components/ui/EmptyState';
 import { NoticeListSkeleton } from '../components/ui/Skeleton';
 import { useReadSet } from '../lib/read';
@@ -43,16 +43,13 @@ export default function InboxScreen() {
   const [error, setError] = useState<string | null>(null);
   const [selected, setSelected] = useState<string>('전체');
   const [sortMode, setSortMode] = useState<SortMode>('deadline');
-  const [sortSheetOpen, setSortSheetOpen] = useState(false);
-  const sortBtnRef = useRef<View>(null);
-  // 정렬 버튼을 anchor 삼아 그 아래에 말풍선 팝오버를 띄우기 위한 좌표.
-  const [sortAnchor, setSortAnchor] = useState<{ top: number; right: number } | null>(null);
 
-  const openSort = () => {
-    sortBtnRef.current?.measureInWindow((x, y, w, h) => {
-      setSortAnchor({ top: y + h + 6, right: Dimensions.get('window').width - (x + w) });
-      setSortSheetOpen(true);
-    });
+  // 정렬 칩 탭 → 바로 토글 + 토스트로 결과 안내 (팝오버 없이 1탭).
+  const cycleSort = () => {
+    const next: SortMode = sortMode === 'deadline' ? 'posted' : 'deadline';
+    setSortMode(next);
+    softHaptic();
+    toast(`${SORT_LABELS[next]}으로 바꿨어요`);
   };
 
   // 검색
@@ -270,12 +267,11 @@ export default function InboxScreen() {
                 ) : null}
               </View>
               <TouchableOpacity
-                ref={sortBtnRef}
                 style={[styles.sortBtn, sortMode !== 'deadline' && styles.sortBtnActive]}
-                onPress={openSort}
+                onPress={cycleSort}
                 hitSlop={6}
                 accessibilityRole="button"
-                accessibilityLabel={`정렬: ${SORT_LABELS[sortMode]}`}
+                accessibilityLabel={`정렬: ${SORT_LABELS[sortMode]}. 탭하면 바꿔요`}
               >
                 <SortIcon size={18} color={sortMode !== 'deadline' ? COLORS.accent : COLORS.textSecondary} />
               </TouchableOpacity>
@@ -382,39 +378,6 @@ export default function InboxScreen() {
         </Animated.View>
       ) : null}
 
-      {/* 정렬 말풍선 팝오버 (정렬 버튼 anchor 기준) */}
-      <Modal
-        visible={sortSheetOpen}
-        transparent
-        animationType="fade"
-        onRequestClose={() => setSortSheetOpen(false)}
-      >
-        <TouchableWithoutFeedback onPress={() => setSortSheetOpen(false)}>
-          <View style={styles.overlay}>
-            {sortAnchor ? (
-              <TouchableWithoutFeedback>
-                <View style={[styles.popover, { top: sortAnchor.top, right: sortAnchor.right }]}>
-                  <View style={styles.caret} />
-                  {(['deadline', 'posted'] as SortMode[]).map((mode) => (
-                    <TouchableOpacity
-                      key={mode}
-                      style={styles.popOption}
-                      onPress={() => { setSortMode(mode); setSortSheetOpen(false); }}
-                      accessibilityRole="button"
-                      accessibilityState={{ selected: sortMode === mode }}
-                    >
-                      <Text style={[styles.popOptionText, sortMode === mode && styles.popOptionActive]}>
-                        {SORT_LABELS[mode]}
-                      </Text>
-                      {sortMode === mode ? <CheckIcon size={16} color={COLORS.accent} /> : null}
-                    </TouchableOpacity>
-                  ))}
-                </View>
-              </TouchableWithoutFeedback>
-            ) : null}
-          </View>
-        </TouchableWithoutFeedback>
-      </Modal>
     </SafeAreaView>
   );
 }
@@ -513,53 +476,5 @@ const styles = StyleSheet.create({
     fontSize: FONT.body,
     marginTop: SPACING.xl,
     marginHorizontal: SPACING.lg,
-  },
-  // 정렬 말풍선 팝오버
-  overlay: {
-    flex: 1,
-    backgroundColor: 'transparent',
-  },
-  popover: {
-    position: 'absolute',
-    minWidth: 132,
-    backgroundColor: COLORS.surface,
-    borderRadius: RADIUS.box,
-    paddingVertical: SPACING.xs,
-    borderWidth: StyleSheet.hairlineWidth,
-    borderColor: COLORS.border,
-    shadowColor: '#000',
-    shadowOpacity: 0.12,
-    shadowRadius: 12,
-    shadowOffset: { width: 0, height: 4 },
-    elevation: 6,
-  },
-  // 말풍선 꼬리: 45도 회전한 정사각형의 위/왼쪽 테두리만 보여 위를 가리키게.
-  caret: {
-    position: 'absolute',
-    top: -6,
-    right: 12,
-    width: 12,
-    height: 12,
-    backgroundColor: COLORS.surface,
-    borderLeftWidth: StyleSheet.hairlineWidth,
-    borderTopWidth: StyleSheet.hairlineWidth,
-    borderColor: COLORS.border,
-    transform: [{ rotate: '45deg' }],
-  },
-  popOption: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    gap: SPACING.md,
-    paddingVertical: SPACING.sm,
-    paddingHorizontal: SPACING.md,
-  },
-  popOptionText: {
-    fontSize: FONT.body,
-    color: COLORS.text,
-  },
-  popOptionActive: {
-    color: COLORS.accent,
-    fontWeight: WEIGHT.semibold,
   },
 });
