@@ -28,8 +28,8 @@ type Profile = {
 // 흰 바탕 대신 이 색이 이어져 보이게 한다.
 // accentGradient(#6E8CEE→#4A90E2→#3A79CE) 색을 알파로 입힌 세로 워시 — 단색보다 깊이감.
 const TOP_TINT = ['rgba(110,140,238,0.42)', 'rgba(74,144,226,0.18)', 'transparent'] as const;
-// 히어로 블리드 로고의 단색 tint (accentGradient 딥블루 계열, 낮은 알파로 워터마크처럼)
-const HERO_LOGO_TINT = 'rgba(58,121,206,0.14)';
+// 히어로 블리드 로고는 원본 풀컬러를 낮은 불투명도로 — 두 마름모의 색·톤 차이를 살림.
+const HERO_LOGO_OPACITY = 0.22;
 
 const CAMPUS_LABEL: Record<string, string> = { seoul: '서울', davinci: '다빈치' };
 const STATUS_LABEL: Record<string, string> = {
@@ -76,8 +76,8 @@ export default function MyPageScreen() {
       <ScrollView contentContainerStyle={styles.scroll} showsVerticalScrollIndicator={false}>
         {profile && (
           <View style={[styles.hero, { paddingTop: insets.top + SPACING.xxl }]}>
-            {/* 브랜드 로고를 좌하단에 크게 블리드 — 단색 tint 워터마크 + 가장자리로 갈수록
-                부드럽게 페이드(MaskedView)해서 딱 잘리지 않게 */}
+            {/* 브랜드 로고를 우측에 크게 블리드 — 원본 풀컬러(낮은 불투명도)로 두 마름모의
+                색·톤 차이를 살리고, 가장자리로 갈수록 부드럽게 페이드(MaskedView) */}
             <MaskedView
               style={styles.heroLogo}
               pointerEvents="none"
@@ -85,15 +85,15 @@ export default function MyPageScreen() {
                 <LinearGradient
                   colors={['#000', '#000', 'transparent']}
                   locations={[0, 0.4, 1]}
-                  start={{ x: 0.85, y: 0.15 }}
-                  end={{ x: 0.1, y: 0.95 }}
+                  start={{ x: 0.15, y: 0.15 }}
+                  end={{ x: 0.9, y: 0.95 }}
                   style={StyleSheet.absoluteFill}
                 />
               }
             >
               <Image
                 source={require('../assets/icon-foreground.png')}
-                style={[StyleSheet.absoluteFill, { tintColor: HERO_LOGO_TINT, width: '100%', height: '100%' }]}
+                style={[StyleSheet.absoluteFill, { width: '100%', height: '100%', opacity: HERO_LOGO_OPACITY }]}
                 resizeMode="contain"
               />
             </MaskedView>
@@ -162,8 +162,8 @@ const styles = StyleSheet.create({
     marginBottom: SPACING.lg,
     overflow: 'hidden', // 동심원이 영역 밖으로 안 새게
   },
-  // 좌하단 블리드 브랜드 로고 (크게 확대 + 가장자리 페이드). 크기·위치는 보면서 조절.
-  heroLogo: { position: 'absolute', width: 300, height: 300, bottom: -90, left: -80 },
+  // 우측 블리드 브랜드 로고 (크게 확대 + 가장자리 페이드). 크기·위치는 보면서 조절.
+  heroLogo: { position: 'absolute', width: 300, height: 300, top: -30, right: -80 },
   heroRow: { flexDirection: 'row', alignItems: 'center', gap: SPACING.md },
   heroAvatar: {
     width: 56, height: 56, borderRadius: 28,
