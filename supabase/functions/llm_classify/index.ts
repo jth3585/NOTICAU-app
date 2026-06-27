@@ -417,6 +417,7 @@ Deno.serve(async (req) => {
     cau_adpr: "광고홍보학부",
     cau_security: "산업보안학과",
     cau_log: "국제물류학과",
+    cau_koll: "국어국문학과",
     cau_human: "인문대학",
   };
   const { data: allSrc } = await supabase.from("sources").select("id,parser_key,owner_unit");

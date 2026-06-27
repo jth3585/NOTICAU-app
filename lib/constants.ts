@@ -24,6 +24,7 @@ export const SOURCE_LABELS: Record<string, string> = {
   cau_adpr: '광고홍보학부',
   cau_security: '산업보안학과',
   cau_log: '국제물류학과',
+  cau_koll: '국어국문학부',
   cau_human: '인문대학',
   cau_iacf: '산학협력단',
   cau_abeek: '공학교육혁신센터',
