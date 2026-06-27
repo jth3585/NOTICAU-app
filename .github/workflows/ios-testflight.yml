@@ -31,11 +31,13 @@ jobs:
       - name: Install eas-cli
         run: npm install -g eas-cli
 
-      # ephemeral 러너라 autoIncrement가 유지되지 않으므로,
-      # GitHub run_number로 매번 고유·단조증가하는 buildNumber를 직접 주입.
+      # ephemeral 러너라 autoIncrement가 유지되지 않으므로 buildNumber를 직접 주입.
+      # run_number는 워크플로 re-run 시 동일해 충돌하므로(=submit 거부 원인),
+      # 빌드 시각 Unix 타임스탬프를 써서 재실행이든 항상 고유·단조증가하게 한다.
       - name: Set unique iOS buildNumber
         run: |
-          node -e "const fs=require('fs');const p='app.json';const j=JSON.parse(fs.readFileSync(p));j.expo.ios.buildNumber=String(100+${{ github.run_number }});fs.writeFileSync(p,JSON.stringify(j,null,2));console.log('iOS buildNumber =',j.expo.ios.buildNumber);"
+          BN=$(date +%s)
+          node -e "const fs=require('fs');const p='app.json';const j=JSON.parse(fs.readFileSync(p));j.expo.ios.buildNumber=String($BN);fs.writeFileSync(p,JSON.stringify(j,null,2));console.log('iOS buildNumber =',j.expo.ios.buildNumber);"
 
       # Supabase 키는 EXPO_PUBLIC_* 로 빌드 시 인라인됨. .env는 커밋 안 하므로
       # CI에서 GitHub Secrets로 생성해 둔다. (없으면 앱이 Supabase에 연결 못 함)

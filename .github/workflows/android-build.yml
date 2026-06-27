@@ -40,11 +40,13 @@ jobs:
           printf 'EXPO_PUBLIC_SUPABASE_URL=%s\n' "${{ secrets.EXPO_PUBLIC_SUPABASE_URL }}" > .env
           printf 'EXPO_PUBLIC_SUPABASE_ANON_KEY=%s\n' "${{ secrets.EXPO_PUBLIC_SUPABASE_ANON_KEY }}" >> .env
 
-      # ephemeral 러너라 autoIncrement가 유지되지 않으므로,
-      # GitHub run_number로 매번 고유·단조증가하는 versionCode를 직접 주입.
+      # ephemeral 러너라 autoIncrement가 유지되지 않으므로 versionCode를 직접 주입.
+      # run_number는 re-run 시 동일해 충돌하므로, 빌드 시각 Unix 타임스탬프로 항상
+      # 고유·단조증가하게 한다(정수 한계 2.1B 미만이라 안전).
       - name: Set unique Android versionCode
         run: |
-          node -e "const fs=require('fs');const p='app.json';const j=JSON.parse(fs.readFileSync(p));j.expo.android.versionCode=1+${{ github.run_number }};fs.writeFileSync(p,JSON.stringify(j,null,2));console.log('Android versionCode =',j.expo.android.versionCode);"
+          VC=$(date +%s)
+          node -e "const fs=require('fs');const p='app.json';const j=JSON.parse(fs.readFileSync(p));j.expo.android.versionCode=$VC;fs.writeFileSync(p,JSON.stringify(j,null,2));console.log('Android versionCode =',j.expo.android.versionCode);"
 
       - name: Build AAB locally (no EAS build credit used)
         env:
