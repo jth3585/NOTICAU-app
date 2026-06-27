@@ -19,7 +19,7 @@ export function HomeCuration({ notices, allSeen, onGoToAll, onPressNotice, isNew
   return (
     <View style={styles.section}>
       <View style={styles.labelRow}>
-        <SparkleIcon size={16} color={COLORS.accent} />
+        <SparkleIcon size={13} color={COLORS.accent} />
         <Text style={styles.label}>AI 큐레이션</Text>
       </View>
 
@@ -59,8 +59,7 @@ const styles = StyleSheet.create({
     flexDirection: 'row', alignItems: 'center', gap: SPACING.xs,
     paddingHorizontal: SPACING.lg, paddingBottom: SPACING.lg,
   },
-  // AI 큐레이션은 시그니처 섹션 → 별 아이콘과 같은 accent 계열 색으로 포인트(위계는 동일)
-  label: { ...TEXT.sectionLabel, color: COLORS.accentText },
+  label: { ...TEXT.sectionLabel },
   doneCard: {
     marginHorizontal: SPACING.lg,
     backgroundColor: COLORS.surface,
