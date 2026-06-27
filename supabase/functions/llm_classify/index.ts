@@ -80,6 +80,11 @@ const SYSTEM_PROMPT = `당신은 중앙대학교(CAU) 학부생을 위한 공지
 - 판단 기준: "지금 마감일을 메모해야 하나?" YES → actionable / NO → info
 - 안내성 공지(계절학기 시행, 일정 안내, 정책 변경)는 보통 info. 단 본문에 명확한 "신청"/"지원"/"제출" 요청이 있으면 actionable.
 
+## 대상 범위 — 전체 노출 vs 소속 한정 (가장 중요)
+- 학부·전공과 무관하게 **모든 대학생에게 열린 채용·인턴·공모전·대회·박람회·취업특강** 공지로 특정 전공 자격 제한이 없으면: target_depts=null, target_campuses=null 로 두어 전체 학생에게 노출한다.
+- 그 외 공지(학사·장학·학과 행사·시설 등)는, 입력에 '게시판 소속'이 주어지면 그 값을 target_depts에 넣어 해당 소속 학생에게만 보이게 한다. 단 본문에 더 구체적인 학과·대상이 명시되면 그것을 우선한다.
+- '게시판 소속'이 입력에 없으면(전체 공지 게시판), target_depts는 본문에 학과가 명시될 때만 채운다.
+
 ## 대상 추출 규칙
 - "○학년 대상" → target_grades: [숫자들]
 - "○학과 대상" → target_depts: 학과명 배열 (한국어 그대로)
@@ -235,6 +240,9 @@ function buildUserPrompt(notice: any, hasImageOnly: boolean): string {
   if (notice.source_category) {
     lines.push(`학교 카테고리: ${notice.source_category}`);
     lines.push(`분류 힌트: ${topicHintForLLM(notice.source_category)}`);
+  }
+  if (notice.owner) {
+    lines.push(`게시판 소속: ${notice.owner} (전공무관 채용·인턴·대회가 아니면 이 소속을 target_depts에 넣어 해당 학생에게만 노출)`);
   }
   if (notice.file_count > 0) {
     lines.push(`첨부파일: ${notice.file_count}개 (PDF 등 — 본문에서 못 본 마감일·자격 정보가 있을 수 있음)`);
@@ -395,10 +403,21 @@ Deno.serve(async (req) => {
     return new Response(JSON.stringify({ error: qErr.message }), { status: 500 });
   }
 
-  // '전체 대상' 출처: 모든 학생에게 의미 있어 학과/캠퍼스로 한정하지 않는다(예: 공학교육혁신센터).
-  const NO_TARGET_PARSER_KEYS = ["cau_abeek"];
-  const { data: ntSources } = await supabase.from("sources").select("id").in("parser_key", NO_TARGET_PARSER_KEYS);
-  const noTargetSourceIds = new Set<string>((ntSources ?? []).map((s: { id: string }) => s.id));
+  // 게시판 소속(owner): 학과·단과대 게시판의 '소속'. 전공무관 채용·인턴·대회 공지는
+  // 전체 노출하고, 그 외 공지는 이 소속 학생에게만 보이도록 LLM이 판단(SYSTEM_PROMPT 규칙).
+  // 소속 없는 출처(본교·산학협력단·공학교육혁신센터 등)는 본문 명시 학과만 한정 → 사실상 전체.
+  const SOURCE_OWNER: Record<string, string> = {
+    cau_econ: "경제학부",
+    cau_biz: "경영학부",
+    cau_biz_career: "경영학부",
+    cau_bne: "경영경제대학",
+  };
+  const { data: allSrc } = await supabase.from("sources").select("id,parser_key");
+  const ownerBySourceId = new Map<string, string>();
+  for (const s of (allSrc ?? []) as { id: string; parser_key: string }[]) {
+    const o = SOURCE_OWNER[s.parser_key];
+    if (o) ownerBySourceId.set(s.id, o);
+  }
 
   const stats = { fetched: (notices ?? []).length, classified: 0, failed: 0 };
   const results: { id: string; topic?: string; error?: string }[] = [];
@@ -419,12 +438,8 @@ Deno.serve(async (req) => {
         source_category: n.source_category,
         posted_at: n.posted_at,
         file_count: (n.attachment_urls?.length ?? 0),
+        owner: ownerBySourceId.get(n.source_id) ?? null,
       });
-      // 전체 대상 출처는 학과/캠퍼스 한정을 비워 모든 학생에게 노출
-      if (noTargetSourceIds.has(n.source_id)) {
-        meta.target_depts = null;
-        meta.target_campuses = null;
-      }
       const { error: upErr } = await supabase.from("notice_meta").upsert({ notice_id: n.id, ...meta });
       if (upErr) throw upErr;
       await supabase.from("notices").update({ classify_last_error: null }).eq("id", n.id);
