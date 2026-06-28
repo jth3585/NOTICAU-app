@@ -1,4 +1,4 @@
-// daily_digest_push — 매일 KST 08:00 데일리 다이제스트 푸시.
+// daily_digest_push — 매일 KST 18:00 데일리 다이제스트 푸시. (cron: '0 9 * * *' UTC = 18:00 KST)
 // notifications_enabled=true 인 유저에게 "오늘 새 공지 N개 (키워드 매칭 M개)" 발송.
 //
 // 인증: verify_jwt=false 로 배포 + Authorization: Bearer <CRON_SECRET> 자체 검증.

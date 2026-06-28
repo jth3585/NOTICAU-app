@@ -56,7 +56,7 @@ export default function NotificationSettingsScreen() {
           </View>
         </View>
 
-        <Text style={styles.note}>· 켜 두면 매일 오전 8시에 그날 올라온 새 공지 건수를 알려드려요.</Text>
+        <Text style={styles.note}>· 켜 두면 매일 저녁 6시에 그날 올라온 새 공지 건수를 알려드려요.</Text>
         <Text style={styles.note}>· 키워드 즉시 알림은 키워드 관리에서 키워드별로 설정해요.</Text>
       </ScrollView>
     </SafeAreaView>
