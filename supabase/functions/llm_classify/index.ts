@@ -424,10 +424,14 @@ Deno.serve(async (req) => {
     cau_germ: "유럽문화학부(독일어문학)", // 독일어문학전공 단독 게시판 → euro_german
     cau_fren: "유럽문화학부(프랑스어문학)", // 프랑스어문학전공 → euro_french
     cau_russ: "유럽문화학부(러시아어문학)", // 러시아어문학전공 → euro_russian
+    cau_chin: "아시아문화학부(중국어문학)", // 중국어문학전공 → asia_chinese
+    cau_jpn: "아시아문화학부(일본어문학)",  // 일본어문학전공 → asia_japanese
+    cau_asia: "아시아문화학부(일본어문학)", // 학부 게시판: 아래 OWNER_DEPT_GROUP로 2개 학과 확장
   };
   // 한 게시판이 여러 학과를 묶는 학부: 학과 한정(target_depts 비어있지 않음) 공지를 이 학과들 전체로 확장.
   const OWNER_DEPT_GROUP: Record<string, string[]> = {
     cau_euro: ["euro_german", "euro_french", "euro_russian"], // 유럽문화학부
+    cau_asia: ["asia_japanese", "asia_chinese"], // 아시아문화학부
   };
   const { data: allSrc } = await supabase.from("sources").select("id,parser_key,owner_unit");
   const ownerBySourceId = new Map<string, string>();
