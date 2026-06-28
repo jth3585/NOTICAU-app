@@ -141,7 +141,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: SPACING.lg, paddingVertical: SPACING.md + 2,
     ...SHADOW.card,
   },
-  crossLabel: { fontSize: FONT.body, fontWeight: WEIGHT.semibold, color: COLORS.text },
+  crossLabel: { fontSize: FONT.body, color: COLORS.text },
   crossSub: { fontSize: FONT.caption, color: COLORS.textSecondary, marginTop: SPACING.sm, lineHeight: 18 },
   row: {
     flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between',
