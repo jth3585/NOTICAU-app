@@ -144,7 +144,7 @@ export default function MyPageScreen() {
                   {[
                     CAMPUS_LABEL[profile.campus] ?? profile.campus,
                     deptName || collegeName || null,
-                    secondaryName ? `복수전공 ${secondaryName}` : null,
+                    secondaryName || null,
                     `${profile.grade}학년`,
                   ].filter(Boolean).join(' · ')}
                   {statusText ? `\n${statusText}` : ''}
