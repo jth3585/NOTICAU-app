@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
 import {
-  AppState, Keyboard, RefreshControl, SectionList, StyleSheet, Text, TextInput,
+  ActivityIndicator, AppState, Keyboard, RefreshControl, SectionList, StyleSheet, Text, TextInput,
   TouchableOpacity, View,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
@@ -132,17 +132,51 @@ export default function InboxScreen() {
   }, []);
 
   const [refreshing, setRefreshing] = useState(false);
+  // 무한 스크롤: posted_at desc 단일 풀을 페이지 단위로 누적. 카테고리/캠퍼스/끈토픽/정렬은
+  // 모두 이 풀 위에서 클라이언트 필터링되므로, 전체든 특정 카테고리든 바닥에 닿으면 동일하게
+  // 다음 페이지를 받아 풀을 키운다.
+  const PAGE_INITIAL = 500; // 첫 로드(요청: 500건 노출 후부터 추가 로드)
+  const PAGE_MORE = 300;    // 이후 추가 로드 페이지 크기
+  const [hasMore, setHasMore] = useState(true);
+  const [loadingMore, setLoadingMore] = useState(false);
+  const loadingMoreRef = useRef(false); // 중복 onEndReached 방지(in-flight 가드)
 
-  const loadNotices = useCallback(async () => {
-    const { data, error } = await supabase
+  const fetchPage = useCallback(async (offset: number, size: number) => {
+    return supabase
       .from('notices')
       .select(NOTICE_LIST_SELECT)
       .is('duplicate_of', null) // 교차출처 중복은 대표 1건만
       .order('posted_at', { ascending: false })
-      .limit(100);
-    if (error) { setError(error.message); return; }
-    setNotices((data ?? []) as Notice[]);
+      .range(offset, offset + size - 1);
   }, []);
+
+  // 첫 로드/새로고침: 풀을 첫 페이지로 리셋.
+  const loadNotices = useCallback(async () => {
+    const { data, error } = await fetchPage(0, PAGE_INITIAL);
+    if (error) { setError(error.message); return; }
+    const rows = (data ?? []) as Notice[];
+    setNotices(rows);
+    setHasMore(rows.length === PAGE_INITIAL);
+  }, [fetchPage]);
+
+  // 바닥 도달: 현재 풀 길이를 오프셋으로 다음 페이지를 받아 누적(id 중복 제거).
+  const loadMore = useCallback(async () => {
+    if (loadingMoreRef.current || !hasMore) return;
+    loadingMoreRef.current = true;
+    setLoadingMore(true);
+    const offset = notices.length;
+    const { data, error } = await fetchPage(offset, PAGE_MORE);
+    if (!error) {
+      const rows = (data ?? []) as Notice[];
+      setNotices((prev) => {
+        const seen = new Set(prev.map((n) => n.id));
+        return [...prev, ...rows.filter((n) => !seen.has(n.id))];
+      });
+      setHasMore(rows.length === PAGE_MORE);
+    }
+    loadingMoreRef.current = false;
+    setLoadingMore(false);
+  }, [fetchPage, hasMore, notices.length]);
 
   useEffect(() => {
     (async () => { await loadNotices(); setLoading(false); })();
@@ -243,6 +277,8 @@ export default function InboxScreen() {
         keyboardDismissMode="on-drag"
         onScroll={onListScroll}
         scrollEventThrottle={16}
+        onEndReachedThreshold={0.6}
+        onEndReached={() => { if (!query.trim()) loadMore(); }}
         stickySectionHeadersEnabled
         // 제목 + 검색/정렬 → 스크롤하면 함께 사라짐
         ListHeaderComponent={
@@ -365,6 +401,13 @@ export default function InboxScreen() {
             />
           )
         }
+        ListFooterComponent={
+          !query.trim() && loadingMore ? (
+            <View style={styles.footer}>
+              <ActivityIndicator color={COLORS.accent} />
+            </View>
+          ) : null
+        }
         contentContainerStyle={styles.listContent}
       />
 
@@ -463,6 +506,7 @@ const styles = StyleSheet.create({
   kwSuggestChip: { backgroundColor: COLORS.accentSoft, borderColor: COLORS.accentSoft },
   suggestChipText: { fontSize: FONT.caption, color: COLORS.textSecondary },
   listContent: { paddingBottom: SPACING.xl },
+  footer: { paddingVertical: SPACING.lg, alignItems: 'center' },
   // '맨 위로' 플로팅 버튼 (우하단)
   toTop: { position: 'absolute', right: SPACING.lg, bottom: SPACING.xl },
   toTopBtn: {
