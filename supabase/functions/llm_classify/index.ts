@@ -429,6 +429,7 @@ Deno.serve(async (req) => {
     cau_asia: "아시아문화학부(일본어문학)", // 학부 게시판: 아래 OWNER_DEPT_GROUP로 2개 학과 확장
     cau_hist: "역사학과", // → history
     cau_phil: "철학과",   // → philosophy
+    cau_social: "사회과학대학", // 단과대 게시판 → social 전체(college 정규화)
   };
   // 한 게시판이 여러 학과를 묶는 학부: 학과 한정(target_depts 비어있지 않음) 공지를 이 학과들 전체로 확장.
   const OWNER_DEPT_GROUP: Record<string, string[]> = {
