@@ -21,6 +21,7 @@ type Profile = {
   campus: string;
   college: string | null;
   dept: string | null;
+  dept_secondary: string | null;
   enrollment_status: string[];
   is_dormitory: boolean;
   show_cross_dept?: boolean;
@@ -46,6 +47,7 @@ export default function MyPageScreen() {
   const profile = useProfile() as Profile | null;
   const [collegeName, setCollegeName] = useState('');
   const [deptName, setDeptName] = useState('');
+  const [secondaryName, setSecondaryName] = useState('');
 
   useFocusEffect(useCallback(() => { loadProfile(); }, []));
 
@@ -65,6 +67,20 @@ export default function MyPageScreen() {
       .then(({ data }) => { if (alive) setDeptName((data as any)?.name ?? profile.dept ?? ''); });
     return () => { alive = false; };
   }, [profile?.dept]);
+
+  // 복수전공 코드 → 이름. 학과 코드 우선, 없으면 단과대 코드로 폴백(학과 미세분 시 단대만 저장됨).
+  useEffect(() => {
+    const code = profile?.dept_secondary;
+    if (!code) { setSecondaryName(''); return; }
+    let alive = true;
+    (async () => {
+      const { data: d } = await supabase.from('departments').select('name').eq('code', code).maybeSingle();
+      if ((d as any)?.name) { if (alive) setSecondaryName((d as any).name); return; }
+      const { data: c } = await supabase.from('colleges').select('name').eq('code', code).maybeSingle();
+      if (alive) setSecondaryName((c as any)?.name ?? code);
+    })();
+    return () => { alive = false; };
+  }, [profile?.dept_secondary]);
 
   const statusText = profile?.enrollment_status?.map(s => STATUS_LABEL[s] ?? s).join(' · ') ?? '';
 
@@ -125,8 +141,12 @@ export default function MyPageScreen() {
                   </TouchableOpacity>
                 </View>
                 <Text style={styles.heroMeta} numberOfLines={2}>
-                  {[CAMPUS_LABEL[profile.campus] ?? profile.campus, deptName || collegeName || null, `${profile.grade}학년`]
-                    .filter(Boolean).join(' · ')}
+                  {[
+                    CAMPUS_LABEL[profile.campus] ?? profile.campus,
+                    deptName || collegeName || null,
+                    secondaryName ? `복수전공 ${secondaryName}` : null,
+                    `${profile.grade}학년`,
+                  ].filter(Boolean).join(' · ')}
                   {statusText ? `\n${statusText}` : ''}
                   {profile.is_dormitory ? ' · 기숙사' : ''}
                 </Text>
