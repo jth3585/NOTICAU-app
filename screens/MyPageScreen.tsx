@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react';
 import { ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { LinearGradient } from 'expo-linear-gradient';
-import Svg, { Image as SvgImage, Defs, LinearGradient as SvgLinearGradient, Stop, Mask, Rect, G } from 'react-native-svg';
+import Svg, { Image as SvgImage } from 'react-native-svg';
 import { useFocusEffect, useNavigation } from '@react-navigation/native';
 import { useCallback } from 'react';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
@@ -98,29 +98,23 @@ export default function MyPageScreen() {
         {/* 히어로 컨테이너는 항상 렌더 → 프로필 로딩 중에도 상단 안전영역 여백이 유지돼
             상단 잘림/스크롤 막힘을 방지. SVG 로고 위치는 기존 그대로(상단 블리드). */}
         <View style={[styles.hero, { paddingTop: insets.top + SPACING.xxl }]}>
-            {/* 브랜드 로고를 우측에 크게 블리드 — 원본 풀컬러(낮은 불투명도)로 두 마름모의
-                색·톤 차이를 살리고, 아래로 갈수록 부드럽게 페이드(SVG 마스크) */}
+            {/* 브랜드 로고를 우측에 크게 블리드(낮은 불투명도). 하단 페이드는 SVG 마스크 대신
+                expo-linear-gradient 오버레이로 처리 — 마스크 미적용/하드컷 문제 없이 모든 기기에서
+                자연스럽게 배경으로 사라짐. 로고 위치(heroLogo)는 기존 그대로. */}
             <Svg width={HERO_LOGO_SIZE} height={HERO_LOGO_SIZE} style={styles.heroLogo} pointerEvents="none">
-              <Defs>
-                <SvgLinearGradient id="heroFade" x1="0" y1="0" x2="0" y2="1">
-                  <Stop offset="0" stopColor="#fff" stopOpacity="1" />
-                  <Stop offset="0.5" stopColor="#fff" stopOpacity="1" />
-                  <Stop offset="0.82" stopColor="#fff" stopOpacity="0" />
-                </SvgLinearGradient>
-                <Mask id="heroMask" x="0" y="0" width={HERO_LOGO_SIZE} height={HERO_LOGO_SIZE} maskUnits="userSpaceOnUse">
-                  <Rect x="0" y="0" width={HERO_LOGO_SIZE} height={HERO_LOGO_SIZE} fill="url(#heroFade)" />
-                </Mask>
-              </Defs>
-              <G mask="url(#heroMask)">
-                <SvgImage
-                  href={require('../assets/icon-foreground.png')}
-                  width={HERO_LOGO_SIZE}
-                  height={HERO_LOGO_SIZE}
-                  preserveAspectRatio="xMidYMid meet"
-                  opacity={HERO_LOGO_OPACITY}
-                />
-              </G>
+              <SvgImage
+                href={require('../assets/icon-foreground.png')}
+                width={HERO_LOGO_SIZE}
+                height={HERO_LOGO_SIZE}
+                preserveAspectRatio="xMidYMid meet"
+                opacity={HERO_LOGO_OPACITY}
+              />
             </Svg>
+            <LinearGradient
+              colors={['transparent', COLORS.bg]}
+              style={styles.heroFade}
+              pointerEvents="none"
+            />
             {profile && (
             <View style={styles.heroRow}>
               <LinearGradient colors={COLORS.accentGradient} start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }} style={styles.heroAvatar}>
@@ -191,8 +185,10 @@ const styles = StyleSheet.create({
     marginBottom: SPACING.lg,
     overflow: 'hidden', // 동심원이 영역 밖으로 안 새게
   },
-  // 우측 블리드 브랜드 로고 (크게 확대 + 하단 페이드). 크기는 HERO_LOGO_SIZE, 위치는 여기서 조절.
+  // 우측 블리드 브랜드 로고 (크게 확대). 크기는 HERO_LOGO_SIZE, 위치는 여기서 조절.
   heroLogo: { position: 'absolute', top: -30, right: -80 },
+  // 히어로 하단 페이드: 로고가 '내 설정' 경계로 뚝 끊기지 않고 배경으로 자연스럽게 사라지게.
+  heroFade: { position: 'absolute', left: 0, right: 0, bottom: 0, height: 120 },
   heroRow: { flexDirection: 'row', alignItems: 'center', gap: SPACING.md },
   heroAvatar: {
     width: 56, height: 56, borderRadius: 28,
