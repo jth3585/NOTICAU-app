@@ -419,6 +419,7 @@ Deno.serve(async (req) => {
     cau_log: "국제물류학과",
     cau_koll: "국어국문학과",
     cau_human: "인문대학",
+    cau_engl: "영어영문학과",
   };
   const { data: allSrc } = await supabase.from("sources").select("id,parser_key,owner_unit");
   const ownerBySourceId = new Map<string, string>();
