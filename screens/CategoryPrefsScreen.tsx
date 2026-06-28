@@ -92,7 +92,7 @@ export default function CategoryPrefsScreen() {
                 style={styles.switch}
               />
             </View>
-            <Text style={styles.crossSub}>다른 학과의 채용·세미나·대회 공지도 표시</Text>
+            <Text style={styles.crossSub}>켜 두면 다른 학과의 채용·세미나·대회 공지도 함께 보여요.</Text>
           </View>
         }
         ListFooterComponent={
@@ -131,8 +131,8 @@ const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: COLORS.bg },
   header: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingHorizontal: SPACING.lg, paddingVertical: SPACING.md },
   title: { fontSize: FONT.subtitle, fontWeight: WEIGHT.bold, color: COLORS.text },
-  hint: { fontSize: FONT.caption, color: COLORS.textSecondary, marginTop: SPACING.md },
-  listContent: { paddingHorizontal: SPACING.lg, paddingBottom: SPACING.xxl },
+  hint: { fontSize: FONT.caption, color: COLORS.textSecondary, marginTop: SPACING.md, lineHeight: 18 },
+  listContent: { paddingHorizontal: SPACING.lg, paddingTop: SPACING.sm, paddingBottom: SPACING.xxl },
   // 타 학과 공지 보기 토글 (목록 상단 헤더 카드 + 아래 세부설명 힌트)
   crossWrap: { marginBottom: SPACING.lg },
   crossRow: {
@@ -142,7 +142,7 @@ const styles = StyleSheet.create({
     ...SHADOW.card,
   },
   crossLabel: { fontSize: FONT.body, fontWeight: WEIGHT.semibold, color: COLORS.text },
-  crossSub: { fontSize: FONT.caption, color: COLORS.textSecondary, marginTop: SPACING.sm, paddingHorizontal: SPACING.xs },
+  crossSub: { fontSize: FONT.caption, color: COLORS.textSecondary, marginTop: SPACING.sm, lineHeight: 18 },
   row: {
     flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between',
     backgroundColor: COLORS.surface, borderRadius: RADIUS.card,
