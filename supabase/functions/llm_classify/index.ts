@@ -422,6 +422,8 @@ Deno.serve(async (req) => {
     cau_engl: "영어영문학과",
     cau_euro: "유럽문화학부(독일어문학)", // 학부 게시판: 학과 한정 공지는 아래 OWNER_DEPT_GROUP로 3개 학과 확장
     cau_germ: "유럽문화학부(독일어문학)", // 독일어문학전공 단독 게시판 → euro_german
+    cau_fren: "유럽문화학부(프랑스어문학)", // 프랑스어문학전공 → euro_french
+    cau_russ: "유럽문화학부(러시아어문학)", // 러시아어문학전공 → euro_russian
   };
   // 한 게시판이 여러 학과를 묶는 학부: 학과 한정(target_depts 비어있지 않음) 공지를 이 학과들 전체로 확장.
   const OWNER_DEPT_GROUP: Record<string, string[]> = {
