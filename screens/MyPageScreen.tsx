@@ -7,6 +7,7 @@ import { useFocusEffect, useNavigation } from '@react-navigation/native';
 import { useCallback } from 'react';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { supabase } from '../lib/supabase';
+import { useProfile, loadProfile } from '../lib/profile';
 import type { RootStackParamList } from '../lib/types';
 import { COLORS, FONT, RADIUS, SHADOW, SPACING, TEXT, WEIGHT } from '../lib/theme';
 import { HashIcon, FolderIcon, BellIcon, UserIcon, PencilIcon } from '../components/ui/icons';
@@ -41,26 +42,29 @@ const STATUS_LABEL: Record<string, string> = {
 export default function MyPageScreen() {
   const navigation = useNavigation<Nav>();
   const insets = useSafeAreaInsets();
-  const [profile, setProfile] = useState<Profile | null>(null);
+  // 공유 스토어 구독 → 프로필 수정이 즉시(낙관적) 반영. 포커스 시 DB에서 최신화.
+  const profile = useProfile() as Profile | null;
   const [collegeName, setCollegeName] = useState('');
   const [deptName, setDeptName] = useState('');
-  const load = useCallback(async () => {
-    const { data: { session } } = await supabase.auth.getSession();
-    if (!session) return;
-    const { data } = await supabase.from('profiles').select('*').eq('user_id', session.user.id).maybeSingle();
-    if (!data) return;
-    setProfile(data as Profile);
-    if (data.college) {
-      const { data: col } = await supabase.from('colleges').select('name').eq('code', data.college).maybeSingle();
-      setCollegeName((col as any)?.name ?? data.college);
-    }
-    if (data.dept) {
-      const { data: dep } = await supabase.from('departments').select('name').eq('code', data.dept).maybeSingle();
-      setDeptName((dep as any)?.name ?? data.dept);
-    }
-  }, []);
 
-  useFocusEffect(useCallback(() => { load(); }, [load]));
+  useFocusEffect(useCallback(() => { loadProfile(); }, []));
+
+  // 단과대/학과 코드 → 표시 이름. college/dept가 null이 되면(캠퍼스 변경 등) 이름도 비운다.
+  useEffect(() => {
+    if (!profile?.college) { setCollegeName(''); return; }
+    let alive = true;
+    supabase.from('colleges').select('name').eq('code', profile.college).maybeSingle()
+      .then(({ data }) => { if (alive) setCollegeName((data as any)?.name ?? profile.college ?? ''); });
+    return () => { alive = false; };
+  }, [profile?.college]);
+
+  useEffect(() => {
+    if (!profile?.dept) { setDeptName(''); return; }
+    let alive = true;
+    supabase.from('departments').select('name').eq('code', profile.dept).maybeSingle()
+      .then(({ data }) => { if (alive) setDeptName((data as any)?.name ?? profile.dept ?? ''); });
+    return () => { alive = false; };
+  }, [profile?.dept]);
 
   const statusText = profile?.enrollment_status?.map(s => STATUS_LABEL[s] ?? s).join(' · ') ?? '';
 

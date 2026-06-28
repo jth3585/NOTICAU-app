@@ -6,6 +6,8 @@ import {
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useNavigation } from '@react-navigation/native';
 import { supabase } from '../lib/supabase';
+import { loadProfile, updateProfile } from '../lib/profile';
+import { toast } from '../lib/toast';
 import { COLORS, FONT, RADIUS, SPACING, WEIGHT } from '../lib/theme';
 import { CheckIcon, ChevronLeftIcon, ChevronRightIcon } from '../components/ui/icons';
 import { FolderNameModal } from '../components/FolderNameModal';
@@ -46,17 +48,10 @@ export default function ProfileEditScreen() {
   const [nickOpen, setNickOpen] = useState(false);
   const [secondaryCollegeCode, setSecondaryCollegeCode] = useState<string | null>(null);
   const [secondaryDeptName, setSecondaryDeptName] = useState<string>('');
-  const userIdRef = useRef<string | null>(null);
 
-  // Load profile + all colleges
+  // Load profile (공유 스토어 경유 → 캐시 워밍) + all colleges
   useEffect(() => {
-    (async () => {
-      const { data: { session } } = await supabase.auth.getSession();
-      if (!session) return;
-      userIdRef.current = session.user.id;
-      const { data } = await supabase.from('profiles').select('*').eq('user_id', session.user.id).maybeSingle();
-      if (data) setProfile(data as Profile);
-    })();
+    loadProfile().then((p) => { if (p) setProfile(p as Profile); });
     supabase.from('colleges').select('code,name').order('name').then(({ data }) => setAllColleges((data as Row[]) ?? []));
   }, []);
 
@@ -89,12 +84,13 @@ export default function ProfileEditScreen() {
       .then(({ data }) => setSecondaryDeptName((data as any)?.name ?? profile.dept_secondary ?? ''));
   }, [profile?.dept_secondary]);
 
-  // 선택 즉시 로컬 state + DB 동시 업데이트
+  // 선택 즉시 로컬 state 갱신 + 공유 스토어 경유 저장(낙관적 브로드캐스트 → 전 화면 즉시 반영).
+  // 저장 실패 시 토스트로 알림(이전엔 fire-and-forget이라 조용히 누락됐음).
   const autosave = (p: Partial<Profile>) => {
     setProfile((prev) => prev ? { ...prev, ...p } : prev);
-    const uid = userIdRef.current;
-    if (!uid) return;
-    supabase.from('profiles').update(p as any).eq('user_id', uid).then();
+    updateProfile(p).then(({ error }) => {
+      if (error) toast('변경 사항을 저장하지 못했어요. 다시 시도해 주세요.', 'error');
+    });
   };
 
   const nameOf = (list: Row[], code: string | null | undefined) =>

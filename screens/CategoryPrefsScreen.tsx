@@ -7,6 +7,8 @@ import ReorderableList, {
   useReorderableDrag, reorderItems, type ReorderableListReorderEvent,
 } from 'react-native-reorderable-list';
 import { supabase } from '../lib/supabase';
+import { updateProfile } from '../lib/profile';
+import { toast } from '../lib/toast';
 import { COLORS, FONT, RADIUS, SHADOW, SPACING, WEIGHT } from '../lib/theme';
 import { BackButton } from '../components/ui/BackButton';
 import { CategoryBadge } from '../components/ui/CategoryBadge';
@@ -41,9 +43,10 @@ export default function CategoryPrefsScreen() {
   }, []);
 
   const toggleCrossDept = async (next: boolean) => {
-    if (!userId) return;
     setCrossDept(next);
-    await supabase.from('profiles').update({ show_cross_dept: next }).eq('user_id', userId);
+    // 공유 스토어 경유 → 캐시 갱신 + 전 화면 반영. 실패 시 토스트로 알림.
+    const { error } = await updateProfile({ show_cross_dept: next });
+    if (error) { setCrossDept(!next); toast('설정을 저장하지 못했어요. 다시 시도해 주세요.', 'error'); }
   };
 
   const toggle = async (topic: string) => {

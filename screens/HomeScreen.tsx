@@ -35,8 +35,10 @@ export default function HomeScreen() {
   } = useDigest();
   const { lastSeenAt } = useLastSeenAt();
 
-  // 탭 포커스 시 읽음 상태 재동기 + 호칭 재조회 (프로필 수정 즉시 반영, 캐시 유지)
-  useFocusEffect(useCallback(() => { syncReadIds(); feed.refreshProfile(); }, [syncReadIds, feed.refreshProfile]));
+  // 탭 포커스 시 읽음 상태 재동기 + 피드 전체 재조회.
+  // (호칭만 갱신하면 캠퍼스·학과·재학상태·타학과보기 등 프로필 변경이 피드 필터에 반영되지
+  //  않아 stale 됐었음. load()는 로딩 스피너를 토글하지 않아 조용히 갱신된다.)
+  useFocusEffect(useCallback(() => { syncReadIds(); feed.reload(); }, [syncReadIds, feed.reload]));
 
   const isNew = useCallback((postedAt: string | null) => {
     if (!lastSeenAt || !postedAt) return false;

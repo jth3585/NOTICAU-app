@@ -120,5 +120,5 @@ export function useHomeFeed() {
     setData((prev) => ({ ...prev, nickname: (prof as any)?.nickname ?? null }));
   }, []);
 
-  return { ...data, loading, refreshing, refresh, refreshProfile };
+  return { ...data, loading, refreshing, refresh, reload: load, refreshProfile };
 }
