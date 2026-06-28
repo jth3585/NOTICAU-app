@@ -254,7 +254,12 @@ export default function InboxScreen() {
   // target_depts 있는 공지)가 전체/카테고리 피드에 새지 않게 한다. 인박스는 읽은 공지도 계속
   // 보여주므로 readIds는 빈 셋(NO_READ)으로 둔다(= 홈 패턴).
   const visible = useMemo(() => {
-    if (query.trim()) return searchResults.filter(campusAllows);
+    // 검색 결과도 전체공지 피드와 동일한 타게팅 필터(isMismatch) 적용 → 타 학과/캠퍼스·끈 카테고리
+    // 공지는 검색에서도 제외. 프로필 로딩 전엔 캠퍼스만으로 폴백.
+    if (query.trim()) {
+      if (!profile) return searchResults.filter(campusAllows);
+      return searchResults.filter((n) => !isMismatch(n, metaOf(n), profile, disabledTopics, NO_READ));
+    }
     if (!profile) return [];
     const matched = notices.filter((n) => !isMismatch(n, metaOf(n), profile, disabledTopics, NO_READ));
     const f = selected === '전체' ? matched : matched.filter((n) => metaOf(n)?.topic === selected);
