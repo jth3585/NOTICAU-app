@@ -29,17 +29,18 @@ export async function loadProfile(): Promise<Profile | null> {
   return cached;
 }
 
-// 낙관적 갱신: 캐시를 즉시 패치+브로드캐스트한 뒤 DB에 기록. 실패하면 이전 값으로 롤백.
+// 낙관적 갱신: 캐시를 즉시 패치+브로드캐스트한 뒤 DB에 기록.
+// 매 호출마다 세션을 직접 얻으므로(마운트 시점 ref에 의존하지 않음) 화면 진입 직후 빠른
+// 변경에도 쓰기가 누락되지 않는다. 실패 시 서버에서 재동기화(다른 in-flight 변경을 덮지 않게
+// 스냅샷 롤백 대신 loadProfile로 정합성 회복).
 export async function updateProfile(patch: Partial<Profile>): Promise<{ error: string | null }> {
   const { data: { session } } = await supabase.auth.getSession();
   if (!session) return { error: '로그인이 필요해요' };
-  const prev = cached;
   if (cached) { cached = { ...cached, ...patch }; emit(); }
   const { error } = await supabase
     .from('profiles').update(patch as any).eq('user_id', session.user.id);
   if (error) {
-    cached = prev; // 롤백
-    emit();
+    await loadProfile().catch(() => {}); // 서버 최신값으로 재동기화
     return { error: error.message };
   }
   return { error: null };
