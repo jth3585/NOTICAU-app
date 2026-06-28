@@ -149,11 +149,12 @@ export function sortNotices(rows: Notice[], mode: SortMode = 'deadline'): Notice
     return [...rows].sort((a, b) => (b.posted_at ?? '').localeCompare(a.posted_at ?? ''));
   }
   const today = kstTodayKey();
-  // 0: 임박(오늘·미래 마감), 1: 마감 지남, 2: 마감 없음
+  // 0: 임박(오늘·미래 마감), 1: 마감 없음, 2: 마감 지남
+  //   마감 지난 공지는 관심도가 낮으므로 맨 뒤로(단, 목록에서 빠지진 않음).
   const rank = (n: Notice): number => {
     const dl = metaOf(n)?.deadline_at ?? null;
-    if (!dl || isNaN(Date.parse(dl))) return 2;
-    return dayDiff(kstDateKey(dl), today) >= 0 ? 0 : 1;
+    if (!dl || isNaN(Date.parse(dl))) return 1;
+    return dayDiff(kstDateKey(dl), today) >= 0 ? 0 : 2;
   };
   return [...rows].sort((a, b) => {
     const ra = rank(a), rb = rank(b);
@@ -166,7 +167,7 @@ export function sortNotices(rows: Notice[], mode: SortMode = 'deadline'): Notice
       const cmp = da.localeCompare(db);
       return cmp !== 0 ? cmp : pb.localeCompare(pa);
     }
-    if (ra === 1) {
+    if (ra === 2) {
       // 마감 지남: 최근에 지난 것부터(내림차순), 동률이면 최신 등록
       const cmp = db.localeCompare(da);
       return cmp !== 0 ? cmp : pb.localeCompare(pa);
