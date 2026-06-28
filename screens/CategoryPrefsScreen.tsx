@@ -1,7 +1,8 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { StyleSheet, Switch, Text, TouchableOpacity, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useNavigation } from '@react-navigation/native';
+import { Gesture } from 'react-native-gesture-handler';
 import ReorderableList, {
   useReorderableDrag, reorderItems, type ReorderableListReorderEvent,
 } from 'react-native-reorderable-list';
@@ -68,6 +69,10 @@ export default function CategoryPrefsScreen() {
 
   const isEnabled = (topic: string) => prefs[topic] !== false;
 
+  // 재정렬 팬 제스처를 세로 움직임에만 활성화 → iOS 왼쪽 엣지 스와이프백을 막지 않음.
+  // (기본 panGesture는 activeOffset 제약이 없어 가로 스와이프도 가로채 뒤로가기가 안 됨)
+  const panGesture = useMemo(() => Gesture.Pan().activeOffsetY([-10, 10]), []);
+
   return (
     <SafeAreaView style={styles.container} edges={['top']}>
       <View style={styles.header}>
@@ -78,6 +83,7 @@ export default function CategoryPrefsScreen() {
       <ReorderableList
         data={order}
         onReorder={onReorder}
+        panGesture={panGesture}
         keyExtractor={(t) => t}
         contentContainerStyle={styles.listContent}
         ListHeaderComponent={
