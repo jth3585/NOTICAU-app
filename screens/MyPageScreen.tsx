@@ -98,9 +98,7 @@ export default function MyPageScreen() {
         {/* 히어로 컨테이너는 항상 렌더 → 프로필 로딩 중에도 상단 안전영역 여백이 유지돼
             상단 잘림/스크롤 막힘을 방지. SVG 로고 위치는 기존 그대로(상단 블리드). */}
         <View style={[styles.hero, { paddingTop: insets.top + SPACING.xxl }]}>
-            {/* 브랜드 로고를 우측에 크게 블리드(낮은 불투명도). 하단 페이드는 SVG 마스크 대신
-                expo-linear-gradient 오버레이로 처리 — 마스크 미적용/하드컷 문제 없이 모든 기기에서
-                자연스럽게 배경으로 사라짐. 로고 위치(heroLogo)는 기존 그대로. */}
+            {/* 브랜드 로고를 우측에 크게 블리드(낮은 불투명도). 위치는 heroLogo에서 조절. */}
             <Svg width={HERO_LOGO_SIZE} height={HERO_LOGO_SIZE} style={styles.heroLogo} pointerEvents="none">
               <SvgImage
                 href={require('../assets/icon-foreground.png')}
@@ -110,11 +108,6 @@ export default function MyPageScreen() {
                 opacity={HERO_LOGO_OPACITY}
               />
             </Svg>
-            <LinearGradient
-              colors={['transparent', COLORS.bg]}
-              style={styles.heroFade}
-              pointerEvents="none"
-            />
             {profile && (
             <View style={styles.heroRow}>
               <LinearGradient colors={COLORS.accentGradient} start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }} style={styles.heroAvatar}>
@@ -187,8 +180,6 @@ const styles = StyleSheet.create({
   },
   // 우측 블리드 브랜드 로고 (크게 확대). 크기는 HERO_LOGO_SIZE, 위치는 여기서 조절.
   heroLogo: { position: 'absolute', top: -30, right: -80 },
-  // 히어로 하단 페이드: 로고가 '내 설정' 경계로 뚝 끊기지 않고 배경으로 자연스럽게 사라지게.
-  heroFade: { position: 'absolute', left: 0, right: 0, bottom: 0, height: 120 },
   heroRow: { flexDirection: 'row', alignItems: 'center', gap: SPACING.md },
   heroAvatar: {
     width: 56, height: 56, borderRadius: 28,
