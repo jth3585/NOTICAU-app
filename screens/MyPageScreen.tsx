@@ -94,9 +94,12 @@ export default function MyPageScreen() {
         style={styles.topTint}
         pointerEvents="none"
       />
-      <ScrollView contentContainerStyle={styles.scroll} showsVerticalScrollIndicator={false}>
+      <ScrollView
+        contentContainerStyle={[styles.scroll, { paddingTop: insets.top, flexGrow: 1 }]}
+        showsVerticalScrollIndicator={false}
+      >
         {profile && (
-          <View style={[styles.hero, { paddingTop: insets.top + SPACING.xxl }]}>
+          <View style={[styles.hero, { paddingTop: SPACING.xxl }]}>
             {/* 브랜드 로고를 우측에 크게 블리드 — 원본 풀컬러(낮은 불투명도)로 두 마름모의
                 색·톤 차이를 살리고, 아래로 갈수록 부드럽게 페이드(SVG 마스크) */}
             <Svg width={HERO_LOGO_SIZE} height={HERO_LOGO_SIZE} style={styles.heroLogo} pointerEvents="none">
