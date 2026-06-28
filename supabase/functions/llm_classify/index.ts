@@ -430,6 +430,7 @@ Deno.serve(async (req) => {
     cau_hist: "역사학과", // → history
     cau_phil: "철학과",   // → philosophy
     cau_social: "사회과학대학", // 단과대 게시판 → social 전체(college 정규화)
+    cau_pol: "정치국제학과", // → political
   };
   // 한 게시판이 여러 학과를 묶는 학부: 학과 한정(target_depts 비어있지 않음) 공지를 이 학과들 전체로 확장.
   const OWNER_DEPT_GROUP: Record<string, string[]> = {
