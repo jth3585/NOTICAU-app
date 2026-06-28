@@ -21,7 +21,7 @@ import type { RootStackParamList } from '../lib/types';
 import { COLORS, FONT, RADIUS, SPACING, WEIGHT } from '../lib/theme';
 import { BackButton } from '../components/ui/BackButton';
 import { formatDateFull, metaOf, sourceOf } from '../lib/format';
-import { sourceLabel } from '../lib/constants';
+import { useSourceLabels } from '../lib/sources';
 import { CategoryBadge } from '../components/ui/CategoryBadge';
 import { SourceBadge } from '../components/ui/SourceBadge';
 import { DeadlineBox } from '../components/ui/DeadlineBox';
@@ -52,6 +52,8 @@ export default function NoticeDetailScreen({ route, navigation }: Props) {
   const meta = metaOf(notice);
   const src = sourceOf(notice);
   const topic = meta?.topic ?? null;
+  // 교차출처 중복 라벨(parser_key→이름)은 DB sources 기반 맵으로 해석.
+  const sourceLabel = useSourceLabels();
   // body_markdown은 목록 쿼리에서 제외(페이로드 절감)되므로 상세에서 지연 로드.
   // 딥링크 등으로 이미 들어온 경우(meta.body_markdown 존재)엔 추가 패치 없음.
   const [md, setMd] = useState<string | null>(meta?.body_markdown ?? null);
@@ -134,7 +136,7 @@ export default function NoticeDetailScreen({ route, navigation }: Props) {
         <BackButton onPress={() => navigation.goBack()} />
         <View style={styles.headerMeta}>
           {topic ? <CategoryBadge topic={topic} /> : null}
-          <SourceBadge parserKey={src?.parser_key ?? null} />
+          <SourceBadge name={src?.name} parserKey={src?.parser_key} />
           <TouchableOpacity onPress={onShare} hitSlop={8} accessibilityRole="button" accessibilityLabel="공유">
             <ShareIcon size={22} color={COLORS.textTertiary} />
           </TouchableOpacity>

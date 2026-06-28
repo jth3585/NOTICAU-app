@@ -13,27 +13,7 @@ export const CHIP_TOPICS = [
   '시설&시스템',
 ] as const;
 
-// sources.parser_key → 짧은 표시 라벨
-export const SOURCE_LABELS: Record<string, string> = {
-  cau_main: '본교',
-  cau_bne: '경영경제대학',
-  cau_biz: '경영학부',
-  cau_biz_career: '경력개발센터',
-  cau_econ: '경제학부',
-  cau_stat: '응용통계학과',
-  cau_adpr: '광고홍보학부',
-  cau_security: '산업보안학과',
-  cau_log: '국제물류학과',
-  cau_koll: '국어국문학부',
-  cau_human: '인문대학',
-  cau_iacf: '산학협력단',
-  cau_abeek: '공학교육혁신센터',
-  cau_library: '학술정보원',
-  cau_dorm: '생활관',
-  cau_dorm_seoul: '생활관',
-};
-
-export function sourceLabel(parserKey: string | null | undefined): string {
-  if (!parserKey) return '';
-  return SOURCE_LABELS[parserKey] ?? parserKey;
-}
+// 출처 표시 이름은 DB sources.name이 단일 소스다(하드코딩 맵 폐지).
+//  - 대표 출처 배지: 공지에 조인돼 오는 sources.name 사용 (components/ui/SourceBadge)
+//  - 교차출처 중복(parser_key 배열): lib/sources.ts의 useSourceLabels()로 해석
+// → DB에 출처 추가 시 name만 채우면 앱 재빌드 없이 표시됨.

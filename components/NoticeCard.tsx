@@ -69,7 +69,7 @@ export function NoticeCard({
           {topic ? <CategoryBadge topic={topic} /> : null}
         </View>
         <View style={styles.topRight}>
-          <SourceBadge parserKey={src?.parser_key ?? null} />
+          <SourceBadge name={src?.name} parserKey={src?.parser_key} />
           {notice.dup_count ? <Text style={styles.dupTag}>· 외 {notice.dup_count}곳</Text> : null}
         </View>
       </View>
