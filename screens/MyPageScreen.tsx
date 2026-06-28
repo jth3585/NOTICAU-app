@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { ScrollView, StyleSheet, Switch, Text, TouchableOpacity, View } from 'react-native';
+import { ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { LinearGradient } from 'expo-linear-gradient';
 import Svg, { Image as SvgImage, Defs, LinearGradient as SvgLinearGradient, Stop, Mask, Rect, G } from 'react-native-svg';
@@ -9,7 +9,7 @@ import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { supabase } from '../lib/supabase';
 import type { RootStackParamList } from '../lib/types';
 import { COLORS, FONT, RADIUS, SHADOW, SPACING, TEXT, WEIGHT } from '../lib/theme';
-import { HashIcon, FolderIcon, BellIcon, UserIcon, PencilIcon, LayersIcon } from '../components/ui/icons';
+import { HashIcon, FolderIcon, BellIcon, UserIcon, PencilIcon } from '../components/ui/icons';
 import { SettingsGroup, SettingsRow } from '../components/ui/SettingsRow';
 
 type Nav = NativeStackNavigationProp<RootStackParamList>;
@@ -44,22 +44,12 @@ export default function MyPageScreen() {
   const [profile, setProfile] = useState<Profile | null>(null);
   const [collegeName, setCollegeName] = useState('');
   const [deptName, setDeptName] = useState('');
-  const [crossDept, setCrossDept] = useState(true);
-
-  const toggleCrossDept = useCallback(async (next: boolean) => {
-    setCrossDept(next);
-    const { data: { session } } = await supabase.auth.getSession();
-    if (!session) return;
-    await supabase.from('profiles').update({ show_cross_dept: next }).eq('user_id', session.user.id);
-  }, []);
-
   const load = useCallback(async () => {
     const { data: { session } } = await supabase.auth.getSession();
     if (!session) return;
     const { data } = await supabase.from('profiles').select('*').eq('user_id', session.user.id).maybeSingle();
     if (!data) return;
     setProfile(data as Profile);
-    setCrossDept((data as Profile).show_cross_dept ?? true);
     if (data.college) {
       const { data: col } = await supabase.from('colleges').select('name').eq('code', data.college).maybeSingle();
       setCollegeName((col as any)?.name ?? data.college);
@@ -146,22 +136,7 @@ export default function MyPageScreen() {
         <Text style={styles.groupLabel}>내 설정</Text>
         <SettingsGroup>
           <SettingsRow icon={<HashIcon size={16} color={COLORS.textSecondary} />} label="키워드 관리" onPress={() => navigation.navigate('KeywordManage')} />
-          <SettingsRow icon={<FolderIcon size={16} color={COLORS.textSecondary} />} label="카테고리 필터" onPress={() => navigation.navigate('CategoryPrefs')} />
-          <SettingsRow
-            icon={<LayersIcon size={16} color={COLORS.textSecondary} />}
-            label="타 학과 공지 보기"
-            subtitle="다른 학과의 채용·세미나·대회 공지도 표시"
-            rightElement={
-              <Switch
-                value={crossDept}
-                onValueChange={toggleCrossDept}
-                trackColor={{ true: COLORS.accent }}
-                thumbColor="#fff"
-                style={{ transform: [{ scale: 0.85 }] }}
-              />
-            }
-            last
-          />
+          <SettingsRow icon={<FolderIcon size={16} color={COLORS.textSecondary} />} label="전체공지 관리" onPress={() => navigation.navigate('CategoryPrefs')} last />
         </SettingsGroup>
 
         {/* 앱 정보 */}

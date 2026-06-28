@@ -9,7 +9,7 @@ import { supabase } from '../lib/supabase';
 import { COLORS, FONT, RADIUS, SHADOW, SPACING, WEIGHT } from '../lib/theme';
 import { BackButton } from '../components/ui/BackButton';
 import { CategoryBadge } from '../components/ui/CategoryBadge';
-import { GripIcon } from '../components/ui/icons';
+import { GripIcon, LayersIcon } from '../components/ui/icons';
 import { orderedCategories, CATEGORIES } from '../lib/categories';
 
 export default function CategoryPrefsScreen() {
@@ -17,21 +17,33 @@ export default function CategoryPrefsScreen() {
   const [prefs, setPrefs] = useState<Record<string, boolean>>({});
   const [order, setOrder] = useState<string[]>(CATEGORIES);
   const [userId, setUserId] = useState<string | null>(null);
+  // 타 학과 공지 보기(글로벌 토글). 전체 피드에 다른 학과의 채용·세미나·대회를 포함할지.
+  const [crossDept, setCrossDept] = useState(true);
 
   useEffect(() => {
     (async () => {
       const { data: { session } } = await supabase.auth.getSession();
       if (!session) return;
       setUserId(session.user.id);
-      const { data } = await supabase.from('user_category_prefs')
-        .select('topic,is_enabled,sort_order').eq('user_id', session.user.id);
-      const rows = (data ?? []) as any[];
+      const [prefRes, profRes] = await Promise.all([
+        supabase.from('user_category_prefs')
+          .select('topic,is_enabled,sort_order').eq('user_id', session.user.id),
+        supabase.from('profiles').select('show_cross_dept').eq('user_id', session.user.id).maybeSingle(),
+      ]);
+      const rows = (prefRes.data ?? []) as any[];
       const map: Record<string, boolean> = {};
       rows.forEach((r) => { map[r.topic] = r.is_enabled; });
       setPrefs(map);
       setOrder(orderedCategories(rows));
+      setCrossDept(((profRes.data as any)?.show_cross_dept) ?? true);
     })();
   }, []);
+
+  const toggleCrossDept = async (next: boolean) => {
+    if (!userId) return;
+    setCrossDept(next);
+    await supabase.from('profiles').update({ show_cross_dept: next }).eq('user_id', userId);
+  };
 
   const toggle = async (topic: string) => {
     if (!userId) return;
@@ -60,15 +72,35 @@ export default function CategoryPrefsScreen() {
     <SafeAreaView style={styles.container} edges={['top']}>
       <View style={styles.header}>
         <BackButton onPress={() => navigation.goBack()} />
-        <Text style={styles.title}>카테고리 편집</Text>
+        <Text style={styles.title}>전체공지 관리</Text>
         <View style={{ width: 40 }} />
       </View>
-      <Text style={styles.hint}>켜둔 카테고리만 '전체' 피드에 보여요. 왼쪽 손잡이를 끌어 순서를 바꿀 수 있어요.</Text>
       <ReorderableList
         data={order}
         onReorder={onReorder}
         keyExtractor={(t) => t}
         contentContainerStyle={styles.listContent}
+        ListHeaderComponent={
+          <View style={styles.crossRow}>
+            <View style={styles.crossLeft}>
+              <LayersIcon size={18} color={COLORS.textSecondary} />
+              <View style={styles.crossText}>
+                <Text style={styles.crossLabel}>타 학과 공지 보기</Text>
+                <Text style={styles.crossSub}>다른 학과의 채용·세미나·대회 공지도 표시</Text>
+              </View>
+            </View>
+            <Switch
+              value={crossDept}
+              onValueChange={toggleCrossDept}
+              trackColor={{ true: COLORS.accent }}
+              thumbColor="#fff"
+              style={styles.switch}
+            />
+          </View>
+        }
+        ListFooterComponent={
+          <Text style={styles.hint}>켜둔 카테고리만 '전체' 피드에 보여요. 왼쪽 손잡이를 끌어 순서를 바꿀 수 있어요.</Text>
+        }
         renderItem={({ item }) => (
           <CategoryRow topic={item} enabled={isEnabled(item)} onToggle={() => toggle(item)} />
         )}
@@ -102,8 +134,20 @@ const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: COLORS.bg },
   header: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingHorizontal: SPACING.lg, paddingVertical: SPACING.md },
   title: { fontSize: FONT.subtitle, fontWeight: WEIGHT.bold, color: COLORS.text },
-  hint: { fontSize: FONT.caption, color: COLORS.textSecondary, paddingHorizontal: SPACING.lg, marginBottom: SPACING.md },
+  hint: { fontSize: FONT.caption, color: COLORS.textSecondary, marginTop: SPACING.md },
   listContent: { paddingHorizontal: SPACING.lg, paddingBottom: SPACING.xxl },
+  // 타 학과 공지 보기 토글 (목록 상단 헤더 카드)
+  crossRow: {
+    flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between',
+    backgroundColor: COLORS.surface, borderRadius: RADIUS.card,
+    paddingHorizontal: SPACING.lg, paddingVertical: SPACING.md + 2,
+    marginBottom: SPACING.lg,
+    ...SHADOW.card,
+  },
+  crossLeft: { flexDirection: 'row', alignItems: 'center', gap: SPACING.md, flex: 1, paddingRight: SPACING.md },
+  crossText: { flex: 1 },
+  crossLabel: { fontSize: FONT.body, fontWeight: WEIGHT.semibold, color: COLORS.text },
+  crossSub: { fontSize: FONT.caption, color: COLORS.textSecondary, marginTop: 2 },
   row: {
     flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between',
     backgroundColor: COLORS.surface, borderRadius: RADIUS.card,
