@@ -438,6 +438,9 @@ Deno.serve(async (req) => {
     cau_cmc: "미디어커뮤니케이션학부", // → media_comm
     cau_urban: "도시계획·부동산학과", // → urban_re
     cau_socio: "사회학과", // → sociology
+    cau_cse: "소프트웨어학부", // → software
+    cau_ai: "AI학과", // → ai
+    // cau_swedu(SW교육원)는 독립기관 → owner 없음(본문 명시 학과만 한정 = 사실상 전체)
   };
   // 한 게시판이 여러 학과를 묶는 학부: 학과 한정(target_depts 비어있지 않음) 공지를 이 학과들 전체로 확장.
   const OWNER_DEPT_GROUP: Record<string, string[]> = {
