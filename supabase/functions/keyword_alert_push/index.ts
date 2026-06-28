@@ -116,12 +116,16 @@ Deno.serve(async (req) => {
 
   const now = new Date();
   const windowStart = new Date(now.getTime() - HOUR_MS).toISOString();
+  // 게시일 게이트: 백필(과거 날짜로 막 크롤링된 공지)로 알림이 울리지 않게 최근 게시분만.
+  // 홈 키워드매치 탭(posted_at 48h)에 반드시 보이도록 그보다 좁은 24h로 둔다.
+  const postWindowStart = new Date(now.getTime() - 24 * HOUR_MS).toISOString();
 
-  // ---- 지난 1시간 새 공지 (crawled_at 기준) ----
+  // ---- 지난 1시간 새로 들어왔고(crawled_at), 게시일도 최근(posted_at)인 공지 ----
   const { data: notices, error: noticesErr } = await supabase
     .from("notices")
     .select("id, title, body_text, crawled_at, notice_meta(topic,target_grades,target_depts,target_campuses,target_enrollment_status,targets_freshmen,excludes_undergrad), sources(campus)")
     .gte("crawled_at", windowStart)
+    .gte("posted_at", postWindowStart)
     .order("crawled_at", { ascending: false });
   if (noticesErr) {
     return new Response(JSON.stringify({ error: noticesErr.message }), { status: 500 });
