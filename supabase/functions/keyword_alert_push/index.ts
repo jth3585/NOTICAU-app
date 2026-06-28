@@ -117,7 +117,7 @@ Deno.serve(async (req) => {
   const now = new Date();
   const windowStart = new Date(now.getTime() - HOUR_MS).toISOString();
   // 게시일 게이트: 백필(과거 날짜로 막 크롤링된 공지)로 알림이 울리지 않게 최근 게시분만.
-  // 홈 키워드매치 탭(posted_at 48h)에 반드시 보이도록 그보다 좁은 24h로 둔다.
+  // 홈 키워드매치 탭이 posted_at 24h 기준이므로 동일하게 24h로 맞춘다.
   const postWindowStart = new Date(now.getTime() - 24 * HOUR_MS).toISOString();
 
   // ---- 지난 1시간 새로 들어왔고(crawled_at), 게시일도 최근(posted_at)인 공지 ----

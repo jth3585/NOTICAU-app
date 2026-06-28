@@ -6,9 +6,7 @@ import { isMismatch, matchKeyword } from './matching';
 import { NOTICE_LIST_SELECT } from './notices';
 
 const NEW_WINDOW_MS = 24 * 60 * 60 * 1000; // "새공지" 윈도우 (최근 24h crawled)
-const KEYWORD_WINDOW_MS = 48 * 60 * 60 * 1000; // "키워드매치" 윈도우 (최근 48h 게시 중 매칭)
-// ↑ 키워드 푸시(keyword_alert_push)는 게시일 24h 이내만 알림 → 알림이 가리키는 공지가
-//   이 탭에 반드시 보이도록 더 넉넉한 48h로 둔다(열람 지연 드리프트 흡수).
+const KEYWORD_WINDOW_MS = 24 * 60 * 60 * 1000; // "키워드매치" 윈도우 (최근 24h 게시 중 매칭)
 const DEADLINE_WINDOW_MS = 24 * 60 * 60 * 1000; // "오늘마감" 윈도우 (now ~ now+24h 마감)
 
 export type HomeTab = 'new' | 'keyword' | 'deadline';
