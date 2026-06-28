@@ -436,6 +436,8 @@ Deno.serve(async (req) => {
     cau_psy: "심리학과",       // → psychology
     cau_welfare: "사회복지학부", // → social_welfare
     cau_cmc: "미디어커뮤니케이션학부", // → media_comm
+    cau_urban: "도시계획·부동산학과", // → urban_re
+    cau_socio: "사회학과", // → sociology
   };
   // 한 게시판이 여러 학과를 묶는 학부: 학과 한정(target_depts 비어있지 않음) 공지를 이 학과들 전체로 확장.
   const OWNER_DEPT_GROUP: Record<string, string[]> = {
