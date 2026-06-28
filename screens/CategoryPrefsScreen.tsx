@@ -9,7 +9,7 @@ import { supabase } from '../lib/supabase';
 import { COLORS, FONT, RADIUS, SHADOW, SPACING, WEIGHT } from '../lib/theme';
 import { BackButton } from '../components/ui/BackButton';
 import { CategoryBadge } from '../components/ui/CategoryBadge';
-import { GripIcon, LayersIcon } from '../components/ui/icons';
+import { GripIcon } from '../components/ui/icons';
 import { orderedCategories, CATEGORIES } from '../lib/categories';
 
 export default function CategoryPrefsScreen() {
@@ -81,21 +81,18 @@ export default function CategoryPrefsScreen() {
         keyExtractor={(t) => t}
         contentContainerStyle={styles.listContent}
         ListHeaderComponent={
-          <View style={styles.crossRow}>
-            <View style={styles.crossLeft}>
-              <LayersIcon size={18} color={COLORS.textSecondary} />
-              <View style={styles.crossText}>
-                <Text style={styles.crossLabel}>타 학과 공지 보기</Text>
-                <Text style={styles.crossSub}>다른 학과의 채용·세미나·대회 공지도 표시</Text>
-              </View>
+          <View style={styles.crossWrap}>
+            <View style={styles.crossRow}>
+              <Text style={styles.crossLabel}>타 학과 공지 보기</Text>
+              <Switch
+                value={crossDept}
+                onValueChange={toggleCrossDept}
+                trackColor={{ true: COLORS.accent }}
+                thumbColor="#fff"
+                style={styles.switch}
+              />
             </View>
-            <Switch
-              value={crossDept}
-              onValueChange={toggleCrossDept}
-              trackColor={{ true: COLORS.accent }}
-              thumbColor="#fff"
-              style={styles.switch}
-            />
+            <Text style={styles.crossSub}>다른 학과의 채용·세미나·대회 공지도 표시</Text>
           </View>
         }
         ListFooterComponent={
@@ -136,18 +133,16 @@ const styles = StyleSheet.create({
   title: { fontSize: FONT.subtitle, fontWeight: WEIGHT.bold, color: COLORS.text },
   hint: { fontSize: FONT.caption, color: COLORS.textSecondary, marginTop: SPACING.md },
   listContent: { paddingHorizontal: SPACING.lg, paddingBottom: SPACING.xxl },
-  // 타 학과 공지 보기 토글 (목록 상단 헤더 카드)
+  // 타 학과 공지 보기 토글 (목록 상단 헤더 카드 + 아래 세부설명 힌트)
+  crossWrap: { marginBottom: SPACING.lg },
   crossRow: {
     flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between',
     backgroundColor: COLORS.surface, borderRadius: RADIUS.card,
     paddingHorizontal: SPACING.lg, paddingVertical: SPACING.md + 2,
-    marginBottom: SPACING.lg,
     ...SHADOW.card,
   },
-  crossLeft: { flexDirection: 'row', alignItems: 'center', gap: SPACING.md, flex: 1, paddingRight: SPACING.md },
-  crossText: { flex: 1 },
   crossLabel: { fontSize: FONT.body, fontWeight: WEIGHT.semibold, color: COLORS.text },
-  crossSub: { fontSize: FONT.caption, color: COLORS.textSecondary, marginTop: 2 },
+  crossSub: { fontSize: FONT.caption, color: COLORS.textSecondary, marginTop: SPACING.sm, paddingHorizontal: SPACING.xs },
   row: {
     flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between',
     backgroundColor: COLORS.surface, borderRadius: RADIUS.card,
