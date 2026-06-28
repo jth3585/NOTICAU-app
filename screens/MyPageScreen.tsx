@@ -94,12 +94,10 @@ export default function MyPageScreen() {
         style={styles.topTint}
         pointerEvents="none"
       />
-      <ScrollView
-        contentContainerStyle={[styles.scroll, { paddingTop: insets.top, flexGrow: 1 }]}
-        showsVerticalScrollIndicator={false}
-      >
-        {profile && (
-          <View style={[styles.hero, { paddingTop: SPACING.xxl }]}>
+      <ScrollView contentContainerStyle={styles.scroll} showsVerticalScrollIndicator={false}>
+        {/* 히어로 컨테이너는 항상 렌더 → 프로필 로딩 중에도 상단 안전영역 여백이 유지돼
+            상단 잘림/스크롤 막힘을 방지. SVG 로고 위치는 기존 그대로(상단 블리드). */}
+        <View style={[styles.hero, { paddingTop: insets.top + SPACING.xxl }]}>
             {/* 브랜드 로고를 우측에 크게 블리드 — 원본 풀컬러(낮은 불투명도)로 두 마름모의
                 색·톤 차이를 살리고, 아래로 갈수록 부드럽게 페이드(SVG 마스크) */}
             <Svg width={HERO_LOGO_SIZE} height={HERO_LOGO_SIZE} style={styles.heroLogo} pointerEvents="none">
@@ -123,6 +121,7 @@ export default function MyPageScreen() {
                 />
               </G>
             </Svg>
+            {profile && (
             <View style={styles.heroRow}>
               <LinearGradient colors={COLORS.accentGradient} start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }} style={styles.heroAvatar}>
                 <Text style={styles.heroAvatarText}>
@@ -155,8 +154,8 @@ export default function MyPageScreen() {
                 </Text>
               </View>
             </View>
+            )}
           </View>
-        )}
 
         <View style={styles.body}>
         {/* 내 설정 */}
