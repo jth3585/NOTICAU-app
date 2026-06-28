@@ -420,14 +420,22 @@ Deno.serve(async (req) => {
     cau_koll: "국어국문학과",
     cau_human: "인문대학",
     cau_engl: "영어영문학과",
+    cau_euro: "유럽문화학부(독일어문학)", // 학부 게시판: 학과 한정 공지는 아래 OWNER_DEPT_GROUP로 3개 학과 확장
+  };
+  // 한 게시판이 여러 학과를 묶는 학부: 학과 한정(target_depts 비어있지 않음) 공지를 이 학과들 전체로 확장.
+  const OWNER_DEPT_GROUP: Record<string, string[]> = {
+    cau_euro: ["euro_german", "euro_french", "euro_russian"], // 유럽문화학부
   };
   const { data: allSrc } = await supabase.from("sources").select("id,parser_key,owner_unit");
   const ownerBySourceId = new Map<string, string>();
   const ownerUnitBySourceId = new Map<string, string>(); // 게시판 소속 코드(dept/college)
+  const deptGroupBySourceId = new Map<string, string[]>(); // 학부 게시판 → 소속 학과 코드들
   for (const s of (allSrc ?? []) as { id: string; parser_key: string; owner_unit: string | null }[]) {
     const o = SOURCE_OWNER[s.parser_key];
     if (o) ownerBySourceId.set(s.id, o);
     if (s.owner_unit) ownerUnitBySourceId.set(s.id, s.owner_unit);
+    const grp = OWNER_DEPT_GROUP[s.parser_key];
+    if (grp) deptGroupBySourceId.set(s.id, grp);
   }
 
   // 학과/단과대 이름→코드 맵: target_depts를 코드로 정규화해 앱의 profile(코드)과 직접 비교 가능하게.
@@ -471,6 +479,11 @@ Deno.serve(async (req) => {
       const ou = ownerUnitBySourceId.get(n.source_id);
       if (ou && collegeCodes.has(ou) && Array.isArray(meta.target_depts) && meta.target_depts.length > 0) {
         meta.target_depts = [ou];
+      }
+      // 학부 게시판: 학과 한정 공지는 소속 학과 전원으로 확장(일부 학과만 잡혀도 누락 방지).
+      const grp = deptGroupBySourceId.get(n.source_id);
+      if (grp && Array.isArray(meta.target_depts) && meta.target_depts.length > 0) {
+        meta.target_depts = grp;
       }
       const { error: upErr } = await supabase.from("notice_meta").upsert({ notice_id: n.id, ...meta });
       if (upErr) throw upErr;
