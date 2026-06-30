@@ -11,7 +11,7 @@ import { createClient } from "jsr:@supabase/supabase-js@2";
 
 const SOURCE_PARSER_KEY = "cau_ece";
 const BASE = "https://cauece.cau.ac.kr";
-const BO_TABLE = "s0404";
+const BO_TABLE = "s0406"; // 학과공지사항 및 행사안내 (s0404=자료실, 사용 안 함)
 const AUTHOR = "유아교육과";
 const DEFAULT_BACKFILL = "2026-05-01";
 
