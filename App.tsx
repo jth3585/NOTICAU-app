@@ -18,6 +18,7 @@ import { ensureAnonSession } from './lib/auth';
 import { migrateLocalToDB } from './lib/migrate';
 import { setupPushNotifications } from './lib/push';
 import { fetchNoticeById } from './lib/notices';
+import { loadSourceLabels } from './lib/sources';
 import { ToastHost } from './components/ui/ToastHost';
 import { OfflineBanner } from './components/ui/OfflineBanner';
 import { supabase } from './lib/supabase';
@@ -174,6 +175,8 @@ export default function App() {
           await migrateLocalToDB();
           // 푸시 등록은 UI 블록하지 않도록 fire-and-forget.
           setupPushNotifications();
+          // 출처 표시 이름 캐시 예열(parser_key→name). 첫 피드 렌더 전에 채워 cau_ 깜빡임 방지.
+          loadSourceLabels();
           const { data } = await supabase
             .from('profiles')
             .select('user_id')

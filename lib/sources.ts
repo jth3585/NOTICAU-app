@@ -10,9 +10,12 @@ let cache: Record<string, string> | null = null;
 const listeners = new Set<(m: Record<string, string>) => void>();
 
 export async function loadSourceLabels(): Promise<Record<string, string>> {
-  const { data } = await supabase.from('sources').select('parser_key, name');
+  const { data, error } = await supabase.from('sources').select('parser_key, name');
+  // 실패(오프라인 등) 시 캐시를 빈 맵으로 오염시키지 않는다 → 다음 호출에서 재시도 가능.
+  // (빈 맵을 캐싱하면 cache가 truthy가 되어 그 세션 내내 parser_key 폴백에 갇힘.)
+  if (error || !data) return cache ?? {};
   const map: Record<string, string> = {};
-  (data ?? []).forEach((s: any) => {
+  data.forEach((s: any) => {
     if (s.parser_key) map[s.parser_key] = s.name ?? s.parser_key;
   });
   cache = map;
