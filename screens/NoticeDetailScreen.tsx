@@ -30,6 +30,7 @@ import { SectionHeader } from '../components/ui/SectionHeader';
 import { AttachmentRow } from '../components/ui/AttachmentRow';
 import { InfoBox } from '../components/ui/InfoBox';
 import { AiSummaryLabel } from '../components/ui/AiSummaryLabel';
+import { BodyTextSkeleton } from '../components/ui/Skeleton';
 import ImageViewing from 'react-native-image-viewing';
 import { useBookmark } from '../lib/bookmarks';
 import { BookmarkIcon } from '../components/ui/BookmarkIcon';
@@ -57,6 +58,8 @@ export default function NoticeDetailScreen({ route, navigation }: Props) {
   // body_markdown은 목록 쿼리에서 제외(페이로드 절감)되므로 상세에서 지연 로드.
   // 딥링크 등으로 이미 들어온 경우(meta.body_markdown 존재)엔 추가 패치 없음.
   const [md, setMd] = useState<string | null>(meta?.body_markdown ?? null);
+  // 지연 로드 중 표시(원문 텍스트 깜빡임 대신 스켈레톤). 이미 md가 있으면 로딩 아님.
+  const [mdLoading, setMdLoading] = useState<boolean>(meta?.body_markdown == null);
   const deadlineAt = meta?.deadline_at ?? null;
   const applyStartAt = meta?.apply_start_at ?? null;
   // 마감일이 있고 아직 지나지 않은 경우에만 캘린더 추가 버튼 노출 (지난 마감은 무의미)
@@ -98,10 +101,17 @@ export default function NoticeDetailScreen({ route, navigation }: Props) {
 
   // body_markdown 지연 로드 (목록에서 제외됨). 없을 때만 단건 조회.
   useEffect(() => {
-    if (md != null) return;
+    if (md != null) { setMdLoading(false); return; }
     let alive = true;
-    supabase.from('notice_meta').select('body_markdown').eq('notice_id', notice.id).maybeSingle()
-      .then(({ data }) => { if (alive && data?.body_markdown) setMd(data.body_markdown); });
+    setMdLoading(true);
+    (async () => {
+      try {
+        const { data } = await supabase
+          .from('notice_meta').select('body_markdown').eq('notice_id', notice.id).maybeSingle();
+        if (alive && data?.body_markdown) setMd(data.body_markdown);
+      } catch { /* 네트워크 실패 → bodyText 폴백으로 표시 */ }
+      finally { if (alive) setMdLoading(false); }
+    })();
     return () => { alive = false; };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [notice.id]);
@@ -110,7 +120,8 @@ export default function NoticeDetailScreen({ route, navigation }: Props) {
   const onShare = async () => {
     const url = notice.source_url ?? '';
     const lines = [notice.title];
-    if (src?.name) lines.push(`출처: ${src.name}`);
+    const srcName = src?.name || sourceLabel(src?.parser_key);
+    if (srcName) lines.push(`출처: ${srcName}`);
     if (url) lines.push(url);
     lines.push('');
     lines.push('✨ powered by NOTICAU');
@@ -185,7 +196,7 @@ export default function NoticeDetailScreen({ route, navigation }: Props) {
         <DeadlineBox applyStartAt={applyStartAt} deadlineAt={deadlineAt} />
         {canAddCalendar ? <AddToCalendarButton notice={notice} deadlineAt={deadlineAt!} /> : null}
 
-        <BodyBlock md={md} bodyText={bodyText} sourceUrl={notice.source_url} onOpen={open} />
+        <BodyBlock md={md} loading={mdLoading} bodyText={bodyText} sourceUrl={notice.source_url} onOpen={open} />
 
         {images.length > 0 ? (
           <>
@@ -249,11 +260,13 @@ function splitSummary(md: string): { summary: string | null; rest: string } {
 
 const BodyBlock = memo(function BodyBlock({
   md,
+  loading,
   bodyText,
   sourceUrl,
   onOpen,
 }: {
   md: string | null;
+  loading: boolean;
   bodyText: string;
   sourceUrl: string | null;
   onOpen: (url: string | null) => void;
@@ -265,6 +278,11 @@ const BodyBlock = memo(function BodyBlock({
   // 훅은 조건 없이 항상 호출 — md null이면 빈 문자열 → 빈 배열 반환
   const summaryElements = useMarkdown(summary ?? '', { renderer: _summaryRenderer, styles: mdSummaryStyles });
   const bodyElements = useMarkdown(rest, { renderer: _bodyRenderer, styles: mdBodyStyles });
+
+  // 마크다운 지연 로드 중: 원문 텍스트를 먼저 보였다가 교체하는 깜빡임 대신 스켈레톤.
+  if (!md && loading) {
+    return <BodyTextSkeleton />;
+  }
 
   if (md) {
     return (

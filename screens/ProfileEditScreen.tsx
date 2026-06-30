@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import {
   Animated, Modal, ScrollView, StyleSheet, Text, TouchableOpacity,
   TouchableWithoutFeedback, View,
@@ -50,10 +50,15 @@ export default function ProfileEditScreen() {
   const [secondaryDeptName, setSecondaryDeptName] = useState<string>('');
 
   // Load profile (공유 스토어 경유 → 캐시 워밍) + all colleges
-  useEffect(() => {
-    loadProfile().then((p) => { if (p) setProfile(p as Profile); });
+  const [loadFailed, setLoadFailed] = useState(false);
+  const loadAll = useCallback(() => {
+    setLoadFailed(false);
+    loadProfile()
+      .then((p) => { p ? setProfile(p as Profile) : setLoadFailed(true); })
+      .catch(() => setLoadFailed(true));
     supabase.from('colleges').select('code,name').order('name').then(({ data }) => setAllColleges((data as Row[]) ?? []));
   }, []);
+  useEffect(() => { loadAll(); }, [loadAll]);
 
   // Load colleges when campus changes
   useEffect(() => {
@@ -100,7 +105,19 @@ export default function ProfileEditScreen() {
 
   if (!profile) return (
     <SafeAreaView style={styles.container} edges={['top']}>
-      <Text style={{ color: COLORS.textSecondary, padding: SPACING.lg }}>불러오는 중…</Text>
+      <View style={styles.header}>
+        <BackButton onPress={() => navigation.goBack()} />
+      </View>
+      {loadFailed ? (
+        <View style={{ padding: SPACING.lg, gap: SPACING.md }}>
+          <Text style={{ color: COLORS.textSecondary }}>프로필을 불러오지 못했어요.</Text>
+          <TouchableOpacity onPress={loadAll} accessibilityRole="button">
+            <Text style={{ color: COLORS.accent, fontWeight: WEIGHT.semibold }}>다시 시도</Text>
+          </TouchableOpacity>
+        </View>
+      ) : (
+        <Text style={{ color: COLORS.textSecondary, padding: SPACING.lg }}>불러오는 중…</Text>
+      )}
     </SafeAreaView>
   );
 

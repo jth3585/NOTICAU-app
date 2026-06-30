@@ -25,6 +25,34 @@ function CardSkeleton() {
   );
 }
 
+// 상세 본문 로딩 placeholder. body_markdown 지연 로드 동안 원문 텍스트가 잠깐
+// 보였다 교체되는 깜빡임(레이아웃 점프) 대신 부드러운 자리표시자를 보여준다.
+export function BodyTextSkeleton() {
+  const w = SCREEN_W - SPACING.lg * 2;
+  const line = (y: number, ratio: number) => (
+    <Rect x="0" y={String(y)} rx="5" ry="5" width={String(Math.round(w * ratio))} height="13" />
+  );
+  return (
+    <View style={styles.body}>
+      <ContentLoader
+        speed={1.1}
+        width={w}
+        height={188}
+        backgroundColor={COLORS.surface2}
+        foregroundColor={COLORS.border}
+      >
+        {/* 요약 박스 자리 */}
+        <Rect x="0" y="0" rx="10" ry="10" width={String(w)} height="72" />
+        {/* 본문 줄들 */}
+        {line(96, 1)}
+        {line(118, 0.96)}
+        {line(140, 0.98)}
+        {line(162, 0.6)}
+      </ContentLoader>
+    </View>
+  );
+}
+
 // 세로 목록(전체공지/북마크 등) 로딩 placeholder.
 export function NoticeListSkeleton({ count = 6 }: { count?: number }) {
   return (
@@ -35,6 +63,7 @@ export function NoticeListSkeleton({ count = 6 }: { count?: number }) {
 }
 
 const styles = StyleSheet.create({
+  body: { marginTop: SPACING.md },
   list: { paddingTop: SPACING.sm },
   card: {
     marginHorizontal: SPACING.lg,
