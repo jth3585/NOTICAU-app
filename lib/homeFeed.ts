@@ -44,8 +44,10 @@ export function useHomeFeed() {
   const [refreshing, setRefreshing] = useState(false);
 
   const load = useCallback(async () => {
+    // 어떤 단계가 throw해도 스켈레톤에 영구히 갇히지 않도록 finally에서 로딩 해제 보장.
+    try {
     const { data: { session } } = await supabase.auth.getSession();
-    if (!session) { setData(EMPTY); setLoading(false); return; }
+    if (!session) { setData(EMPTY); return; }
 
     const [profileRes, keywordsRes, prefsRes, noticesRes] = await Promise.all([
       supabase.from('profiles').select('*').eq('user_id', session.user.id).maybeSingle(),
@@ -55,7 +57,7 @@ export function useHomeFeed() {
     ]);
 
     const profile = profileRes.data as Profile | null;
-    if (!profile) { setData(EMPTY); setLoading(false); return; }
+    if (!profile) { setData(EMPTY); return; }
 
     const keywords = (keywordsRes.data ?? []) as UserKeyword[];
     const disabledTopics = new Set<string>(
@@ -100,7 +102,12 @@ export function useHomeFeed() {
       newCount: newList.length,
       deadlineSoonCount: deadlineList.length,
     });
-    setLoading(false);
+    } catch (e) {
+      // 실패 시 기존 데이터는 유지(빈 화면 깜빡임 방지) — 스피너만 내린다.
+      console.error('[homeFeed] load failed', e);
+    } finally {
+      setLoading(false);
+    }
   }, []);
 
   useEffect(() => { load(); }, [load]);

@@ -105,27 +105,33 @@ export function useDigest() {
 
   const initialize = useCallback(async () => {
     setLoading(true);
-    const today = new Date().toISOString().slice(0, 10);
-    const cached = await loadCache();
+    // 네트워크/스토리지 단계가 throw해도 홈이 스켈레톤에 갇히지 않도록 finally에서 해제.
+    try {
+      const today = new Date().toISOString().slice(0, 10);
+      const cached = await loadCache();
 
-    let ids: string[];
-    if (cached && cached.date === today) {
-      ids = cached.notice_ids;
-    } else {
-      ids = await computeDigestIds([], 5);
-      await saveCache(ids);
-    }
+      let ids: string[];
+      if (cached && cached.date === today) {
+        ids = cached.notice_ids;
+      } else {
+        ids = await computeDigestIds([], 5);
+        await saveCache(ids);
+      }
 
-    const [notices, readSet] = await Promise.all([
-      fetchNoticesByIds(ids),
-      fetchReadIds(),
-    ]);
+      const [notices, readSet] = await Promise.all([
+        fetchNoticesByIds(ids),
+        fetchReadIds(),
+      ]);
 
-    if (mounted.current) {
-      setCacheIds(ids);
-      setAllNotices(notices);
-      setReadIds(readSet);
-      setLoading(false);
+      if (mounted.current) {
+        setCacheIds(ids);
+        setAllNotices(notices);
+        setReadIds(readSet);
+      }
+    } catch (e) {
+      console.error('[digest] init failed', e);
+    } finally {
+      if (mounted.current) setLoading(false);
     }
   }, []);
 

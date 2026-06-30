@@ -122,29 +122,36 @@ export function useBookmarkNotices() {
 
   const refresh = useCallback(async () => {
     if (!loadedOnce) setLoading(true);
-    const rows = await fetchBookmarkRows();
-    if (rows.length === 0) {
-      if (mountedRef.current) { setNotices([]); setLoading(false); setLoadedOnce(true); }
-      return;
+    // throw 시에도 스켈레톤에 갇히지 않도록 finally에서 로딩/loadedOnce 해제.
+    try {
+      const rows = await fetchBookmarkRows();
+      if (rows.length === 0) {
+        if (mountedRef.current) setNotices([]);
+        return;
+      }
+      const byId = new Map(rows.map((r) => [r.notice_id, r]));
+      const { data } = await supabase
+        .from('notices')
+        .select(NOTICE_LIST_SELECT)
+        .in('id', rows.map((r) => r.notice_id));
+      const enriched = ((data as Notice[]) ?? [])
+        .map((n) => {
+          const row = byId.get(n.id);
+          return {
+            ...n,
+            bookmarked_at: row?.bookmarked_at ?? null,
+            bookmark_read: row?.read_at != null,
+            bookmark_folder_id: row?.bookmark_folder_id ?? null,
+          };
+        })
+        // bookmarked_at desc (rows 순서 보존)
+        .sort((a, b) => (b.bookmarked_at ?? '').localeCompare(a.bookmarked_at ?? ''));
+      if (mountedRef.current) setNotices(enriched);
+    } catch (e) {
+      console.error('[bookmarks] refresh failed', e);
+    } finally {
+      if (mountedRef.current) { setLoading(false); setLoadedOnce(true); }
     }
-    const byId = new Map(rows.map((r) => [r.notice_id, r]));
-    const { data } = await supabase
-      .from('notices')
-      .select(NOTICE_LIST_SELECT)
-      .in('id', rows.map((r) => r.notice_id));
-    const enriched = ((data as Notice[]) ?? [])
-      .map((n) => {
-        const row = byId.get(n.id);
-        return {
-          ...n,
-          bookmarked_at: row?.bookmarked_at ?? null,
-          bookmark_read: row?.read_at != null,
-          bookmark_folder_id: row?.bookmark_folder_id ?? null,
-        };
-      })
-      // bookmarked_at desc (rows 순서 보존)
-      .sort((a, b) => (b.bookmarked_at ?? '').localeCompare(a.bookmarked_at ?? ''));
-    if (mountedRef.current) { setNotices(enriched); setLoading(false); setLoadedOnce(true); }
   }, [loadedOnce]);
 
   useEffect(() => {
