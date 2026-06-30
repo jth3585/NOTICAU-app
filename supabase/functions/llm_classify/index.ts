@@ -428,6 +428,11 @@ Deno.serve(async (req) => {
     cau_socio: "사회학과", // → sociology
     cau_cse: "소프트웨어학부", // → software
     cau_ai: "AI학과", // → ai
+    cau_sabeom: "사범대학", // 단과대 게시판 → education 전체(college 정규화)
+    cau_educ: "교육학과", // → edu
+    cau_ece: "유아교육과", // → early_child
+    cau_peedu: "체육교육과", // → pe_edu
+    cau_engedu: "영어교육과", // → eng_edu
     // cau_swedu(SW교육원)는 독립기관 → owner 없음(본문 명시 학과만 한정 = 사실상 전체)
   };
   // 한 게시판이 여러 학과를 묶는 학부: 학과 한정(target_depts 비어있지 않음) 공지를 이 학과들 전체로 확장.
