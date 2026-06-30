@@ -5,6 +5,7 @@ import { PressableScale } from './ui/PressableScale';
 import { formatDateShort, formatScheduleBadge, metaOf, sourceOf } from '../lib/format';
 import { CategoryBadge } from './ui/CategoryBadge';
 import { SourceBadge } from './ui/SourceBadge';
+import { useSourceLabels } from '../lib/sources';
 
 export function NoticeCard({
   notice,
@@ -35,6 +36,10 @@ export function NoticeCard({
 }) {
   const meta = metaOf(notice);
   const src = sourceOf(notice);
+  const sourceLabel = useSourceLabels();
+  // 표시 이름: 조인된 sources.name 우선, 없으면 DB 라벨 캐시(parser_key→이름)로 폴백.
+  // → 목록 쿼리가 name을 안 실어온 경로/구버전 페이로드에서도 cau_ 노출 방지.
+  const sourceName = src?.name || sourceLabel(src?.parser_key);
   const topic = meta?.topic ?? null;
   const badge = formatScheduleBadge(meta?.apply_start_at ?? null, meta?.deadline_at ?? null);
   const postedMD = formatDateShort(notice.posted_at);
@@ -69,7 +74,7 @@ export function NoticeCard({
           {topic ? <CategoryBadge topic={topic} /> : null}
         </View>
         <View style={styles.topRight}>
-          <SourceBadge name={src?.name} parserKey={src?.parser_key} />
+          <SourceBadge name={sourceName} parserKey={src?.parser_key} />
           {notice.dup_count ? <Text style={styles.dupTag}>· 외 {notice.dup_count}곳</Text> : null}
         </View>
       </View>

@@ -136,7 +136,7 @@ export default function NoticeDetailScreen({ route, navigation }: Props) {
         <BackButton onPress={() => navigation.goBack()} />
         <View style={styles.headerMeta}>
           {topic ? <CategoryBadge topic={topic} /> : null}
-          <SourceBadge name={src?.name} parserKey={src?.parser_key} />
+          <SourceBadge name={src?.name || sourceLabel(src?.parser_key)} parserKey={src?.parser_key} />
           <TouchableOpacity onPress={onShare} hitSlop={8} accessibilityRole="button" accessibilityLabel="공유">
             <ShareIcon size={22} color={COLORS.textTertiary} />
           </TouchableOpacity>
