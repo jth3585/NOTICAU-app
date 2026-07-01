@@ -97,18 +97,38 @@ async function fetchNoticesByIds(ids: string[]): Promise<Notice[]> {
   return ids.map(id => map.get(id)).filter(Boolean) as Notice[];
 }
 
+const NO_READ = new Set<string>();
+
 export function useDigest() {
   const [cacheIds, setCacheIds] = useState<string[]>([]);
   const [allNotices, setAllNotices] = useState<Notice[]>([]);
   const [readIds, setReadIds] = useState<Set<string>>(new Set());
+  // 캐시된 다이제스트에도 현재 필터(학과·캠퍼스·카테고리·타학과설정)를 실시간 재적용하기 위한 상태.
+  const [profile, setProfile] = useState<Profile | null>(null);
+  const [disabledTopics, setDisabledTopics] = useState<Set<string>>(new Set());
+  const [disabledSources, setDisabledSources] = useState<Set<string>>(new Set());
   const [loading, setLoading] = useState(true);
   const [loadingMore, setLoadingMore] = useState(false);
   const mounted = useRef(true);
 
-  const syncReadIds = useCallback(async () => {
-    const set = await fetchReadIds();
-    if (mounted.current) setReadIds(set);
+  const loadFilters = useCallback(async () => {
+    const { data: { session } } = await supabase.auth.getSession();
+    if (!session) return;
+    const [profRes, prefRes, ds] = await Promise.all([
+      supabase.from('profiles').select('*').eq('user_id', session.user.id).maybeSingle(),
+      supabase.from('user_category_prefs').select('topic,is_enabled').eq('user_id', session.user.id),
+      fetchDisabledSources(session.user.id),
+    ]);
+    if (!mounted.current) return;
+    setProfile((profRes.data as Profile) ?? null);
+    setDisabledTopics(new Set(((prefRes.data ?? []) as any[]).filter((p) => !p.is_enabled).map((p) => p.topic)));
+    setDisabledSources(ds);
   }, []);
+
+  const syncReadIds = useCallback(async () => {
+    const [set] = await Promise.all([fetchReadIds(), loadFilters()]);
+    if (mounted.current) setReadIds(set);
+  }, [loadFilters]);
 
   // 낙관적 로컬 읽음 처리. 상세 진입 시 서버 read_at 커밋이 홈 포커스 sync보다 늦어
   // 방금 읽은 글(특히 마지막 글)이 안 사라지는 레이스를 방지. 서버 기록은 markAsRead가 별도 수행.
@@ -134,6 +154,7 @@ export function useDigest() {
       const [notices, readSet] = await Promise.all([
         fetchNoticesByIds(ids),
         fetchReadIds(),
+        loadFilters(),
       ]);
 
       if (mounted.current) {
@@ -146,7 +167,7 @@ export function useDigest() {
     } finally {
       if (mounted.current) setLoading(false);
     }
-  }, []);
+  }, [loadFilters]);
 
   // pull-to-refresh: 읽음 상태만 재동기
   const refresh = useCallback(async () => {
@@ -175,10 +196,14 @@ export function useDigest() {
     return () => { mounted.current = false; };
   }, [initialize]);
 
-  // visible = 캐시된 공지 중 아직 안 읽은 것
+  // visible = 캐시된 공지 중 아직 안 읽었고, 현재 필터(학과·캠퍼스·카테고리·타학과설정)에 맞는 것.
+  //   (다이제스트는 하루 1회 계산·캐시되므로, 설정 변경이 당일에도 반영되도록 표시 단계에서 재필터한다.)
   const visible = useMemo(
-    () => allNotices.filter(n => !readIds.has(n.id)),
-    [allNotices, readIds],
+    () => allNotices.filter(n =>
+      !readIds.has(n.id)
+      && (!profile || !isMismatch(n, metaOf(n), profile, disabledTopics, NO_READ, disabledSources)),
+    ),
+    [allNotices, readIds, profile, disabledTopics, disabledSources],
   );
 
   // 오늘의 다이제스트를 모두 읽었을 때

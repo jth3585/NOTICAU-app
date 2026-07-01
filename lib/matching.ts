@@ -27,11 +27,18 @@ export function matchKeywordRow(
   return matchKeyword(hay, kw.keyword);
 }
 
-const SOURCE_SCORE: Record<string, number> = {
-  cau_biz: 35,
-  cau_bne: 25,
-  cau_main: 15,
-};
+// 소스 관련성 점수는 '사용자 본인 소속' 기준으로 동적 산정한다(하드코딩 학과 편향 제거).
+// 본교(cau_main)는 전교 대상이라 소폭 가점.
+function sourceBaseScore(source: Source | null, profile: Profile): number {
+  const owner = source?.owner_unit ?? null;
+  if (owner) {
+    if (owner === profile.dept || owner === profile.dept_secondary) return 30;
+    if (owner === profile.college) return 20;
+    return 0; // 타 학과/타 단대 게시판
+  }
+  if (source?.parser_key === 'cau_main') return 15; // 본교(전교 대상)
+  return 0;
+}
 
 // davinci 사용자는 target_campuses의 'anseong'도 매칭
 function campusMatch(profile: Profile, targetCampuses: string[]): boolean {
@@ -136,9 +143,8 @@ export function calculateMatchScore(
     else if (matched === 1) score += 20;
   }
 
-  // 2. 소스/학과 매칭 (0~35)
-  const sourceKey = source?.parser_key ?? '';
-  let srcScore = SOURCE_SCORE[sourceKey] ?? 0;
+  // 2. 소스/학과 매칭 (0~35): 본인 소속 게시판일수록 높게 + 학과 한정(target_depts) 내 학과 포함 가점
+  let srcScore = sourceBaseScore(source, profile);
   if (profile.dept && meta?.target_depts?.includes(profile.dept)) {
     srcScore = Math.min(35, srcScore + 5);
   }
