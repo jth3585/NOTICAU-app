@@ -443,6 +443,12 @@ Deno.serve(async (req) => {
     cau_chem: "화학과", // → chemistry
     cau_bio: "생명과학과", // → life_science
     cau_math: "수학과", // → mathematics
+    cau_cobio: "생명공학대학", // 단과대 게시판 → life_anseong 전체(college 정규화)
+    cau_animalbio: "동물생명공학전공", // → animal_bio
+    cau_plantbio: "식물생명공학전공", // → plant_bio
+    cau_foodtech: "식품공학전공", // → food_eng
+    cau_foodnutri: "식품영양학전공", // → food_nutrition
+    cau_sysbio: "시스템생명공학과", // → system_bio
     // cau_swedu(SW교육원)는 독립기관 → owner 없음(본문 명시 학과만 한정 = 사실상 전체)
   };
   // 한 게시판이 여러 학과를 묶는 학부: 학과 한정(target_depts 비어있지 않음) 공지를 이 학과들 전체로 확장.
