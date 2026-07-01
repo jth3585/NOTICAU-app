@@ -450,6 +450,9 @@ Deno.serve(async (req) => {
     cau_foodnutri: "식품영양학전공", // → food_nutrition
     cau_sysbio: "시스템생명공학과", // → system_bio
     cau_artech: "예술공학대학", // 단과대 게시판 → arts_anseong 전체(college 정규화)
+    cau_pharm: "약학대학", // → pharmacy
+    cau_nursing: "적십자간호대학", // → nursing
+    cau_med: "의과대학", // → medicine
     // cau_swedu(SW교육원)·cau_ge(교양대학)는 전교생 대상 → owner 없음(본문 명시 대상만 한정)
   };
   // 한 게시판이 여러 학과를 묶는 학부: 학과 한정(target_depts 비어있지 않음) 공지를 이 학과들 전체로 확장.
