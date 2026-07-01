@@ -173,7 +173,7 @@ export function useUserKeywords() {
     (async () => {
       const { data: { session } } = await supabase.auth.getSession();
       if (!session) return;
-      const { data } = await supabase.from('user_keywords').select('*').eq('user_id', session.user.id);
+      const { data } = await supabase.from('user_keywords').select('keyword, title_only').eq('user_id', session.user.id);
       if (mountedRef.current) setKeywords((data as UserKeyword[]) ?? []);
     })();
     return () => { mountedRef.current = false; };

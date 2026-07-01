@@ -9,6 +9,7 @@ import { supabase } from '../lib/supabase';
 import { loadProfile, updateProfile } from '../lib/profile';
 import { toast } from '../lib/toast';
 import { COLORS, FONT, RADIUS, SPACING, WEIGHT } from '../lib/theme';
+import { CAMPUS_LABEL, CAMPUS_OPTIONS, STATUS_LABEL, STATUS_OPTIONS } from '../lib/constants';
 import { CheckIcon, ChevronLeftIcon, ChevronRightIcon } from '../components/ui/icons';
 import { FolderNameModal } from '../components/FolderNameModal';
 import { BackButton } from '../components/ui/BackButton';
@@ -27,15 +28,6 @@ type Profile = {
 };
 type Row = { code: string; name: string };
 
-const CAMPUS_OPTIONS = [{ value: 'seoul', label: '서울' }, { value: 'davinci', label: '다빈치' }];
-const STATUS_OPTIONS = [
-  { value: 'enrolled', label: '재학중' }, { value: 'on_leave', label: '휴학중' },
-  { value: 'graduating', label: '졸업예정' },
-];
-const CAMPUS_LABEL: Record<string, string> = { seoul: '서울', davinci: '다빈치' };
-const STATUS_LABEL: Record<string, string> = {
-  enrolled: '재학중', on_leave: '휴학중', graduating: '졸업예정',
-};
 
 export default function ProfileEditScreen() {
   const navigation = useNavigation();

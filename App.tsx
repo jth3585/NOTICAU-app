@@ -19,6 +19,7 @@ import { migrateLocalToDB } from './lib/migrate';
 import { setupPushNotifications } from './lib/push';
 import { fetchNoticeById } from './lib/notices';
 import { loadSourceLabels } from './lib/sources';
+import { loadOrgNames } from './lib/org';
 import { ToastHost } from './components/ui/ToastHost';
 import { OfflineBanner } from './components/ui/OfflineBanner';
 import { supabase } from './lib/supabase';
@@ -178,6 +179,8 @@ export default function App() {
           setupPushNotifications();
           // 출처 표시 이름 캐시 예열(parser_key→name). 첫 피드 렌더 전에 채워 cau_ 깜빡임 방지.
           loadSourceLabels();
+          // 단과대/학과 이름 캐시 예열(마이페이지 표시용).
+          loadOrgNames();
           const { data } = await supabase
             .from('profiles')
             .select('user_id')

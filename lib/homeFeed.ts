@@ -54,7 +54,7 @@ export function useHomeFeed() {
 
     const [profileRes, keywordsRes, prefsRes, noticesRes] = await Promise.all([
       supabase.from('profiles').select('*').eq('user_id', session.user.id).maybeSingle(),
-      supabase.from('user_keywords').select('*').eq('user_id', session.user.id),
+      supabase.from('user_keywords').select('keyword, title_only').eq('user_id', session.user.id),
       supabase.from('user_category_prefs').select('topic,is_enabled').eq('user_id', session.user.id),
       supabase.from('notices').select(NOTICE_CARD_SELECT).is('duplicate_of', null).order('posted_at', { ascending: false }).limit(300),
     ]);

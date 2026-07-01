@@ -44,7 +44,7 @@ async function computeDigestIds(excludeIds: string[], limit: number): Promise<st
 
   const [profileRes, keywordsRes, prefsRes, readRes, noticesRes] = await Promise.all([
     supabase.from('profiles').select('*').eq('user_id', session.user.id).maybeSingle(),
-    supabase.from('user_keywords').select('*').eq('user_id', session.user.id),
+    supabase.from('user_keywords').select('keyword, title_only').eq('user_id', session.user.id),
     supabase.from('user_category_prefs').select('topic,is_enabled').eq('user_id', session.user.id),
     supabase.from('user_feed_state').select('notice_id').eq('user_id', session.user.id).not('read_at', 'is', null),
     supabase.from('notices').select(NOTICE_CARD_SELECT).order('posted_at', { ascending: false }).limit(300),

@@ -1,4 +1,3 @@
-import { useEffect, useState } from 'react';
 import { ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { LinearGradient } from 'expo-linear-gradient';
@@ -6,10 +5,11 @@ import Svg, { Image as SvgImage } from 'react-native-svg';
 import { useFocusEffect, useNavigation } from '@react-navigation/native';
 import { useCallback } from 'react';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
-import { supabase } from '../lib/supabase';
 import { useProfile, loadProfile } from '../lib/profile';
+import { useOrgNames } from '../lib/org';
 import type { RootStackParamList } from '../lib/types';
 import { COLORS, FONT, RADIUS, SHADOW, SPACING, TEXT, WEIGHT } from '../lib/theme';
+import { CAMPUS_LABEL, STATUS_LABEL } from '../lib/constants';
 import { HashIcon, FolderIcon, BellIcon, UserIcon, PencilIcon, GraduationCapIcon } from '../components/ui/icons';
 import { SettingsGroup, SettingsRow } from '../components/ui/SettingsRow';
 
@@ -35,52 +35,19 @@ const TOP_TINT = ['rgba(110,140,238,0.42)', 'rgba(74,144,226,0.18)', 'transparen
 const HERO_LOGO_OPACITY = 0.22;
 const HERO_LOGO_SIZE = 300;
 
-const CAMPUS_LABEL: Record<string, string> = { seoul: '서울', davinci: '다빈치' };
-const STATUS_LABEL: Record<string, string> = {
-  enrolled: '재학중', on_leave: '휴학중', graduating: '졸업예정',
-};
 
 export default function MyPageScreen() {
   const navigation = useNavigation<Nav>();
   const insets = useSafeAreaInsets();
   // 공유 스토어 구독 → 프로필 수정이 즉시(낙관적) 반영. 포커스 시 DB에서 최신화.
   const profile = useProfile() as Profile | null;
-  const [collegeName, setCollegeName] = useState('');
-  const [deptName, setDeptName] = useState('');
-  const [secondaryName, setSecondaryName] = useState('');
+  // 단과대/학과 코드 → 이름은 공용 캐시(colleges+departments 1회 로드)로 해석. 깜빡임/반복조회 제거.
+  const orgName = useOrgNames();
+  const collegeName = orgName(profile?.college);
+  const deptName = orgName(profile?.dept);
+  const secondaryName = orgName(profile?.dept_secondary);
 
   useFocusEffect(useCallback(() => { loadProfile(); }, []));
-
-  // 단과대/학과 코드 → 표시 이름. college/dept가 null이 되면(캠퍼스 변경 등) 이름도 비운다.
-  useEffect(() => {
-    if (!profile?.college) { setCollegeName(''); return; }
-    let alive = true;
-    supabase.from('colleges').select('name').eq('code', profile.college).maybeSingle()
-      .then(({ data }) => { if (alive) setCollegeName((data as any)?.name ?? profile.college ?? ''); });
-    return () => { alive = false; };
-  }, [profile?.college]);
-
-  useEffect(() => {
-    if (!profile?.dept) { setDeptName(''); return; }
-    let alive = true;
-    supabase.from('departments').select('name').eq('code', profile.dept).maybeSingle()
-      .then(({ data }) => { if (alive) setDeptName((data as any)?.name ?? profile.dept ?? ''); });
-    return () => { alive = false; };
-  }, [profile?.dept]);
-
-  // 복수전공 코드 → 이름. 학과 코드 우선, 없으면 단과대 코드로 폴백(학과 미세분 시 단대만 저장됨).
-  useEffect(() => {
-    const code = profile?.dept_secondary;
-    if (!code) { setSecondaryName(''); return; }
-    let alive = true;
-    (async () => {
-      const { data: d } = await supabase.from('departments').select('name').eq('code', code).maybeSingle();
-      if ((d as any)?.name) { if (alive) setSecondaryName((d as any).name); return; }
-      const { data: c } = await supabase.from('colleges').select('name').eq('code', code).maybeSingle();
-      if (alive) setSecondaryName((c as any)?.name ?? code);
-    })();
-    return () => { alive = false; };
-  }, [profile?.dept_secondary]);
 
   const statusText = profile?.enrollment_status?.map(s => STATUS_LABEL[s] ?? s).join(' · ') ?? '';
 
