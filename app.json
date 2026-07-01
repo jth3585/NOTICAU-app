@@ -2,14 +2,14 @@
   "expo": {
     "name": "NOTICAU",
     "slug": "noticau",
-    "version": "1.0.2",
+    "version": "1.0.3",
     "orientation": "portrait",
     "icon": "./assets/icon.png",
     "userInterfaceStyle": "light",
     "ios": {
       "supportsTablet": true,
       "bundleIdentifier": "com.noticau.app",
-      "buildNumber": "125",
+      "buildNumber": "126",
       "usesAppleSignIn": false,
       "config": {
         "usesNonExemptEncryption": false
@@ -17,7 +17,7 @@
     },
     "android": {
       "package": "com.noticau.app",
-      "versionCode": 2,
+      "versionCode": 3,
       "adaptiveIcon": {
         "backgroundColor": "#2D57AC",
         "foregroundImage": "./assets/icon-foreground.png"
