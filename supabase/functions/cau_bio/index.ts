@@ -93,8 +93,14 @@ function parseList(html: string): ListItem[] {
 async function fetchDetail(id: string) {
   const html = await fetchHtml(viewUrl(id));
   const $ = load(html);
-  let cont = $("#hwpEditorBoardContent").first();
-  if (!cont.length) cont = $(".hwp_editor_board_content").first();
+  // 본문 셀: 상세는 table.bbs-tblstyle 안에 있고, 실제 본문은 그중 텍스트가 가장 많은 td.
+  // (#hwpEditorBoardContent 는 서버측에서 비어 있어 사용 불가.)
+  let cont = $("#content").first();
+  let maxLen = -1;
+  $("table.bbs-tblstyle td").each((_, td) => {
+    const len = $(td).text().trim().length;
+    if (len > maxLen) { maxLen = len; cont = $(td); }
+  });
 
   let bodyText = cont.text().replace(/ /g, " ").replace(/[ \t]+/g, " ").replace(/\n{3,}/g, "\n\n").trim();
 
@@ -107,8 +113,9 @@ async function fetchDetail(id: string) {
     images.push(src);
   });
 
+  // 첨부: gnuboard download.php 링크 (본문 셀 상단 '첨부파일 N -' 목록)
   const attachments: string[] = [];
-  $("a[href*='download'], a[href*='/upload/'], a[href*='bbs_download'], a[href*='attach']").each((_, el) => {
+  $("a[href*='download.php'], a[href*='/upload/'], a[href*='bbs_download']").each((_, el) => {
     const href = $(el).attr("href") ?? "";
     if (!href || href === "#" || href.startsWith("javascript")) return;
     const full = /^https?:\/\//.test(href) ? href : BASE + (href.startsWith("/") ? href : "/" + href);
