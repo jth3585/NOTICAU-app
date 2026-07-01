@@ -1,6 +1,9 @@
 // 도메인 상수만. 디자인 토큰은 lib/theme.ts.
 
 // 카테고리 칩 (단일 선택). '전체' = 필터 없음.
+// ⚠️ '전체'를 뺀 8개는 LLM 분류 카테고리와 반드시 일치해야 한다
+//    (supabase/functions/llm_classify/index.ts 의 TOPICS). 한쪽만 바꾸면 해당 카테고리
+//    공지가 칩에 안 잡히거나 분류가 깨진다. 둘을 항상 함께 수정할 것.
 export const CHIP_TOPICS = [
   '전체',
   '학사정보',

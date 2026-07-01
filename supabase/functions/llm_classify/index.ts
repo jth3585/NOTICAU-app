@@ -24,6 +24,8 @@ const DEFAULT_BATCH = 8;
 // 출력이 max_tokens로 잘린 경우 — 같은 설정으로 재시도해도 또 잘리므로 재시도하지 않는다.
 class TruncationError extends Error {}
 
+// ⚠️ 앱의 카테고리 칩(lib/constants.ts CHIP_TOPICS, '전체' 제외 8개)과 반드시 일치해야 한다.
+//    한쪽만 바꾸면 해당 카테고리 공지가 칩에 안 잡히거나 분류가 깨짐 → 둘을 함께 수정할 것.
 const TOPICS = [
   "학사정보", "장학&등록금", "채용&인턴", "교내외활동",
   "창업", "기숙사", "재학상태", "시설&시스템",
