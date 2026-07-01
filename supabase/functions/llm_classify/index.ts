@@ -244,8 +244,11 @@ function buildUserPrompt(notice: any, hasImageOnly: boolean): string {
   } else {
     lines.push(notice.body_text || "(본문 없음)");
   }
-  const imgs: string[] = notice.body_image_urls || [];
-  const atts: string[] = notice.attachment_urls || [];
+  // 방어: data: 인라인 URI나 비정상적으로 긴 문자열은 프롬프트에 싣지 않는다
+  // (인라인 base64 이미지가 URL로 잘못 저장되면 프롬프트가 컨텍스트 한도를 초과함).
+  const urlOk = (u: string) => typeof u === "string" && !/data:image|^data:/.test(u) && u.length <= 2000;
+  const imgs: string[] = (notice.body_image_urls || []).filter(urlOk);
+  const atts: string[] = (notice.attachment_urls || []).filter(urlOk);
   if (imgs.length) {
     lines.push("");
     lines.push("## 본문 이미지 URL");
@@ -327,11 +330,13 @@ async function fetchImageAsBase64(url: string): Promise<{ mediaType: string; bas
 
 // deno-lint-ignore no-explicit-any
 async function classifyNotice(notice: any) {
-  const hasImageOnly = (notice.body_text || "").trim().length < 200 && (notice.body_image_urls?.length ?? 0) > 0;
+  // 비전 대상은 실제 http(s) 이미지만 (data: 인라인/오염 URL 제외)
+  const httpImg: string | undefined = (notice.body_image_urls || []).find((u: string) => /^https?:\/\//.test(u) && !u.includes("data:image"));
+  const hasImageOnly = (notice.body_text || "").trim().length < 200 && !!httpImg;
 
   let imgData: { mediaType: string; base64: string } | null = null;
-  if (hasImageOnly && notice.body_image_urls[0]) {
-    imgData = await fetchImageAsBase64(notice.body_image_urls[0]);
+  if (hasImageOnly && httpImg) {
+    imgData = await fetchImageAsBase64(httpImg);
   }
   const useImage = !!imgData;
 

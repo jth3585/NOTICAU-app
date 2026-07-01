@@ -102,7 +102,7 @@ async function fetchDetail(boardid: string) {
   const images: string[] = [];
   cont.find("img").each((_, el) => {
     let src = $(el).attr("src");
-    if (!src) return;
+    if (!src || src.startsWith("data:")) return;
     if (src.startsWith("//")) src = "https:" + src;
     else if (!/^https?:\/\//.test(src)) src = BASE + (src.startsWith("/") ? src : "/" + src);
     images.push(src);

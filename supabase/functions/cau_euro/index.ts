@@ -113,7 +113,7 @@ function parseList(html: string): ListItem[] {
     const images: string[] = [];
     popup.find("img").each((_, el) => {
       const src = $(el).attr("src");
-      if (src) images.push(absUrl(src));
+      if (src && !src.startsWith("data:")) images.push(absUrl(src));
     });
     const attachments: string[] = [];
     popup.find("a[href*='filedown'], a[href*='download'], a[href*='file']").each((_, el) => {

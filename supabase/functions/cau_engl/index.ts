@@ -112,7 +112,7 @@ async function fetchDetail(wcode: string, wnum: string) {
   const images: string[] = [];
   cont.find("img").each((_, el) => {
     const src = $(el).attr("src");
-    if (!src) return;
+    if (!src || src.startsWith("data:")) return;
     images.push(absUrl(src));
   });
 

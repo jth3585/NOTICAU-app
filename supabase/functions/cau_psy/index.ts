@@ -114,7 +114,7 @@ async function fetchDetail(href: string) {
   const images: string[] = [];
   cont.find("img").each((_, el) => {
     const src = $(el).attr("src");
-    if (src) images.push(abs(src));
+    if (src && !src.startsWith("data:")) images.push(abs(src));
   });
 
   const attachments: string[] = [];
