@@ -10,7 +10,7 @@ import { supabase } from '../lib/supabase';
 import { useProfile, loadProfile } from '../lib/profile';
 import type { RootStackParamList } from '../lib/types';
 import { COLORS, FONT, RADIUS, SHADOW, SPACING, TEXT, WEIGHT } from '../lib/theme';
-import { HashIcon, FolderIcon, BellIcon, UserIcon, PencilIcon } from '../components/ui/icons';
+import { HashIcon, FolderIcon, BellIcon, UserIcon, PencilIcon, GraduationCapIcon } from '../components/ui/icons';
 import { SettingsGroup, SettingsRow } from '../components/ui/SettingsRow';
 
 type Nav = NativeStackNavigationProp<RootStackParamList>;
@@ -149,7 +149,8 @@ export default function MyPageScreen() {
         <Text style={styles.groupLabel}>내 설정</Text>
         <SettingsGroup>
           <SettingsRow icon={<HashIcon size={16} color={COLORS.textSecondary} />} label="키워드 관리" onPress={() => navigation.navigate('KeywordManage')} />
-          <SettingsRow icon={<FolderIcon size={16} color={COLORS.textSecondary} />} label="전체공지 관리" onPress={() => navigation.navigate('CategoryPrefs')} last />
+          <SettingsRow icon={<FolderIcon size={16} color={COLORS.textSecondary} />} label="전체공지 관리" onPress={() => navigation.navigate('CategoryPrefs')} />
+          <SettingsRow icon={<GraduationCapIcon size={16} color={COLORS.textSecondary} />} label="학과별 공지설정" onPress={() => navigation.navigate('DeptNoticePrefs')} last />
         </SettingsGroup>
 
         {/* 앱 정보 */}

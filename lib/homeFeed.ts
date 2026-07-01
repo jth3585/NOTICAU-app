@@ -4,6 +4,7 @@ import type { Notice, Profile, UserKeyword } from './types';
 import { metaOf } from './format';
 import { isMismatch, matchKeyword } from './matching';
 import { NOTICE_CARD_SELECT } from './notices';
+import { fetchDisabledSources } from './sourcePrefs';
 
 const NEW_WINDOW_MS = 24 * 60 * 60 * 1000; // "새공지" 윈도우 (최근 24h crawled)
 const KEYWORD_WINDOW_MS = 24 * 60 * 60 * 1000; // "키워드매치" 윈도우 (최근 24h 게시 중 매칭)
@@ -63,6 +64,7 @@ export function useHomeFeed() {
     const disabledTopics = new Set<string>(
       ((prefsRes.data ?? []) as any[]).filter((p) => !p.is_enabled).map((p) => p.topic),
     );
+    const disabledSources = await fetchDisabledSources(session.user.id);
     const notices = (noticesRes.data ?? []) as Notice[];
     const now = Date.now();
 
@@ -83,7 +85,7 @@ export function useHomeFeed() {
     // 홈 세 탭 공통 베이스: 타깃/카테고리 불일치만 제외. 읽음은 제외하지 않음
     //   (홈은 "지금 챙길 것"을 보여주는 곳 — 읽었어도 24h 새 공지/마감이면 계속 노출).
     const NO_READ = new Set<string>();
-    const base = notices.filter((n) => !isMismatch(n, metaOf(n), profile, disabledTopics, NO_READ));
+    const base = notices.filter((n) => !isMismatch(n, metaOf(n), profile, disabledTopics, NO_READ, disabledSources));
 
     // 새공지: 최근 24h '게시된' 것 (posted_at 기준 — crawled_at은 우리 DB 적재 시점이라
     //   새 소스 백필 시 과거 공지가 전부 새공지로 뜨는 문제가 생김).

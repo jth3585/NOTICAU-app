@@ -6,6 +6,7 @@ import { metaOf, sourceOf } from './format';
 import { isMismatch, calculateMatchScore } from './matching';
 import { fetchReadIds } from './read';
 import { NOTICE_CARD_SELECT } from './notices';
+import { fetchDisabledSources } from './sourcePrefs';
 
 // actionable인데 마감일이 지난 공지는 디지스트에서 제외 (이미 신청 종료 → 무의미).
 function isExpiredActionable(meta: NoticeMeta | null): boolean {
@@ -57,6 +58,7 @@ async function computeDigestIds(excludeIds: string[], limit: number): Promise<st
     ((prefsRes.data ?? []) as any[]).filter(p => !p.is_enabled).map(p => p.topic),
   );
   const readIds = new Set<string>(((readRes.data ?? []) as any[]).map((r: any) => r.notice_id));
+  const disabledSources = await fetchDisabledSources(session.user.id);
   const notices = (noticesRes.data ?? []) as Notice[];
   const excludeSet = new Set(excludeIds);
 
@@ -73,7 +75,7 @@ async function computeDigestIds(excludeIds: string[], limit: number): Promise<st
 
   const scored = notices
     .filter(n => !excludeSet.has(n.id))
-    .filter(n => !isMismatch(n, metaOf(n), profile, disabledTopics, readIds))
+    .filter(n => !isMismatch(n, metaOf(n), profile, disabledTopics, readIds, disabledSources))
     .filter(n => !isExpiredActionable(metaOf(n)))
     .map(n => ({
       id: n.id,

@@ -28,6 +28,7 @@ import { NoticeListSkeleton } from '../components/ui/Skeleton';
 import { PressableScale } from '../components/ui/PressableScale';
 import { useReadSet } from '../lib/read';
 import { NOTICE_CARD_SELECT } from '../lib/notices';
+import { fetchDisabledSources } from '../lib/sourcePrefs';
 import { useBookmarkSet, addBookmark } from '../lib/bookmarks';
 import { lightHaptic, softHaptic } from '../lib/haptics';
 import { toast } from '../lib/toast';
@@ -93,6 +94,8 @@ export default function InboxScreen() {
 
   // 카테고리 OFF 프리프 (topic → false인 것들) + 사용자 정렬 칩 순서
   const [disabledTopics, setDisabledTopics] = useState<Set<string>>(new Set());
+  // 학과별 공지설정에서 끈 게시판(parser_key) — 타 학과 전체대상 공지 노출 제어.
+  const [disabledSources, setDisabledSources] = useState<Set<string>>(new Set());
   const [chipTopics, setChipTopics] = useState<string[]>([...CHIP_TOPICS]);
   // 내 프로필(공유 스토어). 학과/캠퍼스 등 타게팅 필터(isMismatch)에 사용.
   const profile = useProfile();
@@ -126,6 +129,7 @@ export default function InboxScreen() {
       setDisabledTopics(disabled);
       setChipTopics(['전체', ...orderedCategories(rows)]);
       setMyKeywords(((kwRes.data ?? []) as any[]).map((k) => k.keyword));
+      setDisabledSources(await fetchDisabledSources(session.user.id));
     })();
   }, [refreshRead, refreshBookmarks]));
 
@@ -258,13 +262,13 @@ export default function InboxScreen() {
     // 공지는 검색에서도 제외. 프로필 로딩 전엔 캠퍼스만으로 폴백.
     if (query.trim()) {
       if (!profile) return searchResults.filter(campusAllows);
-      return searchResults.filter((n) => !isMismatch(n, metaOf(n), profile, disabledTopics, NO_READ));
+      return searchResults.filter((n) => !isMismatch(n, metaOf(n), profile, disabledTopics, NO_READ, disabledSources));
     }
     if (!profile) return [];
-    const matched = notices.filter((n) => !isMismatch(n, metaOf(n), profile, disabledTopics, NO_READ));
+    const matched = notices.filter((n) => !isMismatch(n, metaOf(n), profile, disabledTopics, NO_READ, disabledSources));
     const f = selected === '전체' ? matched : matched.filter((n) => metaOf(n)?.topic === selected);
     return sortNotices(f, sortMode);
-  }, [notices, selected, sortMode, query, searchResults, disabledTopics, profile, campusAllows]);
+  }, [notices, selected, sortMode, query, searchResults, disabledTopics, disabledSources, profile, campusAllows]);
 
   if (loading) return (
     <SafeAreaView style={styles.container} edges={['top']}>

@@ -7,8 +7,6 @@ import ReorderableList, {
   useReorderableDrag, reorderItems, type ReorderableListReorderEvent,
 } from 'react-native-reorderable-list';
 import { supabase } from '../lib/supabase';
-import { updateProfile } from '../lib/profile';
-import { toast } from '../lib/toast';
 import { COLORS, FONT, RADIUS, SHADOW, SPACING, WEIGHT } from '../lib/theme';
 import { BackButton } from '../components/ui/BackButton';
 import { CategoryBadge } from '../components/ui/CategoryBadge';
@@ -20,34 +18,21 @@ export default function CategoryPrefsScreen() {
   const [prefs, setPrefs] = useState<Record<string, boolean>>({});
   const [order, setOrder] = useState<string[]>(CATEGORIES);
   const [userId, setUserId] = useState<string | null>(null);
-  // 타 학과 공지 보기(글로벌 토글). 전체 피드에 다른 학과의 채용·세미나·대회를 포함할지.
-  const [crossDept, setCrossDept] = useState(true);
 
   useEffect(() => {
     (async () => {
       const { data: { session } } = await supabase.auth.getSession();
       if (!session) return;
       setUserId(session.user.id);
-      const [prefRes, profRes] = await Promise.all([
-        supabase.from('user_category_prefs')
-          .select('topic,is_enabled,sort_order').eq('user_id', session.user.id),
-        supabase.from('profiles').select('show_cross_dept').eq('user_id', session.user.id).maybeSingle(),
-      ]);
-      const rows = (prefRes.data ?? []) as any[];
+      const { data } = await supabase.from('user_category_prefs')
+        .select('topic,is_enabled,sort_order').eq('user_id', session.user.id);
+      const rows = (data ?? []) as any[];
       const map: Record<string, boolean> = {};
       rows.forEach((r) => { map[r.topic] = r.is_enabled; });
       setPrefs(map);
       setOrder(orderedCategories(rows));
-      setCrossDept(((profRes.data as any)?.show_cross_dept) ?? true);
     })();
   }, []);
-
-  const toggleCrossDept = async (next: boolean) => {
-    setCrossDept(next);
-    // 공유 스토어 경유 → 캐시 갱신 + 전 화면 반영. 실패 시 토스트로 알림.
-    const { error } = await updateProfile({ show_cross_dept: next });
-    if (error) { setCrossDept(!next); toast('설정을 저장하지 못했어요. 다시 시도해 주세요.', 'error'); }
-  };
 
   const toggle = async (topic: string) => {
     if (!userId) return;
@@ -89,21 +74,6 @@ export default function CategoryPrefsScreen() {
         panGesture={panGesture}
         keyExtractor={(t) => t}
         contentContainerStyle={styles.listContent}
-        ListHeaderComponent={
-          <View style={styles.crossWrap}>
-            <View style={styles.crossRow}>
-              <Text style={styles.crossLabel}>타 학과 공지 보기</Text>
-              <Switch
-                value={crossDept}
-                onValueChange={toggleCrossDept}
-                trackColor={{ true: COLORS.accent }}
-                thumbColor="#fff"
-                style={styles.switch}
-              />
-            </View>
-            <Text style={styles.crossSub}>켜 두면 다른 학과의 채용·세미나·대회 공지도 함께 보여요.</Text>
-          </View>
-        }
         ListFooterComponent={
           <Text style={styles.hint}>켜둔 카테고리만 '전체' 피드에 보여요. 왼쪽 손잡이를 끌어 순서를 바꿀 수 있어요.</Text>
         }

@@ -26,6 +26,7 @@ import OnboardingNavigator from './screens/onboarding/OnboardingNavigator';
 import ProfileEditScreen from './screens/ProfileEditScreen';
 import KeywordManageScreen from './screens/KeywordManageScreen';
 import CategoryPrefsScreen from './screens/CategoryPrefsScreen';
+import DeptNoticePrefsScreen from './screens/DeptNoticePrefsScreen';
 import NotificationSettingsScreen from './screens/NotificationSettingsScreen';
 import AccountInfoScreen from './screens/AccountInfoScreen';
 import TermsScreen from './screens/TermsScreen';
@@ -236,6 +237,7 @@ export default function App() {
             <Stack.Screen name="ProfileEdit" component={ProfileEditScreen} />
             <Stack.Screen name="KeywordManage" component={KeywordManageScreen} />
             <Stack.Screen name="CategoryPrefs" component={CategoryPrefsScreen} />
+            <Stack.Screen name="DeptNoticePrefs" component={DeptNoticePrefsScreen} />
             <Stack.Screen name="NotificationSettings" component={NotificationSettingsScreen} />
             <Stack.Screen name="AccountInfo" component={AccountInfoScreen} />
             <Stack.Screen name="Terms" component={TermsScreen} />
