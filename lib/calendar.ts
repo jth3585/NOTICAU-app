@@ -2,6 +2,20 @@ import { Platform } from 'react-native';
 import * as Calendar from 'expo-calendar';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import type { Notice } from './types';
+import { supabase } from './supabase';
+
+// 캘린더 추가 사용량 분석용 서버 기록(로컬 토글 상태와 별개, 실패해도 무시).
+// calendar_added_at = 마지막으로 캘린더에 추가한 시각(제거해도 지우지 않음 = '사용한 적 있음' 신호).
+async function recordCalendarAdd(noticeId: string): Promise<void> {
+  try {
+    const { data: { session } } = await supabase.auth.getSession();
+    if (!session) return;
+    await supabase.from('user_feed_state').upsert(
+      { user_id: session.user.id, notice_id: noticeId, calendar_added_at: new Date().toISOString() },
+      { onConflict: 'user_id,notice_id' },
+    );
+  } catch { /* 분석 기록 실패는 무시 */ }
+}
 
 // 공지 마감일을 기기 캘린더에 "수동" 추가하는 헬퍼.
 // - 타임 이벤트(마감 시각 ~ +1h)로만 생성, 알람은 걸지 않음(리마인더는 사용자 몫).
@@ -67,6 +81,7 @@ export async function addNoticeToCalendar(notice: Notice, deadlineAt: string): P
     });
 
     await AsyncStorage.setItem(key(notice.id), eventId);
+    recordCalendarAdd(notice.id); // 서버 사용량 기록(fire-and-forget)
     return { ok: true, eventId };
   } catch {
     return { ok: false, reason: 'error' };
