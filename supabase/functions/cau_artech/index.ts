@@ -74,12 +74,9 @@ async function fetchOne(take: number, queryNotice: boolean): Promise<any[]> {
   throw lastErr;
 }
 
-// 공지(queryNotice:true)와 일반 뉴스(false)를 각각 받아 id 기준 병합.
+// 공지(queryNotice:true)만 수집. 일반 뉴스(isNotice=false)는 제외.
 async function fetchNews(take: number): Promise<any[]> {
-  const [notices, news] = await Promise.all([fetchOne(take, true), fetchOne(take, false)]);
-  const byId = new Map<string, any>();
-  for (const it of [...notices, ...news]) byId.set(String(it.id), it);
-  return [...byId.values()];
+  return await fetchOne(take, true);
 }
 
 function parseContent(html: string) {
