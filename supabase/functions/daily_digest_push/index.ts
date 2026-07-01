@@ -37,6 +37,7 @@ type Profile = {
   college: string | null;
   enrollment_status: string[];
   is_dormitory: boolean;
+  show_cross_dept: boolean | null;
   last_daily_push_at: string | null;
 };
 
@@ -72,11 +73,25 @@ function isMismatch(
   profile: Profile,
   disabledTopics: Set<string>,
   readIds: Set<string>,
+  disabledSources: Set<string>,
 ): boolean {
   if (readIds.has(notice.id)) return true;
   // 출처 캠퍼스 귀속: 특정 캠퍼스 게시판인데 내 캠퍼스가 아니면 제외 (meta 없어도 적용).
-  const src = one<{ campus: string | null }>(notice.sources);
+  const src = one<{ campus: string | null; owner_unit: string | null; parser_key: string | null }>(notice.sources);
   if (src?.campus && src.campus !== "both" && !sourceCampusMatch(profile, src.campus)) return true;
+
+  // 타 학과 게시판의 전체대상 공지(target_depts 없음): 마스터 토글 off거나 학과별로 끈 게시판이면 제외.
+  // (앱 피드의 lib/matching.ts isMismatch와 동일 규칙 → 다이제스트 푸시를 피드와 일치시킴.)
+  if (src?.owner_unit) {
+    const mine = [profile.dept, profile.dept_secondary, profile.college].filter(Boolean) as string[];
+    const isOther = !mine.includes(src.owner_unit);
+    const noDeptTarget = !meta?.target_depts || meta.target_depts.length === 0;
+    if (isOther && noDeptTarget) {
+      if (profile.show_cross_dept === false) return true;
+      if (src.parser_key && disabledSources.has(src.parser_key)) return true;
+    }
+  }
+
   if (!meta) return false;
   if (meta.topic && disabledTopics.has(meta.topic)) return true;
   if (meta.target_grades && meta.target_grades.length > 0 && !meta.target_grades.includes(profile.grade)) return true;
@@ -135,7 +150,7 @@ Deno.serve(async (req) => {
   // ---- 최근 공지 1회 fetch (유저 루프 밖) ----
   const { data: notices, error: noticesErr } = await supabase
     .from("notices")
-    .select("id, title, body_text, posted_at, notice_meta(topic,action,deadline_at,target_grades,target_depts,target_campuses,target_enrollment_status,targets_freshmen,excludes_undergrad), sources(campus)")
+    .select("id, title, body_text, posted_at, notice_meta(topic,action,deadline_at,target_grades,target_depts,target_campuses,target_enrollment_status,targets_freshmen,excludes_undergrad), sources(campus,owner_unit,parser_key)")
     .order("posted_at", { ascending: false })
     .limit(300);
   if (noticesErr) {
@@ -148,7 +163,7 @@ Deno.serve(async (req) => {
   // ---- 알림 ON 유저 ----
   const { data: profiles, error: profErr } = await supabase
     .from("profiles")
-    .select("user_id, grade, campus, dept, dept_secondary, college, enrollment_status, is_dormitory, last_daily_push_at")
+    .select("user_id, grade, campus, dept, dept_secondary, college, enrollment_status, is_dormitory, show_cross_dept, last_daily_push_at")
     .eq("notifications_enabled", true);
   if (profErr) {
     return new Response(JSON.stringify({ error: profErr.message }), { status: 500 });
@@ -166,8 +181,9 @@ Deno.serve(async (req) => {
     }
 
     const uid = profile.user_id;
-    const [prefRes, readRes, tokRes] = await Promise.all([
+    const [prefRes, srcPrefRes, readRes, tokRes] = await Promise.all([
       supabase.from("user_category_prefs").select("topic,is_enabled").eq("user_id", uid),
+      supabase.from("user_source_prefs").select("parser_key").eq("user_id", uid).eq("is_enabled", false),
       supabase.from("user_feed_state").select("notice_id").eq("user_id", uid).not("read_at", "is", null),
       supabase.from("push_tokens").select("token").eq("user_id", uid).eq("is_active", true),
     ]);
@@ -175,6 +191,7 @@ Deno.serve(async (req) => {
     const disabledTopics = new Set<string>(
       ((prefRes.data ?? []) as any[]).filter((p) => !p.is_enabled).map((p) => p.topic),
     );
+    const disabledSources = new Set<string>(((srcPrefRes.data ?? []) as any[]).map((r) => r.parser_key));
     const readIds = new Set<string>(((readRes.data ?? []) as any[]).map((r) => r.notice_id));
     const tokens = ((tokRes.data ?? []) as any[]).map((t) => t.token);
     if (tokens.length === 0) continue;
@@ -182,7 +199,7 @@ Deno.serve(async (req) => {
     // N = 미스매치 아닌(미만료) 최근 공지 수
     const matched = recent.filter((n: any) => {
       const meta = one<Meta>(n.notice_meta);
-      return !isMismatch(n, meta, profile, disabledTopics, readIds) && !isExpiredActionable(meta);
+      return !isMismatch(n, meta, profile, disabledTopics, readIds, disabledSources) && !isExpiredActionable(meta);
     });
     const N = matched.length;
     if (N === 0) continue; // 보낼 게 없으면 생략 (last_daily_push_at 미갱신)
