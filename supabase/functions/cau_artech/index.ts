@@ -15,8 +15,9 @@ const GQL = `${BASE}/api/graphql`;
 const AUTHOR = "예술공학대학";
 const DEFAULT_BACKFILL = "2026-05-01";
 
+// queryNotice=true는 상단 공지(isNotice)만, 생략/false는 일반 뉴스만 반환 → 둘 다 받아 병합.
 const NEWS_QUERY =
-  "query newsListQuery($skip: Int, $take: Int) { newsList(skip: $skip, take: $take) { id createdAt isNotice type title files content } }";
+  "query newsListQuery($skip: Int, $take: Int, $queryNotice: Boolean) { newsList(skip: $skip, take: $take, queryNotice: $queryNotice) { id createdAt isNotice type title files content } }";
 
 const FETCH_TIMEOUT_MS = 30_000;
 const MAX_RETRIES = 2;
@@ -49,8 +50,8 @@ function kstDate(iso: string): string | null {
   return new Date(t + 9 * 60 * 60 * 1000).toISOString().slice(0, 10);
 }
 
-async function fetchNews(take: number): Promise<any[]> {
-  const body = JSON.stringify({ query: NEWS_QUERY, variables: { skip: 0, take } });
+async function fetchOne(take: number, queryNotice: boolean): Promise<any[]> {
+  const body = JSON.stringify({ query: NEWS_QUERY, variables: { skip: 0, take, queryNotice } });
   let lastErr: unknown;
   for (let attempt = 0; attempt <= MAX_RETRIES; attempt++) {
     try {
@@ -71,6 +72,14 @@ async function fetchNews(take: number): Promise<any[]> {
     }
   }
   throw lastErr;
+}
+
+// 공지(queryNotice:true)와 일반 뉴스(false)를 각각 받아 id 기준 병합.
+async function fetchNews(take: number): Promise<any[]> {
+  const [notices, news] = await Promise.all([fetchOne(take, true), fetchOne(take, false)]);
+  const byId = new Map<string, any>();
+  for (const it of [...notices, ...news]) byId.set(String(it.id), it);
+  return [...byId.values()];
 }
 
 function parseContent(html: string) {
