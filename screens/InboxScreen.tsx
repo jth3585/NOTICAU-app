@@ -29,6 +29,7 @@ import { PressableScale } from '../components/ui/PressableScale';
 import { useReadSet } from '../lib/read';
 import { NOTICE_CARD_SELECT } from '../lib/notices';
 import { fetchDisabledSources } from '../lib/sourcePrefs';
+import { logEvent } from '../lib/events';
 import { useBookmarkSet, addBookmark } from '../lib/bookmarks';
 import { lightHaptic, softHaptic } from '../lib/haptics';
 import { toast } from '../lib/toast';
@@ -310,7 +311,7 @@ export default function InboxScreen() {
                   onChangeText={(t) => { setQuery(t); setSubmitted(false); }}
                   onFocus={() => { setSearchFocused(true); setSubmitted(false); }}
                   onBlur={() => setSearchFocused(false)}
-                  onSubmitEditing={() => { rememberSearch(query); setSubmitted(true); }}
+                  onSubmitEditing={() => { rememberSearch(query); setSubmitted(true); if (query.trim()) logEvent('search', { meta: { query: query.trim() } }); }}
                   returnKeyType="search"
                   clearButtonMode="never"
                 />

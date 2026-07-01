@@ -2,6 +2,7 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 import { supabase } from './supabase';
 import type { Notice, UserKeyword } from './types';
 import { NOTICE_CARD_SELECT } from './notices';
+import { logEvent } from './events';
 
 async function fetchBookmarkIds(): Promise<string[]> {
   const { data: { session } } = await supabase.auth.getSession();
@@ -40,6 +41,7 @@ export async function addBookmark(noticeId: string): Promise<void> {
     { user_id: session.user.id, notice_id: noticeId, bookmarked_at: new Date().toISOString() },
     { onConflict: 'user_id,notice_id' },
   );
+  logEvent('bookmark_add', { noticeId });
 }
 
 export async function removeBookmark(noticeId: string): Promise<void> {

@@ -19,6 +19,7 @@ import * as WebBrowser from 'expo-web-browser';
 import type { NativeStackScreenProps } from '@react-navigation/native-stack';
 import type { RootStackParamList, Notice } from '../lib/types';
 import { fetchNoticeById } from '../lib/notices';
+import { logEvent } from '../lib/events';
 import { COLORS, FONT, RADIUS, SPACING, WEIGHT } from '../lib/theme';
 import { BackButton } from '../components/ui/BackButton';
 import { formatDateFull, metaOf, sourceOf } from '../lib/format';
@@ -100,8 +101,11 @@ export default function NoticeDetailScreen({ route, navigation }: Props) {
     return { width: `${p * 100}%` };
   });
 
-  // 상세 진입 시 자동 읽음 처리 (진입 출처 surface 기록 → 큐레이션 등 참여도 분석)
-  useEffect(() => { markAsRead(notice.id, route.params.source); }, [notice.id]);
+  // 상세 진입 시 자동 읽음 처리 + 진입 출처(surface) 이벤트 로깅(큐레이션 등 참여도 분석).
+  useEffect(() => {
+    markAsRead(notice.id);
+    logEvent('notice_open', { noticeId: notice.id, meta: { surface: route.params.source ?? 'unknown' } });
+  }, [notice.id]);
 
   // body_markdown 지연 로드 (목록에서 제외됨). 없을 때만 단건 조회.
   useEffect(() => {
@@ -135,6 +139,7 @@ export default function NoticeDetailScreen({ route, navigation }: Props) {
     lines.push('✨ powered by NOTICAU');
     try {
       await Share.share({ message: lines.join('\n'), title: notice.title });
+      logEvent('share', { noticeId: notice.id });
     } catch { /* 사용자 취소 등 무시 */ }
   };
 
