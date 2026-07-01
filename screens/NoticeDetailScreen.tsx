@@ -17,7 +17,8 @@ import { useMarkdown, Renderer } from 'react-native-marked';
 import type { MarkedStyles } from 'react-native-marked';
 import * as WebBrowser from 'expo-web-browser';
 import type { NativeStackScreenProps } from '@react-navigation/native-stack';
-import type { RootStackParamList } from '../lib/types';
+import type { RootStackParamList, Notice } from '../lib/types';
+import { fetchNoticeById } from '../lib/notices';
 import { COLORS, FONT, RADIUS, SPACING, WEIGHT } from '../lib/theme';
 import { BackButton } from '../components/ui/BackButton';
 import { formatDateFull, metaOf, sourceOf } from '../lib/format';
@@ -48,7 +49,10 @@ type Props = NativeStackScreenProps<RootStackParamList, 'Detail'>;
 const BODY_MIN = 100;
 
 export default function NoticeDetailScreen({ route, navigation }: Props) {
-  const { notice } = route.params;
+  // 리스트는 경량 select(본문 제외)로 넘어올 수 있으므로, 상세에선 즉시 파라미터로
+  // 그리되 본문/이미지/첨부/마크다운이 없으면 id로 단건 재조회해 채운다.
+  const routeNotice = route.params.notice;
+  const [notice, setNotice] = useState<Notice>(routeNotice);
   const { width } = useWindowDimensions();
   const meta = metaOf(notice);
   const src = sourceOf(notice);
@@ -101,20 +105,24 @@ export default function NoticeDetailScreen({ route, navigation }: Props) {
 
   // body_markdown 지연 로드 (목록에서 제외됨). 없을 때만 단건 조회.
   useEffect(() => {
-    if (md != null) { setMdLoading(false); return; }
+    // 이미 본문(body_text)과 마크다운을 모두 갖고 들어온 경우(딥링크 등)엔 재조회 불필요.
+    if (md != null && routeNotice.body_text !== undefined) { setMdLoading(false); return; }
     let alive = true;
     setMdLoading(true);
     (async () => {
       try {
-        const { data } = await supabase
-          .from('notice_meta').select('body_markdown').eq('notice_id', notice.id).maybeSingle();
-        if (alive && data?.body_markdown) setMd(data.body_markdown);
-      } catch { /* 네트워크 실패 → bodyText 폴백으로 표시 */ }
+        const full = await fetchNoticeById(routeNotice.id);
+        if (alive && full) {
+          setNotice(full);
+          const m = metaOf(full)?.body_markdown ?? null;
+          if (m) setMd(m);
+        }
+      } catch { /* 네트워크 실패 → 기존 파라미터/폴백으로 표시 */ }
       finally { if (alive) setMdLoading(false); }
     })();
     return () => { alive = false; };
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [notice.id]);
+  }, [routeNotice.id]);
 
   // 공유: 제목 + 출처 + 원문 링크 + 노티카우 출처 표기
   const onShare = async () => {

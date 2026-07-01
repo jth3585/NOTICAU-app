@@ -69,7 +69,9 @@ export default function HomeScreen() {
     navigation.navigate('Feed' as never);
   }, [navigation]);
 
-  if (feed.loading || digestLoading) {
+  // 첫 페인트는 홈 피드(useHomeFeed)만 기다린다. AI 큐레이션(디지스트)은 별도 라운드트립이라
+  // 함께 기다리면 홈 진입이 느려짐 → 큐레이션 섹션은 자체 스켈레톤으로 독립 로드.
+  if (feed.loading) {
     return (
       <SafeAreaView style={styles.container} edges={['top']}>
         <NoticeListSkeleton count={5} />
@@ -102,6 +104,7 @@ export default function HomeScreen() {
         <HomeCuration
           notices={digestNotices}
           allSeen={allSeen}
+          loading={digestLoading}
           onGoToAll={onGoToAll}
           onPressNotice={onPressCuration}
           isNew={isNew}

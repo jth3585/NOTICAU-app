@@ -6,16 +6,18 @@ import { COLORS, FONT, RADIUS, SPACING, TEXT, WEIGHT } from '../lib/theme';
 import { SparkleIcon } from './ui/SparkleIcon';
 import { ChevronRightIcon } from './ui/icons';
 import { Celebration } from './ui/Celebration';
+import { NoticeListSkeleton } from './ui/Skeleton';
 
 type Props = {
   notices: Notice[];
   allSeen: boolean;
+  loading?: boolean;            // 디지스트 계산 중(홈 첫 페인트와 분리 로드)
   onGoToAll: () => void;        // 전체 공지 탭으로 이동
   onPressNotice: (n: Notice) => void;
   isNew: (postedAt: string | null) => boolean;
 };
 
-export function HomeCuration({ notices, allSeen, onGoToAll, onPressNotice, isNew }: Props) {
+export function HomeCuration({ notices, allSeen, loading = false, onGoToAll, onPressNotice, isNew }: Props) {
   return (
     <View style={styles.section}>
       <View style={styles.labelRow}>
@@ -23,7 +25,9 @@ export function HomeCuration({ notices, allSeen, onGoToAll, onPressNotice, isNew
         <Text style={styles.label}>AI 큐레이션</Text>
       </View>
 
-      {allSeen ? (
+      {loading && notices.length === 0 ? (
+        <NoticeListSkeleton count={3} />
+      ) : allSeen ? (
         <Animated.View style={styles.doneCard} entering={FadeIn.duration(360)}>
           <Celebration />
           <View style={styles.doneTitleRow}>

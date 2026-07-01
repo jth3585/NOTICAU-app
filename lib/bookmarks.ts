@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { supabase } from './supabase';
 import type { Notice, UserKeyword } from './types';
-import { NOTICE_LIST_SELECT } from './notices';
+import { NOTICE_CARD_SELECT } from './notices';
 
 async function fetchBookmarkIds(): Promise<string[]> {
   const { data: { session } } = await supabase.auth.getSession();
@@ -132,7 +132,7 @@ export function useBookmarkNotices() {
       const byId = new Map(rows.map((r) => [r.notice_id, r]));
       const { data } = await supabase
         .from('notices')
-        .select(NOTICE_LIST_SELECT)
+        .select(NOTICE_CARD_SELECT)
         .in('id', rows.map((r) => r.notice_id));
       const enriched = ((data as Notice[]) ?? [])
         .map((n) => {

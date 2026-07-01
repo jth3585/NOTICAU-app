@@ -5,7 +5,7 @@ import type { Notice, NoticeMeta, Profile, UserKeyword } from './types';
 import { metaOf, sourceOf } from './format';
 import { isMismatch, calculateMatchScore } from './matching';
 import { fetchReadIds } from './read';
-import { NOTICE_LIST_SELECT } from './notices';
+import { NOTICE_LIST_SELECT, NOTICE_CARD_SELECT } from './notices';
 
 // actionable인데 마감일이 지난 공지는 디지스트에서 제외 (이미 신청 종료 → 무의미).
 function isExpiredActionable(meta: NoticeMeta | null): boolean {
@@ -77,7 +77,7 @@ async function fetchNoticesByIds(ids: string[]): Promise<Notice[]> {
   if (ids.length === 0) return [];
   const { data } = await supabase
     .from('notices')
-    .select(NOTICE_LIST_SELECT)
+    .select(NOTICE_CARD_SELECT)
     .in('id', ids);
   // ids 순서 유지
   const map = new Map((data ?? []).map((n: any) => [n.id, n]));

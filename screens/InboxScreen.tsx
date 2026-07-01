@@ -27,7 +27,7 @@ import { EmptyState } from '../components/ui/EmptyState';
 import { NoticeListSkeleton } from '../components/ui/Skeleton';
 import { PressableScale } from '../components/ui/PressableScale';
 import { useReadSet } from '../lib/read';
-import { NOTICE_LIST_SELECT } from '../lib/notices';
+import { NOTICE_CARD_SELECT } from '../lib/notices';
 import { useBookmarkSet, addBookmark } from '../lib/bookmarks';
 import { lightHaptic, softHaptic } from '../lib/haptics';
 import { toast } from '../lib/toast';
@@ -149,7 +149,7 @@ export default function InboxScreen() {
   const fetchPage = useCallback(async (offset: number, size: number) => {
     return supabase
       .from('notices')
-      .select(NOTICE_LIST_SELECT)
+      .select(NOTICE_CARD_SELECT)
       .is('duplicate_of', null) // 교차출처 중복은 대표 1건만
       .order('posted_at', { ascending: false })
       .range(offset, offset + size - 1);
@@ -219,7 +219,7 @@ export default function InboxScreen() {
         if (!rpcErr && ids && ids.length > 0) {
           const { data } = await supabase
             .from('notices')
-            .select(NOTICE_LIST_SELECT)
+            .select(NOTICE_CARD_SELECT)
             .in('id', (ids as { id: string }[]).map((r) => r.id))
             .is('duplicate_of', null)
             .order('posted_at', { ascending: false });
@@ -229,7 +229,7 @@ export default function InboxScreen() {
         } else {
           const { data } = await supabase
             .from('notices')
-            .select(NOTICE_LIST_SELECT)
+            .select(NOTICE_CARD_SELECT)
             .ilike('title', `%${query.trim()}%`)
             .is('duplicate_of', null)
             .order('posted_at', { ascending: false })
