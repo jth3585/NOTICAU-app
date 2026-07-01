@@ -72,6 +72,7 @@ export type UserKeyword = {
   user_id: string;
   keyword: string;
   notify: boolean;
+  title_only?: boolean; // true면 제목만 매칭, false(기본)면 제목+본문
 };
 
 // react-navigation 스택 파라미터

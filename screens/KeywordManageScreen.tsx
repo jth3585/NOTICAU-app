@@ -10,7 +10,7 @@ import { COLORS, FONT, RADIUS, SPACING, WEIGHT } from '../lib/theme';
 import { CloseIcon } from '../components/ui/icons';
 import { BackButton } from '../components/ui/BackButton';
 
-type Keyword = { id: string; keyword: string; notify: boolean };
+type Keyword = { id: string; keyword: string; notify: boolean; title_only: boolean };
 
 // 폴백/시드 추천 키워드. 실제로는 popular_keywords RPC(전체 사용자 인기)를 우선하고,
 // 데이터가 부족할 때 이 목록으로 채운다. 두 줄 안에 들어가도록 최대 8개만 노출.
@@ -29,7 +29,7 @@ export default function KeywordManageScreen() {
     const { data: { session } } = await supabase.auth.getSession();
     if (!session) return;
     const { data } = await supabase.from('user_keywords')
-      .select('id,keyword,notify').eq('user_id', session.user.id)
+      .select('id,keyword,notify,title_only').eq('user_id', session.user.id)
       .order('created_at', { ascending: false });
     setKeywords((data as Keyword[]) ?? []);
   };
@@ -52,7 +52,7 @@ export default function KeywordManageScreen() {
     if (!session) { setAdding(false); return; }
     const { data } = await supabase.from('user_keywords')
       .insert({ user_id: session.user.id, keyword: text, notify: false })
-      .select('id,keyword,notify').single();
+      .select('id,keyword,notify,title_only').single();
     if (data) setKeywords(prev => [data as Keyword, ...prev]);
     setAdding(false);
   };
@@ -78,6 +78,12 @@ export default function KeywordManageScreen() {
   const handleToggleNotify = async (id: string, next: boolean) => {
     setKeywords(prev => prev.map(k => k.id === id ? { ...k, notify: next } : k));
     await supabase.from('user_keywords').update({ notify: next }).eq('id', id);
+  };
+
+  // 매칭 범위 토글: 제목만 ↔ 제목+본문
+  const handleToggleScope = async (id: string, titleOnly: boolean) => {
+    setKeywords(prev => prev.map(k => k.id === id ? { ...k, title_only: titleOnly } : k));
+    await supabase.from('user_keywords').update({ title_only: titleOnly }).eq('id', id);
   };
 
   return (
@@ -131,7 +137,18 @@ export default function KeywordManageScreen() {
             contentContainerStyle={styles.list}
             renderItem={({ item }) => (
               <View style={styles.keywordRow}>
-                <Text style={styles.keywordText}>{item.keyword}</Text>
+                <View style={styles.keywordMain}>
+                  <Text style={styles.keywordText}>{item.keyword}</Text>
+                  <TouchableOpacity
+                    style={styles.scopeChip}
+                    onPress={() => handleToggleScope(item.id, !item.title_only)}
+                    activeOpacity={0.7}
+                    accessibilityRole="button"
+                    accessibilityLabel={`매칭 범위: ${item.title_only ? '제목만' : '제목+본문'}. 탭하면 바꿔요`}
+                  >
+                    <Text style={styles.scopeText}>{item.title_only ? '제목만 매칭' : '제목+본문 매칭'}</Text>
+                  </TouchableOpacity>
+                </View>
                 <View style={styles.keywordActions}>
                   <Text style={styles.notifyLabel}>알림</Text>
                   <Switch
@@ -171,7 +188,10 @@ const styles = StyleSheet.create({
   recoChipText: { fontSize: FONT.caption, color: COLORS.accentText, fontWeight: WEIGHT.semibold },
   list: { paddingHorizontal: SPACING.lg, paddingBottom: SPACING.xxl },
   keywordRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingVertical: SPACING.md, borderBottomWidth: StyleSheet.hairlineWidth, borderBottomColor: COLORS.border },
-  keywordText: { fontSize: FONT.body, color: COLORS.text, flex: 1 },
+  keywordMain: { flex: 1, gap: 4, paddingRight: SPACING.sm },
+  keywordText: { fontSize: FONT.body, color: COLORS.text },
+  scopeChip: { alignSelf: 'flex-start', backgroundColor: COLORS.surface2, borderRadius: RADIUS.box, paddingHorizontal: SPACING.sm, paddingVertical: 3 },
+  scopeText: { fontSize: FONT.micro, color: COLORS.textSecondary, fontWeight: WEIGHT.semibold },
   keywordActions: { flexDirection: 'row', alignItems: 'center', gap: SPACING.sm },
   notifyLabel: { fontSize: FONT.caption, color: COLORS.textSecondary },
   empty: { flex: 1, justifyContent: 'center', alignItems: 'center', gap: SPACING.sm, padding: SPACING.xl },

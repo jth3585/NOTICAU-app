@@ -2,7 +2,7 @@ import { useCallback, useEffect, useState } from 'react';
 import { supabase } from './supabase';
 import type { Notice, Profile, UserKeyword } from './types';
 import { metaOf } from './format';
-import { isMismatch, matchKeyword } from './matching';
+import { isMismatch, matchKeywordRow } from './matching';
 import { NOTICE_CARD_SELECT } from './notices';
 import { fetchDisabledSources } from './sourcePrefs';
 
@@ -14,14 +14,16 @@ export type HomeTab = 'new' | 'keyword' | 'deadline';
 
 export function keywordMatches(notice: Notice, keywords: UserKeyword[]): boolean {
   if (keywords.length === 0) return false;
-  const hay = `${notice.title} ${notice.body_text ?? ''}`.toLowerCase();
-  return keywords.some((k) => matchKeyword(hay, k.keyword));
+  const title = notice.title ?? '';
+  const body = notice.body_text ?? '';
+  return keywords.some((k) => matchKeywordRow(title, body, k));
 }
 
 // 공지에 매칭된 첫 키워드 (카드 #태그용)
 export function firstMatchedKeyword(notice: Notice, keywords: UserKeyword[]): string | null {
-  const hay = `${notice.title} ${notice.body_text ?? ''}`.toLowerCase();
-  const hit = keywords.find((k) => matchKeyword(hay, k.keyword));
+  const title = notice.title ?? '';
+  const body = notice.body_text ?? '';
+  const hit = keywords.find((k) => matchKeywordRow(title, body, k));
   return hit ? hit.keyword : null;
 }
 

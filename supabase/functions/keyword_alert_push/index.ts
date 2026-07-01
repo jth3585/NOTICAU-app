@@ -101,9 +101,9 @@ function matchKeyword(haystack: string, keyword: string): boolean {
   return haystack.includes(kw);
 }
 
-function noticeHasKeyword(notice: any, keyword: string): boolean {
-  const haystack = `${notice.title} ${notice.body_text ?? ""}`.toLowerCase();
-  return matchKeyword(haystack, keyword);
+function noticeHasKeyword(notice: any, kw: { keyword: string; title_only?: boolean }): boolean {
+  const haystack = (kw.title_only ? (notice.title ?? "") : `${notice.title} ${notice.body_text ?? ""}`).toLowerCase();
+  return matchKeyword(haystack, kw.keyword);
 }
 
 Deno.serve(async (req) => {
@@ -159,13 +159,13 @@ Deno.serve(async (req) => {
 
     const uid = profile.user_id;
     const [kwRes, prefRes, readRes, tokRes] = await Promise.all([
-      supabase.from("user_keywords").select("keyword").eq("user_id", uid).eq("notify", true),
+      supabase.from("user_keywords").select("keyword, title_only").eq("user_id", uid).eq("notify", true),
       supabase.from("user_category_prefs").select("topic,is_enabled").eq("user_id", uid),
       supabase.from("user_feed_state").select("notice_id").eq("user_id", uid).not("read_at", "is", null),
       supabase.from("push_tokens").select("token").eq("user_id", uid).eq("is_active", true),
     ]);
 
-    const keywords = ((kwRes.data ?? []) as any[]).map((k) => k.keyword);
+    const keywords = ((kwRes.data ?? []) as any[]).map((k) => ({ keyword: k.keyword as string, title_only: !!k.title_only }));
     if (keywords.length === 0) continue; // notify 키워드 없으면 skip
     const tokens = ((tokRes.data ?? []) as any[]).map((t) => t.token);
     if (tokens.length === 0) continue;
@@ -190,7 +190,7 @@ Deno.serve(async (req) => {
           matchedNoticeIds.add(n.id);
         }
       }
-      if (set.size > 0) perKeyword.set(kw, set);
+      if (set.size > 0) perKeyword.set(kw.keyword, set);
     }
 
     const K = matchedNoticeIds.size; // 매칭 공지 수 (중복 제거)

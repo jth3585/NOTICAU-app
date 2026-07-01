@@ -17,6 +17,16 @@ export function matchKeyword(haystack: string, keyword: string): boolean {
   return haystack.includes(kw);
 }
 
+// 키워드별 매칭 범위 적용: title_only면 제목만, 아니면 제목+본문을 haystack으로.
+export function matchKeywordRow(
+  title: string,
+  body: string,
+  kw: { keyword: string; title_only?: boolean },
+): boolean {
+  const hay = (kw.title_only ? title : `${title} ${body}`).toLowerCase();
+  return matchKeyword(hay, kw.keyword);
+}
+
 const SOURCE_SCORE: Record<string, number> = {
   cau_biz: 35,
   cau_bne: 25,
@@ -113,12 +123,13 @@ export function calculateMatchScore(
 ): number {
   let score = 0;
 
-  // 1. 키워드 매칭 (0~35)
+  // 1. 키워드 매칭 (0~35) — 키워드별 매칭 범위(제목만/제목+본문) 존중
   if (keywords.length > 0) {
-    const haystack = `${notice.title} ${notice.body_text ?? ''}`.toLowerCase();
+    const title = notice.title ?? '';
+    const body = notice.body_text ?? '';
     let matched = 0;
     for (const kw of keywords) {
-      if (matchKeyword(haystack, kw.keyword)) matched++;
+      if (matchKeywordRow(title, body, kw)) matched++;
       if (matched >= 2) break;
     }
     if (matched >= 2) score += 35;
