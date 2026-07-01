@@ -394,7 +394,7 @@ export default function InboxScreen() {
                 // (빈 공간을 노려 누르려다 카드가 눌리는 것을 방지 — 표준 '첫 탭은 키보드 닫기')
                 if (Keyboard.isVisible()) { Keyboard.dismiss(); return; }
                 rememberSearch(query);
-                navigation.navigate('Detail', { notice: item });
+                navigation.navigate('Detail', { notice: item, source: query.trim() ? 'search' : 'inbox' });
               }}
             />
           </SwipeToBookmark>

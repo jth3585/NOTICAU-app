@@ -100,8 +100,8 @@ export default function NoticeDetailScreen({ route, navigation }: Props) {
     return { width: `${p * 100}%` };
   });
 
-  // 상세 진입 시 자동 읽음 처리
-  useEffect(() => { markAsRead(notice.id); }, [notice.id]);
+  // 상세 진입 시 자동 읽음 처리 (진입 출처 surface 기록 → 큐레이션 등 참여도 분석)
+  useEffect(() => { markAsRead(notice.id, route.params.source); }, [notice.id]);
 
   // body_markdown 지연 로드 (목록에서 제외됨). 없을 때만 단건 조회.
   useEffect(() => {

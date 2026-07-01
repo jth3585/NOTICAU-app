@@ -182,7 +182,7 @@ export default function BookmarkScreen() {
               isNew={!isRead(item.id) && !!lastSeenAt && (item.posted_at ?? '') > lastSeenAt}
               unread={!isRead(item.id)}
               dimOnPress={false}
-              onPress={() => navigation.navigate('Detail', { notice: item })}
+              onPress={() => navigation.navigate('Detail', { notice: item, source: 'bookmark' })}
               onLongPress={() => setPickerNotice(item)}
             />
           </SwipeToRemoveBookmark>

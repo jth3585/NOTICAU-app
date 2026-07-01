@@ -79,7 +79,7 @@ export type UserKeyword = {
 export type RootStackParamList = {
   Onboarding: undefined;
   Tabs: undefined;
-  Detail: { notice: Notice };
+  Detail: { notice: Notice; source?: string };
   BookmarkFolder:
     | { folder: 'unread' | 'keyword' }
     | { folder: 'custom'; folderId: string; folderName: string };

@@ -92,7 +92,7 @@ async function routeFromNotificationData(data: any): Promise<void> {
   if (ids.length === 1) {
     const notice = await fetchNoticeById(ids[0]);
     if (notice) {
-      navigationRef.navigate('Detail', { notice });
+      navigationRef.navigate('Detail', { notice, source: 'push_keyword' });
       return;
     }
   }

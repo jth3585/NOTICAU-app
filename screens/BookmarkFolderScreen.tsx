@@ -179,7 +179,7 @@ export default function BookmarkFolderScreen({ route }: Props) {
                 unread={!isRead(item.id)}
                 dimOnPress={false}
                 keywordTag={folder === 'keyword' ? (firstMatchedKeyword(item, keywords) ?? undefined) : undefined}
-                onPress={() => navigation.navigate('Detail', { notice: item })}
+                onPress={() => navigation.navigate('Detail', { notice: item, source: 'bookmark' })}
                 onLongPress={() => setPickerNotice(item)}
               />
             </SwipeToRemoveBookmark>

@@ -23,7 +23,7 @@ type Props = {
   keywordList: Notice[];
   deadlineList: Notice[];
   keywords: UserKeyword[];
-  onPressNotice: (n: Notice) => void;
+  onPressNotice: (n: Notice, source: string) => void;
   initialTab?: HomeTab | null; // 알림 딥링크로 강제 선택할 탭
 };
 
@@ -118,7 +118,7 @@ export function HomeFilterTabs({ newList, keywordList, deadlineList, keywords, o
               titleLines={4}
               keywordTag={tab === 'keyword' ? (firstMatchedKeyword(item, keywords) ?? undefined) : undefined}
               countdown={tab === 'deadline' ? (formatTimeRemaining(metaOf(item)?.deadline_at ?? null) ?? undefined) : undefined}
-              onPress={() => onPressNotice(item)}
+              onPress={() => onPressNotice(item, `home_${tab}`)}
             />
           )}
         />

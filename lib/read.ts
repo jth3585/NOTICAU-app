@@ -1,13 +1,16 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { supabase } from './supabase';
 
-export async function markAsRead(noticeId: string): Promise<void> {
+// source: 어느 화면에서 열었는지(홈 큐레이션/새공지/키워드/전체공지/검색/북마크/푸시 등).
+// 큐레이션 등 surface별 참여도 분석용. 미지정 시 기존 값 보존(upsert가 준 컬럼만 갱신).
+export async function markAsRead(noticeId: string, source?: string): Promise<void> {
   const { data: { session } } = await supabase.auth.getSession();
   if (!session) return;
-  await supabase.from('user_feed_state').upsert(
-    { user_id: session.user.id, notice_id: noticeId, read_at: new Date().toISOString() },
-    { onConflict: 'user_id,notice_id' },
-  );
+  const row: Record<string, unknown> = {
+    user_id: session.user.id, notice_id: noticeId, read_at: new Date().toISOString(),
+  };
+  if (source) row.read_source = source;
+  await supabase.from('user_feed_state').upsert(row, { onConflict: 'user_id,notice_id' });
 }
 
 export async function fetchReadIds(): Promise<Set<string>> {

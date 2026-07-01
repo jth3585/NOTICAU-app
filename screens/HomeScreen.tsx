@@ -54,14 +54,14 @@ export default function HomeScreen() {
   useScrollToTop(scrollRef);
   useTabReselect(onRefresh);
 
-  const onPressNotice = useCallback((n: Notice) => {
-    navigation.navigate('Detail', { notice: n });
+  const onPressNotice = useCallback((n: Notice, source: string) => {
+    navigation.navigate('Detail', { notice: n, source });
   }, [navigation]);
 
   // 큐레이션 글을 열면 즉시 로컬 읽음 처리(서버 커밋 타이밍과 무관하게 바로 사라지게).
   const onPressCuration = useCallback((n: Notice) => {
     markReadLocal(n.id);
-    navigation.navigate('Detail', { notice: n });
+    navigation.navigate('Detail', { notice: n, source: 'home_curation' });
   }, [markReadLocal, navigation]);
 
   // 추천을 다 읽으면 전체 공지 탭으로 이동.
