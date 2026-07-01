@@ -5,7 +5,7 @@ import type { Notice, NoticeMeta, Profile, UserKeyword } from './types';
 import { metaOf, sourceOf } from './format';
 import { isMismatch, calculateMatchScore } from './matching';
 import { fetchReadIds } from './read';
-import { NOTICE_LIST_SELECT, NOTICE_CARD_SELECT } from './notices';
+import { NOTICE_CARD_SELECT } from './notices';
 
 // actionable인데 마감일이 지난 공지는 디지스트에서 제외 (이미 신청 종료 → 무의미).
 function isExpiredActionable(meta: NoticeMeta | null): boolean {
@@ -46,7 +46,7 @@ async function computeDigestIds(excludeIds: string[], limit: number): Promise<st
     supabase.from('user_keywords').select('*').eq('user_id', session.user.id),
     supabase.from('user_category_prefs').select('topic,is_enabled').eq('user_id', session.user.id),
     supabase.from('user_feed_state').select('notice_id').eq('user_id', session.user.id).not('read_at', 'is', null),
-    supabase.from('notices').select(NOTICE_LIST_SELECT).order('posted_at', { ascending: false }).limit(300),
+    supabase.from('notices').select(NOTICE_CARD_SELECT).order('posted_at', { ascending: false }).limit(300),
   ]);
 
   const profile = profileRes.data as Profile | null;
@@ -59,6 +59,17 @@ async function computeDigestIds(excludeIds: string[], limit: number): Promise<st
   const readIds = new Set<string>(((readRes.data ?? []) as any[]).map((r: any) => r.notice_id));
   const notices = (noticesRes.data ?? []) as Notice[];
   const excludeSet = new Set(excludeIds);
+
+  // 스코어링의 키워드 항목만 body_text가 필요 → 키워드가 있을 때만 본문을 별도 로드해 채운다.
+  // (키워드 미등록 사용자는 목록 경량 select 그대로 → 본문 페이로드 0.)
+  if (keywords.length > 0) {
+    const ids = notices.map((n) => n.id);
+    if (ids.length > 0) {
+      const { data: bodies } = await supabase.from('notices').select('id, body_text').in('id', ids);
+      const bmap = new Map(((bodies ?? []) as any[]).map((b) => [b.id, b.body_text]));
+      notices.forEach((n) => { if (bmap.has(n.id)) (n as any).body_text = bmap.get(n.id); });
+    }
+  }
 
   const scored = notices
     .filter(n => !excludeSet.has(n.id))

@@ -3,7 +3,7 @@ import { supabase } from './supabase';
 import type { Notice, Profile, UserKeyword } from './types';
 import { metaOf } from './format';
 import { isMismatch, matchKeyword } from './matching';
-import { NOTICE_LIST_SELECT } from './notices';
+import { NOTICE_CARD_SELECT } from './notices';
 
 const NEW_WINDOW_MS = 24 * 60 * 60 * 1000; // "새공지" 윈도우 (최근 24h crawled)
 const KEYWORD_WINDOW_MS = 24 * 60 * 60 * 1000; // "키워드매치" 윈도우 (최근 24h 게시 중 매칭)
@@ -53,7 +53,7 @@ export function useHomeFeed() {
       supabase.from('profiles').select('*').eq('user_id', session.user.id).maybeSingle(),
       supabase.from('user_keywords').select('*').eq('user_id', session.user.id),
       supabase.from('user_category_prefs').select('topic,is_enabled').eq('user_id', session.user.id),
-      supabase.from('notices').select(NOTICE_LIST_SELECT).is('duplicate_of', null).order('posted_at', { ascending: false }).limit(300),
+      supabase.from('notices').select(NOTICE_CARD_SELECT).is('duplicate_of', null).order('posted_at', { ascending: false }).limit(300),
     ]);
 
     const profile = profileRes.data as Profile | null;
@@ -64,12 +64,26 @@ export function useHomeFeed() {
       ((prefsRes.data ?? []) as any[]).filter((p) => !p.is_enabled).map((p) => p.topic),
     );
     const notices = (noticesRes.data ?? []) as Notice[];
+    const now = Date.now();
+
+    // 키워드 매칭은 본문(body_text)까지 훑어야 정확한데, 목록은 경량 select(본문 제외)로 받는다.
+    // → 키워드가 있을 때만, 매칭 대상인 '최근 24h' 공지에 한해 body_text를 별도 로드해 채운다.
+    //   (전체 300행 본문을 받던 ~2.3MB 비용 대신 소량만.)
+    if (keywords.length > 0) {
+      const recentIds = notices
+        .filter((n) => n.posted_at && (now - Date.parse(n.posted_at)) <= KEYWORD_WINDOW_MS)
+        .map((n) => n.id);
+      if (recentIds.length > 0) {
+        const { data: bodies } = await supabase.from('notices').select('id, body_text').in('id', recentIds);
+        const bmap = new Map(((bodies ?? []) as any[]).map((b) => [b.id, b.body_text]));
+        notices.forEach((n) => { if (bmap.has(n.id)) (n as any).body_text = bmap.get(n.id); });
+      }
+    }
 
     // 홈 세 탭 공통 베이스: 타깃/카테고리 불일치만 제외. 읽음은 제외하지 않음
     //   (홈은 "지금 챙길 것"을 보여주는 곳 — 읽었어도 24h 새 공지/마감이면 계속 노출).
     const NO_READ = new Set<string>();
     const base = notices.filter((n) => !isMismatch(n, metaOf(n), profile, disabledTopics, NO_READ));
-    const now = Date.now();
 
     // 새공지: 최근 24h '게시된' 것 (posted_at 기준 — crawled_at은 우리 DB 적재 시점이라
     //   새 소스 백필 시 과거 공지가 전부 새공지로 뜨는 문제가 생김).
