@@ -62,6 +62,7 @@ export function isMismatch(
   disabledTopics: Set<string>,
   readIds: Set<string>,
   disabledSources?: Set<string>,
+  opts?: { skipDormFilter?: boolean }, // '기숙사' 카테고리를 명시 선택해 볼 때는 기숙사 필터 건너뜀
 ): boolean {
   // 이미 읽음
   if (readIds.has(notice.id)) return true;
@@ -115,8 +116,9 @@ export function isMismatch(
   // 학부 제외 공지
   if (meta.excludes_undergrad) return true;
 
-  // 기숙사 카테고리 + 비기숙사 사용자
-  if (meta.topic === '기숙사' && !profile.is_dormitory) return true;
+  // 기숙사 카테고리 + 비기숙사 사용자 → 기본 뷰에선 숨김.
+  // 단, '기숙사' 카테고리를 직접 선택해 볼 때(skipDormFilter)는 노출한다.
+  if (meta.topic === '기숙사' && !profile.is_dormitory && !opts?.skipDormFilter) return true;
 
   return false;
 }

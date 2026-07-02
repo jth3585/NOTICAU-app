@@ -266,7 +266,9 @@ export default function InboxScreen() {
       return searchResults.filter((n) => !isMismatch(n, metaOf(n), profile, disabledTopics, NO_READ, disabledSources));
     }
     if (!profile) return [];
-    const matched = notices.filter((n) => !isMismatch(n, metaOf(n), profile, disabledTopics, NO_READ, disabledSources));
+    // '기숙사' 카테고리를 직접 선택하면 비기숙사 사용자에게도 기숙사 공지를 보여준다.
+    const dormOpt = { skipDormFilter: selected === '기숙사' };
+    const matched = notices.filter((n) => !isMismatch(n, metaOf(n), profile, disabledTopics, NO_READ, disabledSources, dormOpt));
     const f = selected === '전체' ? matched : matched.filter((n) => metaOf(n)?.topic === selected);
     return sortNotices(f, sortMode);
   }, [notices, selected, sortMode, query, searchResults, disabledTopics, disabledSources, profile, campusAllows]);
