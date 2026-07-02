@@ -132,8 +132,8 @@ export default function KeywordManageScreen() {
             contentContainerStyle={styles.list}
             renderItem={({ item }) => (
               <View style={styles.keywordRow}>
-                <TouchableOpacity onPress={() => handleDelete(item.id)} hitSlop={8} style={styles.delBtn} accessibilityRole="button" accessibilityLabel={`${item.keyword} 삭제`}>
-                  <CloseIcon size={16} color={COLORS.textTertiary} />
+                <TouchableOpacity onPress={() => handleDelete(item.id)} hitSlop={12} style={styles.delBtn} accessibilityRole="button" accessibilityLabel={`${item.keyword} 삭제`}>
+                  <CloseIcon size={14} color={COLORS.textTertiary} />
                 </TouchableOpacity>
                 <Text style={styles.keywordText} numberOfLines={1}>{item.keyword}</Text>
                 <TouchableOpacity
