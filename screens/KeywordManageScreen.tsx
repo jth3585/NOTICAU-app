@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from 'react';
 import {
   FlatList, KeyboardAvoidingView, Platform, StyleSheet,
-  Switch, Text, TextInput, TouchableOpacity, View,
+  Text, TextInput, TouchableOpacity, View,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useNavigation } from '@react-navigation/native';
@@ -75,11 +75,6 @@ export default function KeywordManageScreen() {
     setKeywords(prev => prev.filter(k => k.id !== id));
   };
 
-  const handleToggleNotify = async (id: string, next: boolean) => {
-    setKeywords(prev => prev.map(k => k.id === id ? { ...k, notify: next } : k));
-    await supabase.from('user_keywords').update({ notify: next }).eq('id', id);
-  };
-
   // 매칭 범위 토글: 제목만 ↔ 제목+본문
   const handleToggleScope = async (id: string, titleOnly: boolean) => {
     setKeywords(prev => prev.map(k => k.id === id ? { ...k, title_only: titleOnly } : k));
@@ -137,31 +132,19 @@ export default function KeywordManageScreen() {
             contentContainerStyle={styles.list}
             renderItem={({ item }) => (
               <View style={styles.keywordRow}>
-                <View style={styles.keywordMain}>
-                  <Text style={styles.keywordText}>{item.keyword}</Text>
-                  <TouchableOpacity
-                    style={styles.scopeChip}
-                    onPress={() => handleToggleScope(item.id, !item.title_only)}
-                    activeOpacity={0.7}
-                    accessibilityRole="button"
-                    accessibilityLabel={`매칭 범위: ${item.title_only ? '제목만' : '제목+본문'}. 탭하면 바꿔요`}
-                  >
-                    <Text style={styles.scopeText}>{item.title_only ? '제목만 매칭' : '제목+본문 매칭'}</Text>
-                  </TouchableOpacity>
-                </View>
-                <View style={styles.keywordActions}>
-                  <Text style={styles.notifyLabel}>알림</Text>
-                  <Switch
-                    value={item.notify}
-                    onValueChange={next => handleToggleNotify(item.id, next)}
-                    trackColor={{ true: COLORS.accent }}
-                    thumbColor="#fff"
-                    style={{ transform: [{ scale: 0.75 }] }}
-                  />
-                  <TouchableOpacity onPress={() => handleDelete(item.id)} hitSlop={8}>
-                    <CloseIcon size={16} color={COLORS.textTertiary} />
-                  </TouchableOpacity>
-                </View>
+                <TouchableOpacity onPress={() => handleDelete(item.id)} hitSlop={8} style={styles.delBtn} accessibilityRole="button" accessibilityLabel={`${item.keyword} 삭제`}>
+                  <CloseIcon size={16} color={COLORS.textTertiary} />
+                </TouchableOpacity>
+                <Text style={styles.keywordText} numberOfLines={1}>{item.keyword}</Text>
+                <TouchableOpacity
+                  style={styles.scopeChip}
+                  onPress={() => handleToggleScope(item.id, !item.title_only)}
+                  activeOpacity={0.7}
+                  accessibilityRole="button"
+                  accessibilityLabel={`매칭 범위: ${item.title_only ? '제목만' : '제목+본문'}. 탭하면 바꿔요`}
+                >
+                  <Text style={styles.scopeText}>{item.title_only ? '제목만 매칭' : '제목+본문 매칭'}</Text>
+                </TouchableOpacity>
               </View>
             )}
           />
@@ -187,13 +170,11 @@ const styles = StyleSheet.create({
   recoChip: { backgroundColor: COLORS.surface, borderRadius: RADIUS.box, paddingHorizontal: SPACING.md, paddingVertical: SPACING.xs },
   recoChipText: { fontSize: FONT.caption, color: COLORS.accentText, fontWeight: WEIGHT.semibold },
   list: { paddingHorizontal: SPACING.lg, paddingBottom: SPACING.xxl },
-  keywordRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingVertical: SPACING.md, borderBottomWidth: StyleSheet.hairlineWidth, borderBottomColor: COLORS.border },
-  keywordMain: { flex: 1, gap: 4, paddingRight: SPACING.sm },
-  keywordText: { fontSize: FONT.body, color: COLORS.text },
-  scopeChip: { alignSelf: 'flex-start', backgroundColor: COLORS.surface2, borderRadius: RADIUS.box, paddingHorizontal: SPACING.sm, paddingVertical: 3 },
-  scopeText: { fontSize: FONT.micro, color: COLORS.textSecondary, fontWeight: WEIGHT.semibold },
-  keywordActions: { flexDirection: 'row', alignItems: 'center', gap: SPACING.sm },
-  notifyLabel: { fontSize: FONT.caption, color: COLORS.textSecondary },
+  keywordRow: { flexDirection: 'row', alignItems: 'center', gap: SPACING.sm, paddingVertical: SPACING.md, borderBottomWidth: StyleSheet.hairlineWidth, borderBottomColor: COLORS.border },
+  delBtn: { padding: 2 },
+  keywordText: { flex: 1, fontSize: FONT.body, color: COLORS.text },
+  scopeChip: { backgroundColor: COLORS.surface2, borderRadius: RADIUS.box, paddingHorizontal: SPACING.md, paddingVertical: 5 },
+  scopeText: { fontSize: FONT.caption, color: COLORS.textSecondary, fontWeight: WEIGHT.semibold },
   empty: { flex: 1, justifyContent: 'center', alignItems: 'center', gap: SPACING.sm, padding: SPACING.xl },
   emptyText: { fontSize: FONT.subtitle, fontWeight: WEIGHT.semibold, color: COLORS.text },
   emptyHint: { fontSize: FONT.body, color: COLORS.textSecondary, textAlign: 'center' },
