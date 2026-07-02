@@ -70,7 +70,6 @@ export default function NotificationSettingsScreen() {
 
         {/* 키워드별 즉시 알림 */}
         <Text style={styles.groupLabel}>키워드 알림</Text>
-        <Text style={styles.note}>· 켠 키워드가 포함된 새 공지가 올라오면 바로 알려드려요. (키워드 추가·삭제는 ‘키워드 관리’에서)</Text>
         <View style={styles.card}>
           {keywords.length === 0 ? (
             <Text style={styles.empty}>등록한 키워드가 없어요. ‘키워드 관리’에서 추가해 보세요.</Text>
@@ -90,6 +89,8 @@ export default function NotificationSettingsScreen() {
             ))
           )}
         </View>
+        <Text style={styles.note}>· 켠 키워드가 포함된 새 공지가 올라오면 바로 알려드려요.</Text>
+        <Text style={styles.note}>· 키워드 추가·삭제는 ‘키워드 관리’에서 할 수 있어요.</Text>
         {!enabled && keywords.length > 0 ? (
           <Text style={styles.note}>· ‘알림 받기’를 켜야 키워드 알림도 받을 수 있어요.</Text>
         ) : null}
