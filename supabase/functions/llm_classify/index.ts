@@ -31,6 +31,11 @@ const TOPICS = [
   "창업", "기숙사", "재학상태", "시설&시스템",
 ];
 
+// '소속 학생 한정'이 명백한 카테고리. 게시판에 owner(학과/단과대)가 있는데 LLM이
+// target_depts를 비워두면 이 카테고리에 한해 owner 소속으로 결정적 한정한다(타 학과 누출 방지).
+// 채용·인턴·대회·세미나·창업 등 '전체 대상' 성격은 제외 → 전교 노출 유지.
+const DEPT_SCOPED_TOPICS = new Set(["학사정보", "재학상태", "장학&등록금"]);
+
 const supabase = createClient(
   Deno.env.get("SUPABASE_URL")!,
   Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!,
@@ -509,6 +514,12 @@ Deno.serve(async (req) => {
       if (Array.isArray(meta.target_depts)) {
         const codes = meta.target_depts.map((nm: string) => nameToCode.get(nm)).filter(Boolean) as string[];
         meta.target_depts = codes.length ? [...new Set(codes)] : null;
+      }
+      // 결정적 소속 한정: 학사/재학상태/장학처럼 소속 한정이 명백한데 LLM이 target_depts를
+      // 안 걸었고 게시판에 owner가 있으면 그 소속(학부면 소속 학과 전체)으로 한정한다.
+      const ownScoped = ownerUnitBySourceId.get(n.source_id);
+      if (ownScoped && DEPT_SCOPED_TOPICS.has(meta.topic) && (!meta.target_depts || meta.target_depts.length === 0)) {
+        meta.target_depts = deptGroupBySourceId.get(n.source_id) ?? [ownScoped];
       }
       // 단과대 게시판의 학과 한정 공지는 단과대 전체(college)로 정규화 — 본문에 일부 학과만
       // 나열돼도 그 단과대 학생 전원에게 노출(일부 학과 누락 방지). 전체대상(null)은 그대로.
