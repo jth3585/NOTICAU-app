@@ -51,7 +51,7 @@ export default function KeywordManageScreen() {
     const { data: { session } } = await supabase.auth.getSession();
     if (!session) { setAdding(false); return; }
     const { data } = await supabase.from('user_keywords')
-      .insert({ user_id: session.user.id, keyword: text, notify: false })
+      .insert({ user_id: session.user.id, keyword: text, notify: true })
       .select('id,keyword,notify,title_only').single();
     if (data) setKeywords(prev => [data as Keyword, ...prev]);
     setAdding(false);
