@@ -7,7 +7,7 @@ function timeGreeting(kstHour: number): string {
   if (kstHour >= 5 && kstHour < 11) return '좋은 아침이에요';
   if (kstHour >= 11 && kstHour < 17) return '좋은 오후예요';
   if (kstHour >= 17 && kstHour < 22) return '좋은 저녁이에요';
-  return '늦은 시간이네요';
+  return '오늘도 수고했어요';
 }
 
 type Props = {
