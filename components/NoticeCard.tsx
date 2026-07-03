@@ -9,9 +9,9 @@ function CardGlow({ color }: { color: string }) {
   return (
     <Svg style={StyleSheet.absoluteFill} pointerEvents="none">
       <Defs>
-        <RadialGradient id="cardGlow" cx="50%" cy="100%" rx="72%" ry="60%" gradientUnits="objectBoundingBox">
-          <Stop offset="0" stopColor={color} stopOpacity={0.13} />
-          <Stop offset="0.6" stopColor={color} stopOpacity={0.05} />
+        <RadialGradient id="cardGlow" cx="50%" cy="116%" rx="80%" ry="30%" gradientUnits="objectBoundingBox">
+          <Stop offset="0" stopColor={color} stopOpacity={0.16} />
+          <Stop offset="0.7" stopColor={color} stopOpacity={0.05} />
           <Stop offset="1" stopColor={color} stopOpacity={0} />
         </RadialGradient>
       </Defs>
