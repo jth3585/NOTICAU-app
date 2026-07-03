@@ -1,32 +1,25 @@
 import { StyleSheet, Text, View } from 'react-native';
-import Svg, { Defs, RadialGradient, Stop, Rect } from 'react-native-svg';
+import { LinearGradient } from 'expo-linear-gradient';
 import type { Notice } from '../lib/types';
 import { COLORS, FONT, RADIUS, SHADOW, SPACING, WEIGHT } from '../lib/theme';
 import { PressableScale } from './ui/PressableScale';
 
-// #RRGGBB → 흰색 쪽으로 섞어 채도를 낮춘 파스텔 hex (레퍼런스처럼 은은하게).
-function glowHex(hex: string, whiteMix = 0.3): string {
-  const h = hex.replace('#', '');
-  const mix = (v: number) => Math.round(v + (255 - v) * whiteMix).toString(16).padStart(2, '0');
-  return `#${mix(parseInt(h.slice(0, 2), 16))}${mix(parseInt(h.slice(2, 4), 16))}${mix(parseInt(h.slice(4, 6), 16))}`;
-}
+// 카테고리별 '글로우 전용' 파스텔 색(칩색과 별개로 은은하게 튜닝). 하단 글로우에 사용.
+const GLOW_COLORS: Record<string, string> = {
+  '학사정보': '#8E97F5',   // 인디고
+  '장학&등록금': '#5FD3AE', // 그린
+  '채용&인턴': '#B291EF',   // 퍼플
+  '교내외활동': '#57CBE0',  // 시안
+  '창업': '#F191BE',        // 핑크
+  '재학상태': '#F6C066',    // 앰버
+  '기숙사': '#5FD0C1',      // 틸
+  '시설&시스템': '#AEB4BE', // 그레이
+};
 
-// 카드 하단 중앙에서 원형으로 부드럽게 번지는 글로우(레퍼런스풍). 경계·모서리는 자연히 페이드.
-// viewBox+userSpaceOnUse로 좌표를 확정(카드 크기 무관) → 위치 안정.
-function CardGlow({ color }: { color: string }) {
-  const c = glowHex(color);
-  return (
-    <Svg style={StyleSheet.absoluteFill} viewBox="0 0 100 100" preserveAspectRatio="none" pointerEvents="none">
-      <Defs>
-        <RadialGradient id="cardGlow" cx="50" cy="74" rx="44" ry="30" gradientUnits="userSpaceOnUse">
-          <Stop offset="0" stopColor={c} stopOpacity={0.5} />
-          <Stop offset="0.6" stopColor={c} stopOpacity={0.22} />
-          <Stop offset="1" stopColor={c} stopOpacity={0} />
-        </RadialGradient>
-      </Defs>
-      <Rect x="0" y="0" width="100" height="100" fill="url(#cardGlow)" />
-    </Svg>
-  );
+// #RRGGBB → rgba(r,g,b,a)
+function toRgba(hex: string, alpha: number): string {
+  const h = hex.replace('#', '');
+  return `rgba(${parseInt(h.slice(0, 2), 16)}, ${parseInt(h.slice(2, 4), 16)}, ${parseInt(h.slice(4, 6), 16)}, ${alpha})`;
 }
 import { formatDateShort, formatScheduleBadge, metaOf, sourceOf } from '../lib/format';
 import { CategoryBadge } from './ui/CategoryBadge';
@@ -70,7 +63,7 @@ export function NoticeCard({
   const sourceName = src?.name || sourceLabel(src?.parser_key);
   const topic = meta?.topic ?? null;
   // 카드 하단 글로우 색: 카테고리 main 색 (없으면 글로우 생략)
-  const glowColor = glow && topic ? (COLORS.categories[topic as keyof typeof COLORS.categories]?.main ?? null) : null;
+  const glowColor = glow && topic ? (GLOW_COLORS[topic] ?? null) : null;
   const badge = formatScheduleBadge(meta?.apply_start_at ?? null, meta?.deadline_at ?? null);
   const postedMD = formatDateShort(notice.posted_at);
 
@@ -98,7 +91,15 @@ export function NoticeCard({
         minHeight != null && { minHeight },
       ]}
     >
-      {glowColor ? <CardGlow color={glowColor} /> : null}
+      {glowColor ? (
+        <LinearGradient
+          // 하단: 위(투명) → 색 → 맨아래(투명) 3-stop. 박스 경계엔 글로우 없이 살짝 안쪽에서 뭉침.
+          colors={['transparent', toRgba(glowColor, 0.5), 'transparent']}
+          locations={[0, 0.62, 1]}
+          style={styles.glow}
+          pointerEvents="none"
+        />
+      ) : null}
       <View style={styles.topRow}>
         <View style={styles.topLeft}>
           {(isNew || unread) ? <View style={styles.newDot} /> : null}
@@ -136,6 +137,14 @@ const styles = StyleSheet.create({
     marginBottom: SPACING.md,
     overflow: 'hidden', // 하단 글로우가 카드 둥근 모서리를 넘지 않게 클립
     ...SHADOW.card,
+  },
+  // 카드 하단에 은은히 깔리는 카테고리 글로우 (AI 큐레이션). 콘텐츠 뒤(첫 자식) 렌더.
+  glow: {
+    position: 'absolute',
+    left: 0,
+    right: 0,
+    bottom: 0,
+    height: '46%',
   },
   topRow: {
     flexDirection: 'row',
