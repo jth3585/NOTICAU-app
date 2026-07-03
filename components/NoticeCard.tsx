@@ -93,9 +93,9 @@ export function NoticeCard({
     >
       {glowColor ? (
         <LinearGradient
-          // 하단: 위(투명) → 색 → 맨아래(투명) 3-stop. 박스 경계엔 글로우 없이 살짝 안쪽에서 뭉침.
-          colors={['transparent', toRgba(glowColor, 0.5), 'transparent']}
-          locations={[0, 0.62, 1]}
+          // 'transparent'(=검은색 알파0)는 색→투명 보간에서 거뭇한 띠를 만든다.
+          // 같은 색의 알파만 0→값으로 페이드 → 흰 카드에 자연스럽게 녹아듦(검은기 없음).
+          colors={[toRgba(glowColor, 0), toRgba(glowColor, 0.4)]}
           style={styles.glow}
           pointerEvents="none"
         />
