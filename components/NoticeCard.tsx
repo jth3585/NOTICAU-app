@@ -4,16 +4,17 @@ import type { Notice } from '../lib/types';
 import { COLORS, FONT, RADIUS, SHADOW, SPACING, WEIGHT } from '../lib/theme';
 import { PressableScale } from './ui/PressableScale';
 
-// 카테고리별 '글로우 전용' 파스텔 색(칩색과 별개로 은은하게 튜닝). 하단 글로우에 사용.
+// 카테고리별 '글로우 전용' 워시 톤. 칩색과 분리해 아주 연하고 채도 낮게 —
+// 흰 카드에 은은히 녹아드는 정도(색이 도드라지지 않고 무드만 살짝).
 const GLOW_COLORS: Record<string, string> = {
-  '학사정보': '#8E97F5',   // 인디고
-  '장학&등록금': '#5FD3AE', // 그린
-  '채용&인턴': '#B291EF',   // 퍼플
-  '교내외활동': '#57CBE0',  // 시안
-  '창업': '#F191BE',        // 핑크
-  '재학상태': '#F6C066',    // 앰버
-  '기숙사': '#5FD0C1',      // 틸
-  '시설&시스템': '#AEB4BE', // 그레이
+  '학사정보': '#D6D9F7',   // 연한 라벤더
+  '장학&등록금': '#CDEEE0', // 연한 민트
+  '채용&인턴': '#E1D7F5',   // 연한 라일락
+  '교내외활동': '#D2ECF3',  // 연한 하늘
+  '창업': '#F6DCE8',        // 연한 로즈
+  '재학상태': '#F7E9CE',    // 연한 크림앰버
+  '기숙사': '#CFECE6',      // 연한 틸
+  '시설&시스템': '#E0E3E8', // 연한 그레이
 };
 
 // #RRGGBB → rgba(r,g,b,a)
@@ -95,7 +96,7 @@ export function NoticeCard({
         <LinearGradient
           // 'transparent'(=검은색 알파0)는 색→투명 보간에서 거뭇한 띠를 만든다.
           // 같은 색의 알파만 0→값으로 페이드 → 흰 카드에 자연스럽게 녹아듦(검은기 없음).
-          colors={[toRgba(glowColor, 0), toRgba(glowColor, 0.4)]}
+          colors={[toRgba(glowColor, 0), toRgba(glowColor, 0.65)]}
           style={styles.glow}
           pointerEvents="none"
         />
