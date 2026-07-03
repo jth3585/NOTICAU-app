@@ -1,7 +1,17 @@
 import { StyleSheet, Text, View } from 'react-native';
+import { LinearGradient } from 'expo-linear-gradient';
 import type { Notice } from '../lib/types';
 import { COLORS, FONT, RADIUS, SHADOW, SPACING, WEIGHT } from '../lib/theme';
 import { PressableScale } from './ui/PressableScale';
+
+// #RRGGBB → rgba(r,g,b,a)
+function hexToRgba(hex: string, a: number): string {
+  const h = hex.replace('#', '');
+  const r = parseInt(h.slice(0, 2), 16);
+  const g = parseInt(h.slice(2, 4), 16);
+  const b = parseInt(h.slice(4, 6), 16);
+  return `rgba(${r}, ${g}, ${b}, ${a})`;
+}
 import { formatDateShort, formatScheduleBadge, metaOf, sourceOf } from '../lib/format';
 import { CategoryBadge } from './ui/CategoryBadge';
 import { SourceBadge } from './ui/SourceBadge';
@@ -20,6 +30,7 @@ export function NoticeCard({
   keywordTag,
   countdown,
   dimOnPress = true,
+  glow = false,
 }: {
   notice: Notice;
   onPress: () => void;
@@ -33,6 +44,7 @@ export function NoticeCard({
   keywordTag?: string; // 지정 시 매칭 키워드 #태그 표시
   countdown?: string;  // 지정 시 D-day 대신 "N시간 M분 남음" 표시 (오늘마감 탭)
   dimOnPress?: boolean; // 누름 시 카드 dim. 스와이프 래핑 시 false(뒤 액션 비침 방지)
+  glow?: boolean; // 카드 하단에 카테고리 색 은은한 글로우 (AI 큐레이션용)
 }) {
   const meta = metaOf(notice);
   const src = sourceOf(notice);
@@ -41,6 +53,8 @@ export function NoticeCard({
   // → 목록 쿼리가 name을 안 실어온 경로/구버전 페이로드에서도 cau_ 노출 방지.
   const sourceName = src?.name || sourceLabel(src?.parser_key);
   const topic = meta?.topic ?? null;
+  // 카드 하단 글로우 색: 카테고리 main 색 (없으면 글로우 생략)
+  const glowColor = glow && topic ? (COLORS.categories[topic as keyof typeof COLORS.categories]?.main ?? null) : null;
   const badge = formatScheduleBadge(meta?.apply_start_at ?? null, meta?.deadline_at ?? null);
   const postedMD = formatDateShort(notice.posted_at);
 
@@ -68,6 +82,14 @@ export function NoticeCard({
         minHeight != null && { minHeight },
       ]}
     >
+      {glowColor ? (
+        <LinearGradient
+          colors={['transparent', hexToRgba(glowColor, 0.05), hexToRgba(glowColor, 0.20)]}
+          locations={[0, 0.55, 1]}
+          style={styles.glow}
+          pointerEvents="none"
+        />
+      ) : null}
       <View style={styles.topRow}>
         <View style={styles.topLeft}>
           {(isNew || unread) ? <View style={styles.newDot} /> : null}
@@ -103,7 +125,16 @@ const styles = StyleSheet.create({
     padding: SPACING.lg,
     marginHorizontal: SPACING.lg,
     marginBottom: SPACING.md,
+    overflow: 'hidden', // 하단 글로우가 카드 둥근 모서리를 넘지 않게 클립
     ...SHADOW.card,
+  },
+  // 카드 안쪽 하단 카테고리 색 글로우 (AI 큐레이션). 콘텐츠 뒤(첫 자식)로 렌더.
+  glow: {
+    position: 'absolute',
+    left: 0,
+    right: 0,
+    bottom: 0,
+    height: '55%',
   },
   topRow: {
     flexDirection: 'row',

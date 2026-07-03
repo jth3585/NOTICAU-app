@@ -47,6 +47,7 @@ export function HomeCuration({ notices, allSeen, loading = false, onGoToAll, onP
               <NoticeCard
                 notice={item}
                 isNew={isNew(item.posted_at)}
+                glow
                 onPress={() => onPressNotice(item)}
               />
             </Animated.View>
