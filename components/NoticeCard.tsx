@@ -84,7 +84,7 @@ export function NoticeCard({
     >
       {glowColor ? (
         <LinearGradient
-          colors={['transparent', hexToRgba(glowColor, 0.10)]}
+          colors={[hexToRgba(glowColor, 0.10), 'transparent']}
           style={styles.glow}
           pointerEvents="none"
         />
@@ -127,12 +127,12 @@ const styles = StyleSheet.create({
     overflow: 'hidden', // 하단 글로우가 카드 둥근 모서리를 넘지 않게 클립
     ...SHADOW.card,
   },
-  // 카드 하단 가장자리에 깔리는 카테고리 색 글로우 (AI 큐레이션). 콘텐츠 뒤(첫 자식) 렌더.
+  // 카드 상단 가장자리에 깔리는 카테고리 색 글로우 (AI 큐레이션). 콘텐츠 뒤(첫 자식) 렌더.
   glow: {
     position: 'absolute',
     left: 0,
     right: 0,
-    bottom: 0,
+    top: 0,
     height: '42%',
   },
   topRow: {
