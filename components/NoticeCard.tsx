@@ -96,7 +96,7 @@ export function NoticeCard({
         <LinearGradient
           // 'transparent'(=검은색 알파0)는 색→투명 보간에서 거뭇한 띠를 만든다.
           // 같은 색의 알파만 0→값으로 페이드 → 흰 카드에 자연스럽게 녹아듦(검은기 없음).
-          colors={[toRgba(glowColor, 0), toRgba(glowColor, 0.4)]}
+          colors={[toRgba(glowColor, 0), toRgba(glowColor, 0.3)]}
           style={styles.glow}
           pointerEvents="none"
         />
@@ -147,7 +147,7 @@ const styles = StyleSheet.create({
     left: 0,
     right: 0,
     bottom: 0,
-    height: '46%',
+    height: '62%',
   },
   // 카드 안쪽 얇은 흰색 테두리 — 글로우를 경계에서 살짝 떼어 깨끗한 가장자리 유지.
   innerEdge: {
