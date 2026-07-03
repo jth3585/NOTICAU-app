@@ -5,6 +5,7 @@ import type { BottomTabBarProps } from '@react-navigation/bottom-tabs';
 import { COLORS, FONT, WEIGHT } from '../../lib/theme';
 import { HomeIcon, ClipboardListIcon, UserIcon } from './icons';
 import { BookmarkIcon } from './BookmarkIcon';
+import { softHaptic } from '../../lib/haptics';
 
 type IconCmp = (p: { size?: number; color: string }) => React.ReactElement;
 
@@ -26,6 +27,7 @@ function TabItem({ focused, Icon, label, onPress }: {
   const color = focused ? COLORS.accent : COLORS.textTertiary;
 
   const handlePress = () => {
+    softHaptic(); // 토스풍 가벼운 선택 햅틱
     // 토스 느낌: 눌리듯 살짝 수축 → 스프링으로 살짝 오버슈트하며 튕겨 복귀(과하지 않게).
     scale.value = withSequence(
       withTiming(0.93, { duration: 80 }),

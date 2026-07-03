@@ -165,7 +165,7 @@ export function useDigest() {
       if (cached && cached.date === today) {
         ids = cached.notice_ids;
       } else {
-        ids = await computeDigestIds([], 5);
+        ids = await computeDigestIds([], 4);
         await saveCache(ids);
       }
 
