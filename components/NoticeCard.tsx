@@ -84,8 +84,8 @@ export function NoticeCard({
     >
       {glowColor ? (
         <LinearGradient
-          colors={['transparent', hexToRgba(glowColor, 0.05), hexToRgba(glowColor, 0.20)]}
-          locations={[0, 0.55, 1]}
+          colors={['transparent', hexToRgba(glowColor, 0.02), hexToRgba(glowColor, 0.10)]}
+          locations={[0, 0.65, 1]}
           style={styles.glow}
           pointerEvents="none"
         />
@@ -134,7 +134,7 @@ const styles = StyleSheet.create({
     left: 0,
     right: 0,
     bottom: 0,
-    height: '55%',
+    height: '45%',
   },
   topRow: {
     flexDirection: 'row',
