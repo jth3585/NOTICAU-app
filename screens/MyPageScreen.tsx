@@ -101,10 +101,13 @@ export default function MyPageScreen() {
                     CAMPUS_LABEL[profile.campus] ?? profile.campus,
                     deptName || collegeName || null,
                     secondaryName || null,
-                    `${profile.grade}학년`,
                   ].filter(Boolean).join(' · ')}
-                  {statusText ? `\n${statusText}` : ''}
-                  {profile.is_dormitory ? ' · 기숙사' : ''}
+                  {'\n'}
+                  {[
+                    `${profile.grade}학년`,
+                    statusText || null,
+                    profile.is_dormitory ? '기숙사' : null,
+                  ].filter(Boolean).join(' · ')}
                 </Text>
               </View>
             </View>
