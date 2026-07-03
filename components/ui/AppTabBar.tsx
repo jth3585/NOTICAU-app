@@ -15,7 +15,7 @@ const ICONS: Record<string, IconCmp> = {
   MyPage: UserIcon,
 };
 const LABELS: Record<string, string> = {
-  Home: '홈', Feed: '공지', Bookmark: '북마크', MyPage: '마이페이지',
+  Home: '홈', Feed: '공지', Bookmark: '북마크', MyPage: '프로필',
 };
 
 function TabItem({ focused, Icon, label, onPress }: {
