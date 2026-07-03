@@ -79,11 +79,29 @@ async function computeDigestIds(excludeIds: string[], limit: number): Promise<st
     .filter(n => !isExpiredActionable(metaOf(n)))
     .map(n => ({
       id: n.id,
+      topic: metaOf(n)?.topic ?? null,
       score: calculateMatchScore(n, metaOf(n), profile, keywords, sourceOf(n)),
     }));
 
   scored.sort((a, b) => b.score - a.score);
-  return scored.slice(0, limit).map(s => s.id);
+
+  // 1·2번째 추천은 서로 다른 카테고리로. 2번째 자리엔 1번째와 다른 topic을 우선 배치하고,
+  // 나머지는 점수 순으로 채운다(다른 카테고리가 없으면 그대로 점수 순).
+  const picked: typeof scored = [];
+  for (const s of scored) {
+    if (picked.length === 1 && s.topic && picked[0].topic && s.topic === picked[0].topic) continue;
+    picked.push(s);
+    if (picked.length >= limit) break;
+  }
+  if (picked.length < limit) {
+    const chosen = new Set(picked.map(s => s.id));
+    for (const s of scored) {
+      if (chosen.has(s.id)) continue;
+      picked.push(s);
+      if (picked.length >= limit) break;
+    }
+  }
+  return picked.slice(0, limit).map(s => s.id);
 }
 
 async function fetchNoticesByIds(ids: string[]): Promise<Notice[]> {
