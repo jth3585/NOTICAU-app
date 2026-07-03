@@ -28,8 +28,8 @@ function TabItem({ focused, Icon, label, onPress }: {
   const handlePress = () => {
     // 토스 느낌: 눌리듯 살짝 수축 → 스프링으로 살짝 오버슈트하며 튕겨 복귀(과하지 않게).
     scale.value = withSequence(
-      withTiming(0.86, { duration: 90 }),
-      withSpring(1, { damping: 8, stiffness: 280, mass: 0.5 }),
+      withTiming(0.93, { duration: 80 }),
+      withSpring(1, { damping: 15, stiffness: 300, mass: 0.5 }),
     );
     onPress();
   };
