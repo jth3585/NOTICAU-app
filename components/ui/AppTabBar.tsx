@@ -36,10 +36,10 @@ function TabItem({ focused, Icon, label, onPress }: {
 
   return (
     <Pressable style={styles.item} onPress={handlePress} accessibilityRole="button" accessibilityState={{ selected: focused }} accessibilityLabel={label}>
-      <Animated.View style={aStyle}>
+      <Animated.View style={[styles.itemInner, aStyle]}>
         <Icon size={24} color={color} />
+        <Text style={[styles.label, { color }]}>{label}</Text>
       </Animated.View>
-      <Text style={[styles.label, { color }]}>{label}</Text>
     </Pressable>
   );
 }
@@ -83,6 +83,7 @@ const styles = StyleSheet.create({
     shadowRadius: 10,
     elevation: 16,
   },
-  item: { flex: 1, alignItems: 'center', justifyContent: 'center', gap: 3 },
+  item: { flex: 1, alignItems: 'center', justifyContent: 'center' },
+  itemInner: { alignItems: 'center', justifyContent: 'center', gap: 3 },
   label: { fontSize: FONT.micro, fontWeight: WEIGHT.semibold },
 });
