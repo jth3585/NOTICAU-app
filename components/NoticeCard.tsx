@@ -1,23 +1,16 @@
 import { StyleSheet, Text, View } from 'react-native';
-import Svg, { Defs, RadialGradient, Stop, Rect } from 'react-native-svg';
+import { LinearGradient } from 'expo-linear-gradient';
 import type { Notice } from '../lib/types';
 import { COLORS, FONT, RADIUS, SHADOW, SPACING, WEIGHT } from '../lib/theme';
 import { PressableScale } from './ui/PressableScale';
 
-// 카드 안쪽 하단 중앙에서 원형으로 번지는 은은한 카테고리 색 글로우(레퍼런스풍 라디얼).
-function CardGlow({ color }: { color: string }) {
-  return (
-    <Svg style={StyleSheet.absoluteFill} pointerEvents="none">
-      <Defs>
-        <RadialGradient id="cardGlow" cx="50%" cy="116%" rx="80%" ry="30%" gradientUnits="objectBoundingBox">
-          <Stop offset="0" stopColor={color} stopOpacity={0.16} />
-          <Stop offset="0.7" stopColor={color} stopOpacity={0.05} />
-          <Stop offset="1" stopColor={color} stopOpacity={0} />
-        </RadialGradient>
-      </Defs>
-      <Rect x="0" y="0" width="100%" height="100%" fill="url(#cardGlow)" />
-    </Svg>
-  );
+// #RRGGBB → rgba(r,g,b,a)
+function hexToRgba(hex: string, a: number): string {
+  const h = hex.replace('#', '');
+  const r = parseInt(h.slice(0, 2), 16);
+  const g = parseInt(h.slice(2, 4), 16);
+  const b = parseInt(h.slice(4, 6), 16);
+  return `rgba(${r}, ${g}, ${b}, ${a})`;
 }
 import { formatDateShort, formatScheduleBadge, metaOf, sourceOf } from '../lib/format';
 import { CategoryBadge } from './ui/CategoryBadge';
@@ -89,7 +82,13 @@ export function NoticeCard({
         minHeight != null && { minHeight },
       ]}
     >
-      {glowColor ? <CardGlow color={glowColor} /> : null}
+      {glowColor ? (
+        <LinearGradient
+          colors={['transparent', hexToRgba(glowColor, 0.10)]}
+          style={styles.glow}
+          pointerEvents="none"
+        />
+      ) : null}
       <View style={styles.topRow}>
         <View style={styles.topLeft}>
           {(isNew || unread) ? <View style={styles.newDot} /> : null}
@@ -127,6 +126,14 @@ const styles = StyleSheet.create({
     marginBottom: SPACING.md,
     overflow: 'hidden', // 하단 글로우가 카드 둥근 모서리를 넘지 않게 클립
     ...SHADOW.card,
+  },
+  // 카드 하단 가장자리에 깔리는 카테고리 색 글로우 (AI 큐레이션). 콘텐츠 뒤(첫 자식) 렌더.
+  glow: {
+    position: 'absolute',
+    left: 0,
+    right: 0,
+    bottom: 0,
+    height: '42%',
   },
   topRow: {
     flexDirection: 'row',
