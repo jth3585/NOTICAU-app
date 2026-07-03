@@ -1,5 +1,5 @@
 import { Pressable, StyleSheet, Text, View } from 'react-native';
-import Animated, { useSharedValue, useAnimatedStyle, withSequence, withTiming } from 'react-native-reanimated';
+import Animated, { useSharedValue, useAnimatedStyle, withSequence, withTiming, withSpring } from 'react-native-reanimated';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import type { BottomTabBarProps } from '@react-navigation/bottom-tabs';
 import { COLORS, FONT, WEIGHT } from '../../lib/theme';
@@ -26,10 +26,10 @@ function TabItem({ focused, Icon, label, onPress }: {
   const color = focused ? COLORS.accent : COLORS.textTertiary;
 
   const handlePress = () => {
-    // 누를 때마다 톡 튀는 바운스 (react-navigation 기본 아이콘 애니메이션 대체)
+    // 토스 느낌: 눌리듯 살짝 수축 → 스프링으로 살짝 오버슈트하며 튕겨 복귀(과하지 않게).
     scale.value = withSequence(
-      withTiming(1.25, { duration: 130 }),
-      withTiming(1, { duration: 170 }),
+      withTiming(0.86, { duration: 90 }),
+      withSpring(1, { damping: 8, stiffness: 280, mass: 0.5 }),
     );
     onPress();
   };
