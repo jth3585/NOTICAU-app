@@ -7,13 +7,11 @@ import * as Notifications from 'expo-notifications';
 import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
-import Animated, { useSharedValue, useAnimatedStyle, withSequence, withTiming } from 'react-native-reanimated';
 import { StatusBar } from 'expo-status-bar';
-import { StyleSheet, Text, View } from 'react-native';
+import { Text, View } from 'react-native';
 import type { RootStackParamList, TabParamList } from './lib/types';
-import { COLORS, FONT, WEIGHT } from './lib/theme';
-import { HomeIcon, ClipboardListIcon, UserIcon } from './components/ui/icons';
-import { BookmarkIcon } from './components/ui/BookmarkIcon';
+import { COLORS } from './lib/theme';
+import { AppTabBar } from './components/ui/AppTabBar';
 import { ensureAnonSession } from './lib/auth';
 import { migrateLocalToDB } from './lib/migrate';
 import { setupPushNotifications } from './lib/push';
@@ -100,64 +98,16 @@ async function routeFromNotificationData(data: any): Promise<void> {
   (navigationRef.navigate as any)('Tabs', { screen: 'Home', params: { tab: 'keyword' } });
 }
 
-type TabIconComponent = (props: { size?: number; color: string }) => React.ReactElement;
-
-function TabIcon({ Icon, focused }: { Icon: TabIconComponent; focused: boolean }) {
-  const scale = useSharedValue(1);
-  const style = useAnimatedStyle(() => ({ transform: [{ scale: scale.value }] }));
-  useEffect(() => {
-    if (focused) scale.value = withSequence(withTiming(1.28, { duration: 150 }), withTiming(1, { duration: 190 }));
-  }, [focused]);
-  return (
-    <Animated.View style={style}>
-      <Icon size={22} color={focused ? COLORS.accent : COLORS.textTertiary} />
-    </Animated.View>
-  );
-}
-
 function Tabs() {
   return (
     <Tab.Navigator
-      screenOptions={{
-        headerShown: false,
-        tabBarStyle: styles.tabBar,
-        tabBarActiveTintColor: COLORS.accent,
-        tabBarInactiveTintColor: COLORS.textTertiary,
-        tabBarLabelStyle: styles.tabLabel,
-      }}
+      screenOptions={{ headerShown: false }}
+      tabBar={(props) => <AppTabBar {...props} />}
     >
-      <Tab.Screen
-        name="Home"
-        component={HomeScreen}
-        options={{
-          tabBarLabel: '홈',
-          tabBarIcon: ({ focused }) => <TabIcon Icon={HomeIcon} focused={focused} />,
-        }}
-      />
-      <Tab.Screen
-        name="Feed"
-        component={InboxScreen}
-        options={{
-          tabBarLabel: '전체 공지',
-          tabBarIcon: ({ focused }) => <TabIcon Icon={ClipboardListIcon} focused={focused} />,
-        }}
-      />
-      <Tab.Screen
-        name="Bookmark"
-        component={BookmarkScreen}
-        options={{
-          tabBarLabel: '북마크',
-          tabBarIcon: ({ focused }) => <TabIcon Icon={BookmarkIcon} focused={focused} />,
-        }}
-      />
-      <Tab.Screen
-        name="MyPage"
-        component={MyPageScreen}
-        options={{
-          tabBarLabel: '마이페이지',
-          tabBarIcon: ({ focused }) => <TabIcon Icon={UserIcon} focused={focused} />,
-        }}
-      />
+      <Tab.Screen name="Home" component={HomeScreen} />
+      <Tab.Screen name="Feed" component={InboxScreen} />
+      <Tab.Screen name="Bookmark" component={BookmarkScreen} />
+      <Tab.Screen name="MyPage" component={MyPageScreen} />
     </Tab.Navigator>
   );
 }
@@ -255,15 +205,3 @@ export default function App() {
   );
 }
 
-const styles = StyleSheet.create({
-  tabBar: {
-    backgroundColor: COLORS.surface,
-    borderTopWidth: StyleSheet.hairlineWidth,
-    borderTopColor: COLORS.border,
-    elevation: 0,
-  },
-  tabLabel: {
-    fontSize: FONT.micro,
-    fontWeight: WEIGHT.semibold,
-  },
-});
