@@ -4,13 +4,16 @@ import type { Notice } from '../lib/types';
 import { COLORS, FONT, RADIUS, SHADOW, SPACING, WEIGHT } from '../lib/theme';
 import { PressableScale } from './ui/PressableScale';
 
-// #RRGGBB → rgba(r,g,b,a)
-function hexToRgba(hex: string, a: number): string {
+// #RRGGBB → 흰색 쪽으로 섞어 채도를 낮춘 파스텔 rgba (레퍼런스처럼 은은하게).
+function glowRgba(hex: string, alpha: number, whiteMix = 0.4): string {
   const h = hex.replace('#', '');
-  const r = parseInt(h.slice(0, 2), 16);
-  const g = parseInt(h.slice(2, 4), 16);
-  const b = parseInt(h.slice(4, 6), 16);
-  return `rgba(${r}, ${g}, ${b}, ${a})`;
+  let r = parseInt(h.slice(0, 2), 16);
+  let g = parseInt(h.slice(2, 4), 16);
+  let b = parseInt(h.slice(4, 6), 16);
+  r = Math.round(r + (255 - r) * whiteMix);
+  g = Math.round(g + (255 - g) * whiteMix);
+  b = Math.round(b + (255 - b) * whiteMix);
+  return `rgba(${r}, ${g}, ${b}, ${alpha})`;
 }
 import { formatDateShort, formatScheduleBadge, metaOf, sourceOf } from '../lib/format';
 import { CategoryBadge } from './ui/CategoryBadge';
@@ -84,7 +87,9 @@ export function NoticeCard({
     >
       {glowColor ? (
         <LinearGradient
-          colors={[hexToRgba(glowColor, 0.10), 'transparent']}
+          // 경계(맨 위)엔 글로우 없이, 살짝 안쪽에서 뭉쳤다가 아래로 페이드 (레퍼런스풍)
+          colors={['transparent', glowRgba(glowColor, 0.22), 'transparent']}
+          locations={[0, 0.42, 1]}
           style={styles.glow}
           pointerEvents="none"
         />
@@ -133,7 +138,7 @@ const styles = StyleSheet.create({
     left: 0,
     right: 0,
     top: 0,
-    height: '42%',
+    height: '50%',
   },
   topRow: {
     flexDirection: 'row',
