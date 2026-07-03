@@ -1,19 +1,32 @@
 import { StyleSheet, Text, View } from 'react-native';
-import { LinearGradient } from 'expo-linear-gradient';
+import Svg, { Defs, RadialGradient, Stop, Rect } from 'react-native-svg';
 import type { Notice } from '../lib/types';
 import { COLORS, FONT, RADIUS, SHADOW, SPACING, WEIGHT } from '../lib/theme';
 import { PressableScale } from './ui/PressableScale';
 
-// #RRGGBB → 흰색 쪽으로 섞어 채도를 낮춘 파스텔 rgba (레퍼런스처럼 은은하게).
-function glowRgba(hex: string, alpha: number, whiteMix = 0.4): string {
+// #RRGGBB → 흰색 쪽으로 섞어 채도를 낮춘 파스텔 hex (레퍼런스처럼 은은하게).
+function glowHex(hex: string, whiteMix = 0.3): string {
   const h = hex.replace('#', '');
-  let r = parseInt(h.slice(0, 2), 16);
-  let g = parseInt(h.slice(2, 4), 16);
-  let b = parseInt(h.slice(4, 6), 16);
-  r = Math.round(r + (255 - r) * whiteMix);
-  g = Math.round(g + (255 - g) * whiteMix);
-  b = Math.round(b + (255 - b) * whiteMix);
-  return `rgba(${r}, ${g}, ${b}, ${alpha})`;
+  const mix = (v: number) => Math.round(v + (255 - v) * whiteMix).toString(16).padStart(2, '0');
+  return `#${mix(parseInt(h.slice(0, 2), 16))}${mix(parseInt(h.slice(2, 4), 16))}${mix(parseInt(h.slice(4, 6), 16))}`;
+}
+
+// 카드 하단 중앙에서 원형으로 부드럽게 번지는 글로우(레퍼런스풍). 경계·모서리는 자연히 페이드.
+// viewBox+userSpaceOnUse로 좌표를 확정(카드 크기 무관) → 위치 안정.
+function CardGlow({ color }: { color: string }) {
+  const c = glowHex(color);
+  return (
+    <Svg style={StyleSheet.absoluteFill} viewBox="0 0 100 100" preserveAspectRatio="none" pointerEvents="none">
+      <Defs>
+        <RadialGradient id="cardGlow" cx="50" cy="74" rx="44" ry="30" gradientUnits="userSpaceOnUse">
+          <Stop offset="0" stopColor={c} stopOpacity={0.5} />
+          <Stop offset="0.6" stopColor={c} stopOpacity={0.22} />
+          <Stop offset="1" stopColor={c} stopOpacity={0} />
+        </RadialGradient>
+      </Defs>
+      <Rect x="0" y="0" width="100" height="100" fill="url(#cardGlow)" />
+    </Svg>
+  );
 }
 import { formatDateShort, formatScheduleBadge, metaOf, sourceOf } from '../lib/format';
 import { CategoryBadge } from './ui/CategoryBadge';
@@ -85,15 +98,7 @@ export function NoticeCard({
         minHeight != null && { minHeight },
       ]}
     >
-      {glowColor ? (
-        <LinearGradient
-          // 경계(맨 위)엔 글로우 없이, 살짝 안쪽에서 뭉쳤다가 아래로 페이드 (레퍼런스풍)
-          colors={['transparent', glowRgba(glowColor, 0.22), 'transparent']}
-          locations={[0, 0.42, 1]}
-          style={styles.glow}
-          pointerEvents="none"
-        />
-      ) : null}
+      {glowColor ? <CardGlow color={glowColor} /> : null}
       <View style={styles.topRow}>
         <View style={styles.topLeft}>
           {(isNew || unread) ? <View style={styles.newDot} /> : null}
@@ -131,14 +136,6 @@ const styles = StyleSheet.create({
     marginBottom: SPACING.md,
     overflow: 'hidden', // 하단 글로우가 카드 둥근 모서리를 넘지 않게 클립
     ...SHADOW.card,
-  },
-  // 카드 상단 가장자리에 깔리는 카테고리 색 글로우 (AI 큐레이션). 콘텐츠 뒤(첫 자식) 렌더.
-  glow: {
-    position: 'absolute',
-    left: 0,
-    right: 0,
-    top: 0,
-    height: '50%',
   },
   topRow: {
     flexDirection: 'row',
