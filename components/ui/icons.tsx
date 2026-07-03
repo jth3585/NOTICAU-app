@@ -38,10 +38,8 @@ export function ClipboardListIcon({ size = 22, color }: IconProps) {
     <Base size={size}>
       <Path d="M16 4h2a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2h2" stroke={color} />
       <Rect x="8" y="2" width="8" height="4" rx="1" stroke={color} />
-      <Path d="M12 11h4" stroke={color} />
-      <Path d="M12 16h4" stroke={color} />
-      <Path d="M8 11h.01" stroke={color} />
-      <Path d="M8 16h.01" stroke={color} />
+      <Path d="M8 11h8" stroke={color} />
+      <Path d="M8 16h8" stroke={color} />
     </Base>
   );
 }
