@@ -96,7 +96,7 @@ export function NoticeCard({
         <LinearGradient
           // 'transparent'(=검은색 알파0)는 색→투명 보간에서 거뭇한 띠를 만든다.
           // 같은 색의 알파만 0→값으로 페이드 → 흰 카드에 자연스럽게 녹아듦(검은기 없음).
-          colors={[toRgba(glowColor, 0), toRgba(glowColor, 0.65)]}
+          colors={[toRgba(glowColor, 0), toRgba(glowColor, 0.4)]}
           style={styles.glow}
           pointerEvents="none"
         />
