@@ -101,6 +101,8 @@ export function NoticeCard({
           pointerEvents="none"
         />
       ) : null}
+      {/* 경계 직전에 박스색(흰색) 얇은 안쪽 테두리 → 글로우가 카드 가장자리에 닿지 않고 끊김 */}
+      {glowColor ? <View style={styles.innerEdge} pointerEvents="none" /> : null}
       <View style={styles.topRow}>
         <View style={styles.topLeft}>
           {(isNew || unread) ? <View style={styles.newDot} /> : null}
@@ -146,6 +148,14 @@ const styles = StyleSheet.create({
     right: 0,
     bottom: 0,
     height: '46%',
+  },
+  // 카드 안쪽 얇은 흰색 테두리 — 글로우를 경계에서 살짝 떼어 깨끗한 가장자리 유지.
+  innerEdge: {
+    position: 'absolute',
+    top: 0, left: 0, right: 0, bottom: 0,
+    borderRadius: RADIUS.card,
+    borderWidth: 2,
+    borderColor: COLORS.surface,
   },
   topRow: {
     flexDirection: 'row',
