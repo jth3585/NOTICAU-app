@@ -412,6 +412,12 @@ Deno.serve(async (req) => {
     if (body && Number.isInteger(body.batch) && body.batch > 0) batch = Math.min(body.batch, 30);
   } catch { /* cron 빈 body */ }
 
+  // 분류 전에 교차출처 중복을 먼저 표시한다. notices_unclassified가 duplicate_of is null만
+  // 반환하므로, 이 호출로 방금 크롤된 중복본이 분류 큐에서 빠져 토큰 낭비를 막는다.
+  // (idempotent·저비용. 실패해도 분류는 계속 — 대표 선정만 한 틱 늦어질 뿐.)
+  const { error: dedupErr } = await supabase.rpc("dedup_notices");
+  if (dedupErr) console.error(`dedup_notices failed (continuing): ${dedupErr.message}`);
+
   const { data: notices, error: qErr } = await supabase.rpc("notices_unclassified", { lim: batch });
   if (qErr) {
     return new Response(JSON.stringify({ error: qErr.message }), { status: 500 });

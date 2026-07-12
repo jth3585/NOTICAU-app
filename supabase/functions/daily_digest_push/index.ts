@@ -132,6 +132,7 @@ Deno.serve(async (req) => {
   const { data: notices, error: noticesErr } = await supabase
     .from("notices")
     .select("id, title, body_text, posted_at, notice_meta(topic,action,deadline_at,target_grades,target_depts,target_campuses,target_enrollment_status,targets_freshmen,excludes_undergrad), sources(campus,owner_unit,parser_key)")
+    .is("duplicate_of", null) // 교차출처 중복은 대표 1건만 (중복 푸시 방지 + 중복본은 미분류)
     .order("posted_at", { ascending: false })
     .limit(300);
   if (noticesErr) {
