@@ -491,6 +491,14 @@ Deno.serve(async (req) => {
     cau_ee: "전자전기공학부", // → ee
     cau_conv: "융합공학부", // → convergence
     cau_semi: "지능형반도체공학과", // → semiconductor
+    cau_arts: "예술대학", // 단과대 게시판(서울·안성 공통) → 아래 OWNER_DEPT_GROUP로 art+art_seoul 확장
+    cau_cwrite: "문예창작전공", // → creative_writing
+    cau_dance: "무용전공", // → dance
+    cau_craft: "공예전공", // → craft
+    cau_fashion: "패션전공", // → fashion
+    cau_music: "음악학부", // 학부 게시판: 아래 OWNER_DEPT_GROUP로 4개 전공 확장
+    cau_kmusic: "전통예술학부", // 학부 게시판: 아래 OWNER_DEPT_GROUP로 2개 전공 확장
+    cau_garts: "글로벌예술학부", // → global_arts
     // cau_swedu(SW교육원)·cau_ge(교양대학)는 전교생 대상 → owner 없음(본문 명시 대상만 한정)
   };
   // 한 게시판이 여러 학과를 묶는 학부: 학과 한정(target_depts 비어있지 않음) 공지를 이 학과들 전체로 확장.
@@ -498,6 +506,9 @@ Deno.serve(async (req) => {
     cau_euro: ["euro_german", "euro_french", "euro_russian"], // 유럽문화학부
     cau_asia: ["asia_japanese", "asia_chinese"], // 아시아문화학부
     cau_infra: ["civil_plant", "urban_sys"], // 사회기반시스템공학부(건설환경플랜트·도시시스템)
+    cau_arts: ["art", "art_seoul"], // 예술대학 홈페이지는 서울·안성 공통 → 두 예술대학 모두 노출
+    cau_music: ["composition", "vocal", "piano", "orchestra"], // 음악학부
+    cau_kmusic: ["trad_music", "trad_perform"], // 전통예술학부(음악예술·연희예술)
   };
   const { data: allSrc } = await supabase.from("sources").select("id,parser_key,owner_unit");
   const ownerBySourceId = new Map<string, string>();
