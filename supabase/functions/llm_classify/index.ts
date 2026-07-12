@@ -478,12 +478,18 @@ Deno.serve(async (req) => {
     cau_pharm: "약학대학", // → pharmacy
     cau_nursing: "적십자간호대학", // → nursing
     cau_med: "의과대학", // → medicine
+    cau_coe: "공과대학", // 단과대 게시판 → engineering 전체(college 정규화)
+    cau_infra: "사회기반시스템공학부", // 학부 게시판: 아래 OWNER_DEPT_GROUP로 2개 전공 확장
+    cau_civil: "건설환경플랜트공학전공", // → civil_plant
+    cau_urbansys: "도시시스템공학전공", // → urban_sys
+    cau_arch: "건축학부", // → architecture
     // cau_swedu(SW교육원)·cau_ge(교양대학)는 전교생 대상 → owner 없음(본문 명시 대상만 한정)
   };
   // 한 게시판이 여러 학과를 묶는 학부: 학과 한정(target_depts 비어있지 않음) 공지를 이 학과들 전체로 확장.
   const OWNER_DEPT_GROUP: Record<string, string[]> = {
     cau_euro: ["euro_german", "euro_french", "euro_russian"], // 유럽문화학부
     cau_asia: ["asia_japanese", "asia_chinese"], // 아시아문화학부
+    cau_infra: ["civil_plant", "urban_sys"], // 사회기반시스템공학부(건설환경플랜트·도시시스템)
   };
   const { data: allSrc } = await supabase.from("sources").select("id,parser_key,owner_unit");
   const ownerBySourceId = new Map<string, string>();
