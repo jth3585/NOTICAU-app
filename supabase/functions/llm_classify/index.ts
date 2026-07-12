@@ -499,6 +499,7 @@ Deno.serve(async (req) => {
     cau_music: "음악학부", // 학부 게시판: 아래 OWNER_DEPT_GROUP로 4개 전공 확장
     cau_kmusic: "전통예술학부", // 학부 게시판: 아래 OWNER_DEPT_GROUP로 2개 전공 확장
     cau_garts: "글로벌예술학부", // → global_arts
+    cau_sport: "체육대학", // 단과대 게시판 → pe_anseong 전체(college 정규화)
     // cau_swedu(SW교육원)·cau_ge(교양대학)는 전교생 대상 → owner 없음(본문 명시 대상만 한정)
   };
   // 한 게시판이 여러 학과를 묶는 학부: 학과 한정(target_depts 비어있지 않음) 공지를 이 학과들 전체로 확장.
