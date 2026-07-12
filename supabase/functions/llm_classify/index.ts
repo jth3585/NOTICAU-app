@@ -487,6 +487,10 @@ Deno.serve(async (req) => {
     cau_mech: "기계공학부", // → mechanical
     cau_ese: "에너지시스템공학부", // → energy_sys
     cau_advmat: "첨단소재공학과", // → adv_materials (공과대학 안성)
+    cau_ict: "창의ICT공과대학", // 단과대 게시판 → ict 전체(college 정규화)
+    cau_ee: "전자전기공학부", // → ee
+    cau_conv: "융합공학부", // → convergence
+    cau_semi: "지능형반도체공학과", // → semiconductor
     // cau_swedu(SW교육원)·cau_ge(교양대학)는 전교생 대상 → owner 없음(본문 명시 대상만 한정)
   };
   // 한 게시판이 여러 학과를 묶는 학부: 학과 한정(target_depts 비어있지 않음) 공지를 이 학과들 전체로 확장.
