@@ -1,7 +1,7 @@
 import { ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { LinearGradient } from 'expo-linear-gradient';
-import Svg, { Image as SvgImage } from 'react-native-svg';
+import Svg, { Image as SvgImage, Defs, LinearGradient as SvgLinearGradient, Stop, Mask, Rect } from 'react-native-svg';
 import { useFocusEffect, useNavigation } from '@react-navigation/native';
 import { useCallback } from 'react';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
@@ -65,14 +65,26 @@ export default function MyPageScreen() {
         {/* 히어로 컨테이너는 항상 렌더 → 프로필 로딩 중에도 상단 안전영역 여백이 유지돼
             상단 잘림/스크롤 막힘을 방지. SVG 로고 위치는 기존 그대로(상단 블리드). */}
         <View style={[styles.hero, { paddingTop: insets.top + SPACING.xxl }]}>
-            {/* 브랜드 로고를 우측에 크게 블리드(낮은 불투명도). 위치는 heroLogo에서 조절. */}
+            {/* 브랜드 로고를 우측에 크게 블리드(낮은 불투명도). 위치는 heroLogo에서 조절.
+                하단이 아래 UI 경계에서 뚝 잘려 보이지 않게 세로 알파 마스크로 서서히 페이드아웃. */}
             <Svg width={HERO_LOGO_SIZE} height={HERO_LOGO_SIZE} style={styles.heroLogo} pointerEvents="none">
+              <Defs>
+                <SvgLinearGradient id="heroLogoFade" x1="0" y1="0" x2="0" y2="1">
+                  <Stop offset="0" stopColor="#fff" stopOpacity="1" />
+                  <Stop offset="0.55" stopColor="#fff" stopOpacity="1" />
+                  <Stop offset="0.92" stopColor="#fff" stopOpacity="0" />
+                </SvgLinearGradient>
+                <Mask id="heroLogoMask">
+                  <Rect x="0" y="0" width={HERO_LOGO_SIZE} height={HERO_LOGO_SIZE} fill="url(#heroLogoFade)" />
+                </Mask>
+              </Defs>
               <SvgImage
                 href={require('../assets/icon-foreground.png')}
                 width={HERO_LOGO_SIZE}
                 height={HERO_LOGO_SIZE}
                 preserveAspectRatio="xMidYMid meet"
                 opacity={HERO_LOGO_OPACITY}
+                mask="url(#heroLogoMask)"
               />
             </Svg>
             {profile && (
