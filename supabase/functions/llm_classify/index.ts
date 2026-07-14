@@ -412,12 +412,10 @@ Deno.serve(async (req) => {
     if (body && Number.isInteger(body.batch) && body.batch > 0) batch = Math.min(body.batch, 30);
   } catch { /* cron 빈 body */ }
 
-  // 분류 전에 교차출처 중복을 먼저 표시한다. notices_unclassified가 duplicate_of is null만
-  // 반환하므로, 이 호출로 방금 크롤된 중복본이 분류 큐에서 빠져 토큰 낭비를 막는다.
-  // (idempotent·저비용. 실패해도 분류는 계속 — 대표 선정만 한 틱 늦어질 뿐.)
-  const { error: dedupErr } = await supabase.rpc("dedup_notices");
-  if (dedupErr) console.error(`dedup_notices failed (continuing): ${dedupErr.message}`);
-
+  // 교차출처 중복 표시(dedup_notices)는 별도 cron(10분)에서 수행한다. 여기서 매 실행마다
+  // 호출하면 notices 전체 재계산으로 Disk IO가 급증(→ IO 예산 소진)하므로 분리했다.
+  // notices_unclassified는 duplicate_of is null만 반환 → 이미 표시된 중복본은 분류 제외.
+  // (dedup 직전 크롤된 중복본이 한두 틱 먼저 분류될 수 있으나 낭비는 미미.)
   const { data: notices, error: qErr } = await supabase.rpc("notices_unclassified", { lim: batch });
   if (qErr) {
     return new Response(JSON.stringify({ error: qErr.message }), { status: 500 });
