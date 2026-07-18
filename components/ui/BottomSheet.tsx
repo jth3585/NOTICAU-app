@@ -40,7 +40,8 @@ export function BottomSheet({
   );
 
   return (
-    <Modal visible transparent animationType="none" statusBarTranslucent onRequestClose={onClose}>
+    // statusBar/navigationBarTranslucent: 안드로이드에서 백드롭이 상태바·내비바 영역까지 덮도록
+    <Modal visible transparent animationType="none" statusBarTranslucent navigationBarTranslucent onRequestClose={onClose}>
       <View style={styles.root}>
         <TouchableWithoutFeedback onPress={onClose}>
           <Animated.View style={[styles.backdrop, { opacity: anim }]} />

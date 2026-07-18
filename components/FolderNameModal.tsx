@@ -35,7 +35,8 @@ export function FolderNameModal({
   const canSubmit = allowEmpty || trimmed.length > 0;
 
   return (
-    <Modal visible={visible} transparent animationType="fade" onRequestClose={onClose}>
+    // statusBar/navigationBarTranslucent: 안드로이드에서 백드롭이 상태바·내비바 영역까지 덮도록
+    <Modal visible={visible} transparent animationType="fade" statusBarTranslucent navigationBarTranslucent onRequestClose={onClose}>
       <TouchableWithoutFeedback onPress={onClose}>
         <View style={styles.overlay}>
           <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : undefined}>

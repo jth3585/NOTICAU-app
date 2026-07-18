@@ -3,7 +3,7 @@ import {
   Animated, Modal, ScrollView, StyleSheet, Text, TouchableOpacity,
   TouchableWithoutFeedback, View,
 } from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
+import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useNavigation } from '@react-navigation/native';
 import { supabase } from '../lib/supabase';
 import { loadProfile, updateProfile } from '../lib/profile';
@@ -258,6 +258,8 @@ const SHEET_OFFSET = 500; // 시트가 아래에서 올라오는 거리
 
 // 백드롭은 제자리에서 페이드인, 시트만 아래에서 슬라이드업 (둘이 함께 올라오지 않게).
 function Sheet({ open, onClose, title, children }: { open: boolean; onClose: () => void; title: string; children: React.ReactNode }) {
+  // 내비바 뒤까지 내려가는 시트라 하단 여백에 insets.bottom 반영
+  const insets = useSafeAreaInsets();
   const [mounted, setMounted] = useState(open);
   const anim = useRef(new Animated.Value(0)).current;
 
@@ -277,12 +279,13 @@ function Sheet({ open, onClose, title, children }: { open: boolean; onClose: () 
   const translateY = anim.interpolate({ inputRange: [0, 1], outputRange: [SHEET_OFFSET, 0] });
 
   return (
-    <Modal visible transparent animationType="none" onRequestClose={onClose}>
+    // statusBar/navigationBarTranslucent: 안드로이드에서 백드롭이 상태바·내비바 영역까지 덮도록
+    <Modal visible transparent animationType="none" statusBarTranslucent navigationBarTranslucent onRequestClose={onClose}>
       <View style={styles.sheetRoot}>
         <TouchableWithoutFeedback onPress={onClose}>
           <Animated.View style={[styles.backdrop, { opacity: anim }]} />
         </TouchableWithoutFeedback>
-        <Animated.View style={[styles.sheet, { transform: [{ translateY }] }]}>
+        <Animated.View style={[styles.sheet, { paddingBottom: SPACING.xxl + insets.bottom, transform: [{ translateY }] }]}>
           <Text style={styles.sheetTitle}>{title}</Text>
           <ScrollView style={{ maxHeight: 320 }}>{children}</ScrollView>
         </Animated.View>
@@ -317,7 +320,7 @@ const styles = StyleSheet.create({
   rowChevron: { fontSize: 16, color: COLORS.textTertiary },
   sheetRoot: { flex: 1, justifyContent: 'flex-end' },
   backdrop: { ...StyleSheet.absoluteFillObject, backgroundColor: 'rgba(0,0,0,0.35)' },
-  sheet: { backgroundColor: COLORS.surface, borderTopLeftRadius: 20, borderTopRightRadius: 20, paddingHorizontal: SPACING.lg, paddingTop: SPACING.lg, paddingBottom: SPACING.xxl },
+  sheet: { backgroundColor: COLORS.surface, borderTopLeftRadius: 20, borderTopRightRadius: 20, paddingHorizontal: SPACING.lg, paddingTop: SPACING.lg },
   sheetTitle: { fontSize: FONT.caption, fontWeight: WEIGHT.semibold, color: COLORS.textTertiary, marginBottom: SPACING.sm, textTransform: 'uppercase', letterSpacing: 0.8 },
   sheetOption: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingVertical: SPACING.md, borderBottomWidth: StyleSheet.hairlineWidth, borderBottomColor: COLORS.border },
   sheetOptionText: { fontSize: FONT.body, color: COLORS.text },

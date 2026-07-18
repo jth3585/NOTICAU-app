@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react';
 import {
   Alert, ScrollView, StyleSheet, Text, TextInput, TouchableOpacity, View,
 } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { COLORS, FONT, RADIUS, SPACING, WEIGHT } from '../lib/theme';
 import { FOLDER_NAME_MAX, type Folder } from '../lib/folders';
 import { BottomSheet } from './ui/BottomSheet';
@@ -20,6 +21,8 @@ type Props = {
 export function FolderPickerSheet({ visible, folders, currentFolderId, onPick, onCreate, onClose }: Props) {
   const [creating, setCreating] = useState(false);
   const [name, setName] = useState('');
+  // 내비바 뒤까지 내려가는 시트라 하단 여백에 insets.bottom 반영
+  const insets = useSafeAreaInsets();
 
   useEffect(() => {
     if (!visible) { setCreating(false); setName(''); }
@@ -41,7 +44,7 @@ export function FolderPickerSheet({ visible, folders, currentFolderId, onPick, o
 
   return (
     <BottomSheet visible={visible} onClose={onClose} avoidKeyboard>
-      <View style={styles.sheet}>
+      <View style={[styles.sheet, { paddingBottom: SPACING.xxl + insets.bottom }]}>
         <Text style={styles.title}>폴더로 이동</Text>
         <ScrollView style={styles.list} keyboardShouldPersistTaps="handled">
           <Row
@@ -101,7 +104,7 @@ const styles = StyleSheet.create({
   sheet: {
     backgroundColor: COLORS.surface,
     borderTopLeftRadius: RADIUS.modal, borderTopRightRadius: RADIUS.modal,
-    padding: SPACING.lg, paddingBottom: SPACING.xxl, gap: SPACING.sm,
+    padding: SPACING.lg, gap: SPACING.sm,
   },
   title: { fontSize: FONT.subtitle, fontWeight: WEIGHT.bold, color: COLORS.text, marginBottom: SPACING.xs },
   list: { maxHeight: 320 },

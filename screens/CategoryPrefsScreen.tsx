@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from 'react';
 import { StyleSheet, Switch, Text, TouchableOpacity, View } from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
+import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useNavigation } from '@react-navigation/native';
 import { Gesture } from 'react-native-gesture-handler';
 import ReorderableList, {
@@ -15,6 +15,8 @@ import { orderedCategories, CATEGORIES } from '../lib/categories';
 
 export default function CategoryPrefsScreen() {
   const navigation = useNavigation();
+  // edges=['top']이라 하단은 내비바 뒤로 흐름 → 리스트 끝 여백에 insets.bottom 반영
+  const insets = useSafeAreaInsets();
   const [prefs, setPrefs] = useState<Record<string, boolean>>({});
   const [order, setOrder] = useState<string[]>(CATEGORIES);
   const [userId, setUserId] = useState<string | null>(null);
@@ -73,7 +75,7 @@ export default function CategoryPrefsScreen() {
         onReorder={onReorder}
         panGesture={panGesture}
         keyExtractor={(t) => t}
-        contentContainerStyle={styles.listContent}
+        contentContainerStyle={[styles.listContent, { paddingBottom: SPACING.xxl + insets.bottom }]}
         ListFooterComponent={
           <Text style={styles.hint}>켜둔 카테고리만 '전체' 피드에 보여요. 왼쪽 손잡이를 끌어 순서를 바꿀 수 있어요.</Text>
         }
@@ -111,7 +113,7 @@ const styles = StyleSheet.create({
   header: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingHorizontal: SPACING.lg, paddingVertical: SPACING.md },
   title: { fontSize: FONT.subtitle, fontWeight: WEIGHT.bold, color: COLORS.text },
   hint: { fontSize: FONT.caption, color: COLORS.textSecondary, marginTop: SPACING.md, lineHeight: 18 },
-  listContent: { paddingHorizontal: SPACING.lg, paddingTop: SPACING.sm, paddingBottom: SPACING.xxl },
+  listContent: { paddingHorizontal: SPACING.lg, paddingTop: SPACING.sm },
   // 타 학과 공지 보기 토글 (목록 상단 헤더 카드 + 아래 세부설명 힌트)
   crossWrap: { marginBottom: SPACING.lg },
   crossRow: {

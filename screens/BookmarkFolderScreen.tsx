@@ -1,7 +1,7 @@
 import { useCallback, useMemo, useState } from 'react';
 import { ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import { FlashList } from '@shopify/flash-list';
-import { SafeAreaView } from 'react-native-safe-area-context';
+import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useFocusEffect, useNavigation } from '@react-navigation/native';
 import type { NativeStackNavigationProp, NativeStackScreenProps } from '@react-navigation/native-stack';
 import { useBookmarkNotices, useUserKeywords, removeBookmark, type BookmarkNotice } from '../lib/bookmarks';
@@ -33,6 +33,8 @@ export default function BookmarkFolderScreen({ route }: Props) {
   const params = route.params;
   const folder = params.folder;
   const navigation = useNavigation<NativeStackNavigationProp<RootStackParamList>>();
+  // edges=['top']이라 하단은 내비바 뒤로 흐름 → 리스트 끝 여백에 insets.bottom 반영
+  const insets = useSafeAreaInsets();
   const { notices, loading, refresh } = useBookmarkNotices();
   const { isRead, refresh: refreshRead } = useReadSet();
   const { lastSeenAt } = useLastSeenAt();
@@ -169,7 +171,7 @@ export default function BookmarkFolderScreen({ route }: Props) {
         <FlashList
           data={list}
           keyExtractor={(n) => n.id}
-          contentContainerStyle={styles.listContent}
+          contentContainerStyle={{ paddingBottom: SPACING.xxl + insets.bottom }}
           renderItem={({ item }: { item: BookmarkNotice }) => (
             <SwipeToRemoveBookmark onRemove={() => onRemoveBookmark(item.id)}>
               <NoticeCard
@@ -268,7 +270,6 @@ const styles = StyleSheet.create({
   },
   ctaText: { fontSize: FONT.caption, fontWeight: WEIGHT.bold, color: '#fff' },
   // 카드는 자체 marginHorizontal(lg)을 가지므로 리스트에 가로 패딩을 또 주지 않음(중복 시 다른 화면보다 좁아짐)
-  listContent: { paddingBottom: SPACING.xxl },
   center: { flex: 1, justifyContent: 'center', alignItems: 'center', gap: SPACING.sm, paddingHorizontal: SPACING.xl },
   emptyTitle: { fontSize: FONT.subtitle, fontWeight: WEIGHT.semibold, color: COLORS.text },
   sub: { fontSize: FONT.caption, color: COLORS.textSecondary, textAlign: 'center' },

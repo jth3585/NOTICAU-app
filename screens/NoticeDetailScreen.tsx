@@ -12,7 +12,7 @@ import {
   View,
 } from 'react-native';
 import { Image } from 'expo-image';
-import { SafeAreaView } from 'react-native-safe-area-context';
+import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useMarkdown, Renderer } from 'react-native-marked';
 import type { MarkedStyles } from 'react-native-marked';
 import * as WebBrowser from 'expo-web-browser';
@@ -55,6 +55,8 @@ export default function NoticeDetailScreen({ route, navigation }: Props) {
   const routeNotice = route.params.notice;
   const [notice, setNotice] = useState<Notice>(routeNotice);
   const { width } = useWindowDimensions();
+  // edges=['top']이라 하단은 내비바 뒤로 흐름 → 스크롤 끝 여백(원문 버튼)에 insets.bottom 반영
+  const insets = useSafeAreaInsets();
   const meta = metaOf(notice);
   const src = sourceOf(notice);
   const topic = meta?.topic ?? null;
@@ -182,7 +184,7 @@ export default function NoticeDetailScreen({ route, navigation }: Props) {
         <Animated.View style={[styles.progressFill, progressStyle]} />
       </View>
 
-      <Animated.ScrollView contentContainerStyle={styles.content} onScroll={onScroll} scrollEventThrottle={16}>
+      <Animated.ScrollView contentContainerStyle={[styles.content, { paddingBottom: SPACING.xxl + insets.bottom }]} onScroll={onScroll} scrollEventThrottle={16}>
         <Text
           style={styles.title}
           {...(Platform.OS === 'ios'
@@ -358,7 +360,7 @@ const styles = StyleSheet.create({
   },
   back: { fontSize: FONT.body, color: COLORS.text },
   headerMeta: { flexDirection: 'row', alignItems: 'center', gap: SPACING.sm },
-  content: { paddingHorizontal: SPACING.lg, paddingBottom: SPACING.xxl },
+  content: { paddingHorizontal: SPACING.lg },
   title: {
     fontSize: FONT.display,
     fontWeight: WEIGHT.bold,

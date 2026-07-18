@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from 'react';
 import { FlatList, StyleSheet, Switch, Text, View } from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
+import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useNavigation } from '@react-navigation/native';
 import { supabase } from '../lib/supabase';
 import { useProfile, updateProfile } from '../lib/profile';
@@ -21,6 +21,8 @@ function campusVisible(sc: string | null | undefined, myCampus: string | null | 
 
 export default function DeptNoticePrefsScreen() {
   const navigation = useNavigation();
+  // edges=['top']이라 하단은 내비바 뒤로 흐름 → 리스트 끝 여백에 insets.bottom 반영
+  const insets = useSafeAreaInsets();
   const profile = useProfile() as any;
   const { disabled, toggle } = useDisabledSources();
 
@@ -70,7 +72,7 @@ export default function DeptNoticePrefsScreen() {
       <FlatList
         data={crossDept ? list : []}
         keyExtractor={(s) => s.parser_key}
-        contentContainerStyle={styles.listContent}
+        contentContainerStyle={[styles.listContent, { paddingBottom: SPACING.xxl + insets.bottom }]}
         ListHeaderComponent={
           <View style={styles.crossWrap}>
             <View style={styles.crossRow}>
@@ -120,7 +122,7 @@ const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: COLORS.bg },
   header: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingHorizontal: SPACING.lg, paddingVertical: SPACING.md },
   title: { fontSize: FONT.subtitle, fontWeight: WEIGHT.bold, color: COLORS.text },
-  listContent: { paddingHorizontal: SPACING.lg, paddingTop: SPACING.sm, paddingBottom: SPACING.xxl },
+  listContent: { paddingHorizontal: SPACING.lg, paddingTop: SPACING.sm },
   crossWrap: { marginBottom: SPACING.lg },
   crossRow: {
     flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between',

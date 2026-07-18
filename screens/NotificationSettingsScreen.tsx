@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
 import { ScrollView, StyleSheet, Switch, Text, View } from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
+import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useNavigation } from '@react-navigation/native';
 import { supabase } from '../lib/supabase';
 import { COLORS, FONT, RADIUS, SPACING, WEIGHT } from '../lib/theme';
@@ -10,6 +10,8 @@ type Kw = { id: string; keyword: string; notify: boolean };
 
 export default function NotificationSettingsScreen() {
   const navigation = useNavigation();
+  // edges=['top']이라 하단은 내비바 뒤로 흐름 → 스크롤 끝 여백에 insets.bottom 반영
+  const insets = useSafeAreaInsets();
   const [userId, setUserId] = useState<string | null>(null);
   const [enabled, setEnabled] = useState(true);
   const [keywords, setKeywords] = useState<Kw[]>([]);
@@ -52,7 +54,7 @@ export default function NotificationSettingsScreen() {
         <View style={{ width: 40 }} />
       </View>
 
-      <ScrollView contentContainerStyle={styles.scroll}>
+      <ScrollView contentContainerStyle={[styles.scroll, { paddingBottom: SPACING.xxl + insets.bottom }]}>
         <View style={styles.card}>
           <View style={styles.row}>
             <Text style={styles.rowLabel}>알림 받기</Text>
@@ -103,7 +105,7 @@ const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: COLORS.bg },
   header: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingHorizontal: SPACING.lg, paddingVertical: SPACING.md },
   title: { fontSize: FONT.subtitle, fontWeight: WEIGHT.bold, color: COLORS.text },
-  scroll: { paddingHorizontal: SPACING.lg, paddingBottom: SPACING.xxl, paddingTop: SPACING.sm },
+  scroll: { paddingHorizontal: SPACING.lg, paddingTop: SPACING.sm },
   card: { backgroundColor: COLORS.surface, borderRadius: RADIUS.card, overflow: 'hidden', marginBottom: SPACING.sm },
   row: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingHorizontal: SPACING.lg, paddingVertical: SPACING.md },
   rowDivider: { borderTopWidth: StyleSheet.hairlineWidth, borderTopColor: COLORS.border },

@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { Alert, ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
+import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useNavigation } from '@react-navigation/native';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { deleteAccount, ensureAnonSession } from '../lib/auth';
@@ -12,6 +12,8 @@ type Nav = NativeStackNavigationProp<RootStackParamList>;
 
 export default function DeleteAccountScreen() {
   const navigation = useNavigation<Nav>();
+  // edges=['top']이라 하단은 내비바 뒤로 흐름 → 스크롤 끝 여백(탈퇴 버튼)에 insets.bottom 반영
+  const insets = useSafeAreaInsets();
   const [busy, setBusy] = useState(false);
 
   const runDelete = async () => {
@@ -46,7 +48,7 @@ export default function DeleteAccountScreen() {
         <View style={{ width: 40 }} />
       </View>
 
-      <ScrollView contentContainerStyle={styles.scroll}>
+      <ScrollView contentContainerStyle={[styles.scroll, { paddingBottom: SPACING.xxl + insets.bottom }]}>
         <View style={styles.warnBox}>
           <Text style={styles.warnTitle}>탈퇴하면 모든 데이터가 사라져요</Text>
           <Text style={styles.warnItem}>· 북마크한 공지</Text>
@@ -74,7 +76,7 @@ const styles = StyleSheet.create({
   header: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingHorizontal: SPACING.lg, paddingVertical: SPACING.md },
   back: { fontSize: FONT.body, color: COLORS.text },
   title: { fontSize: FONT.subtitle, fontWeight: WEIGHT.bold, color: COLORS.text },
-  scroll: { paddingHorizontal: SPACING.lg, paddingBottom: SPACING.xxl, paddingTop: SPACING.sm },
+  scroll: { paddingHorizontal: SPACING.lg, paddingTop: SPACING.sm },
   warnBox: { backgroundColor: COLORS.dangerSoft, borderRadius: RADIUS.card, padding: SPACING.lg, marginBottom: SPACING.md },
   warnTitle: { fontSize: FONT.body, fontWeight: WEIGHT.bold, color: COLORS.danger, marginBottom: SPACING.sm },
   warnItem: { fontSize: FONT.body, color: COLORS.text, lineHeight: 24 },
