@@ -288,7 +288,7 @@ export default function InboxScreen() {
         sections={[{ data: visible }]}
         keyExtractor={(item) => item.id}
         refreshControl={
-          <RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={COLORS.accent} />
+          <RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={COLORS.accent} colors={[COLORS.accent]} />
         }
         keyboardShouldPersistTaps="handled"
         keyboardDismissMode="on-drag"
@@ -318,7 +318,7 @@ export default function InboxScreen() {
                   clearButtonMode="never"
                 />
                 {query.length > 0 ? (
-                  <TouchableOpacity onPress={() => { setQuery(''); setSubmitted(false); }} hitSlop={8} style={{ paddingLeft: SPACING.sm }} accessibilityRole="button" accessibilityLabel="검색어 지우기">
+                  <TouchableOpacity onPress={() => { setQuery(''); setSubmitted(false); }} hitSlop={14} style={{ paddingLeft: SPACING.sm }} accessibilityRole="button" accessibilityLabel="검색어 지우기">
                     <CloseIcon size={16} color={COLORS.textTertiary} />
                   </TouchableOpacity>
                 ) : null}

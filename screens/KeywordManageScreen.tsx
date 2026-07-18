@@ -129,10 +129,11 @@ export default function KeywordManageScreen() {
           <FlatList
             data={keywords}
             keyExtractor={k => k.id}
+            keyboardShouldPersistTaps="handled"
             contentContainerStyle={styles.list}
             renderItem={({ item }) => (
               <View style={styles.keywordRow}>
-                <TouchableOpacity onPress={() => handleDelete(item.id)} hitSlop={12} style={styles.delBtn} accessibilityRole="button" accessibilityLabel={`${item.keyword} 삭제`}>
+                <TouchableOpacity onPress={() => handleDelete(item.id)} hitSlop={15} style={styles.delBtn} accessibilityRole="button" accessibilityLabel={`${item.keyword} 삭제`}>
                   <CloseIcon size={14} color={COLORS.textTertiary} />
                 </TouchableOpacity>
                 <Text style={styles.keywordText} numberOfLines={1}>{item.keyword}</Text>

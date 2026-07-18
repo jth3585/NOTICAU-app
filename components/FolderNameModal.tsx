@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import {
   KeyboardAvoidingView, Modal, Platform, StyleSheet, Text,
   TextInput, TouchableOpacity, TouchableWithoutFeedback, View,
@@ -25,6 +25,7 @@ export function FolderNameModal({
   onSubmit, onClose,
 }: Props) {
   const [value, setValue] = useState(initialValue);
+  const inputRef = useRef<TextInput>(null);
 
   // 열릴 때마다 초기값으로 리셋
   useEffect(() => {
@@ -36,7 +37,8 @@ export function FolderNameModal({
 
   return (
     // statusBar/navigationBarTranslucent: 안드로이드에서 백드롭이 상태바·내비바 영역까지 덮도록
-    <Modal visible={visible} transparent animationType="fade" statusBarTranslucent navigationBarTranslucent onRequestClose={onClose}>
+    // autoFocus 대신 onShow에서 포커스: 안드로이드는 Modal 표시 전 autoFocus가 걸리면 키보드가 안 뜨는 경우가 있음
+    <Modal visible={visible} transparent animationType="fade" statusBarTranslucent navigationBarTranslucent onRequestClose={onClose} onShow={() => inputRef.current?.focus()}>
       <TouchableWithoutFeedback onPress={onClose}>
         <View style={styles.overlay}>
           <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
@@ -44,13 +46,13 @@ export function FolderNameModal({
               <View style={styles.card}>
                 <Text style={styles.title}>{title}</Text>
                 <TextInput
+                  ref={inputRef}
                   style={styles.input}
                   value={value}
                   onChangeText={setValue}
                   placeholder={placeholder}
                   placeholderTextColor={COLORS.textTertiary}
                   maxLength={maxLength}
-                  autoFocus
                   returnKeyType="done"
                   onSubmitEditing={() => { if (canSubmit) onSubmit(trimmed); }}
                 />
