@@ -17,7 +17,7 @@
     },
     "android": {
       "package": "com.noticau.app",
-      "versionCode": 5,
+      "versionCode": 6,
       "adaptiveIcon": {
         "backgroundColor": "#2D57AC",
         "foregroundImage": "./assets/icon-foreground.png"
