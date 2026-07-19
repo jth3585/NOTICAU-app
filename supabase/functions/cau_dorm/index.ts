@@ -8,6 +8,11 @@
 //   인라인 이미지는 data:base64라 http 이미지만 저장.
 //
 // 인증: Bearer <CRON_SECRET>. content_hash = sha256(title|source_url|posted_at) (기존 호환).
+//
+// ⚠️ cron은 반드시 pages≥3으로 호출할 것. 서울 게시판은 고정공지(공지)가 1페이지의 ~9칸을
+//    차지해 일반글은 1칸만 노출된다 → 크롤 주기(10분) 사이 일반글 2개가 올라오면 이전 글이
+//    즉시 2페이지로 밀려 pages=1이면 영구 누락된다(2026-07 uid 46547·46484 실사례). 현재
+//    cron body: {"pages":3}.
 
 import { load } from "npm:cheerio";
 import { createClient } from "jsr:@supabase/supabase-js@2";
