@@ -24,6 +24,9 @@ export async function deleteAccount(): Promise<boolean> {
     supabase.from('user_feed_state').delete().eq('user_id', uid),
     supabase.from('user_keywords').delete().eq('user_id', uid),
     supabase.from('user_category_prefs').delete().eq('user_id', uid),
+    supabase.from('user_source_prefs').delete().eq('user_id', uid),
+    supabase.from('bookmark_folders').delete().eq('user_id', uid),
+    supabase.from('user_events').delete().eq('user_id', uid), // 행동로그 (delete 정책: security_hardening)
     supabase.from('push_tokens').delete().eq('user_id', uid),
     supabase.from('events').delete().eq('user_id', uid),
     supabase.from('profiles').delete().eq('user_id', uid),
