@@ -4,7 +4,15 @@
 // Edge Function wall-clock 한도 회피 위해 한 번에 BATCH건만 처리(기본 8).
 //
 // 인증: verify_jwt=false + Authorization: Bearer <CRON_SECRET>.
-// sharp 제거: 이미지-only 공지는 ≤4.5MB·허용 타입이면 원본 base64 전송, 초과/실패 시 스킵(텍스트 fallback).
+//
+// v1.32 이미지 공지 처리를 CLOVA OCR로 전환:
+//  - 기존: 첫 이미지 1장만 base64로 비전 모델에 전송. Haiku가 장축 1568px로 다운스케일해
+//    포스터 소형 한글이 뭉개지고, 4.5MB 초과분은 통째로 스킵됐다(요약 없는 공지의 주원인).
+//  - 변경: 본문 이미지를 CLOVA General OCR로 전량 텍스트화해 프롬프트에 싣는다.
+//    원본 URL을 그대로 넘기므로 base64 불필요, 여러 장·대용량 모두 처리, 비용도 더 싸다.
+//    OCR 결과가 100자 미만이면 기존 비전 경로로 폴백(디자인 위주 포스터 안전망).
+//  - SNS 아이콘·구분선(수 KB)이 본문 이미지로 수집되는 케이스가 있어 20KB 하한 필터 적용.
+//  - CLOVA 미설정(env 없음) 시 자동으로 기존 비전 경로로 동작 — 배포 순서에 안전.
 //
 // v1.31 비용 보호:
 //  - 각 공지 처리 시작 시 classify_attempts += 1 → RPC의 <3 가드로 3회 실패 후 영구 제외(무한 재시도 차단).
@@ -163,15 +171,17 @@ const SYSTEM_PROMPT = `당신은 중앙대학교(CAU) 학부생을 위한 공지
 - **2칸 표 사용 금지**: "항목 | 값" 식 2열 정보는 자연어 문장이나 리스트로 (예: "대상: 재학생", "마감: 5/15").
 - 3칸 이상의 진짜 표(장학 단계별 일정, 다열 비교 등)는 마크다운 표 사용 OK.
 - 문단 사이에는 빈 줄. URL은 원문에 있는 것만 raw로 (마크다운 링크 [..](..) 금지 — 복붙용).
-- "## 핵심 요약"은 거의 모든 공지에 작성한다. 본문이 짧아도(<100자) 텍스트 정보가 조금이라도 있으면 반드시 "## 핵심 요약"으로 시작. 생략은 오직 본문이 이미지/포스터뿐이고 텍스트 정보가 거의 없는 경우만(이때는 아래 이미지/첨부 구조 사용).
-- 본문이 비어 있고 이미지/첨부만 있으면 정확히 이 구조로:
+- "## 핵심 요약"은 거의 모든 공지에 작성한다. 본문이 짧아도(<100자) 텍스트 정보가 조금이라도 있으면 반드시 "## 핵심 요약"으로 시작.
+- **OCR 텍스트가 주어지면 그것이 본문이다.** 포스터에서 추출된 텍스트라도 일반 본문과 똑같이 취급해 요약·구조화하고, 마감일·자격·장소·금액·신청방법을 반드시 뽑아낸다. "이미지로 제공됩니다" 같은 회피 문구를 쓰지 말 것.
+  (OCR 텍스트는 읽기 순서대로 평탄화돼 있어 줄바꿈이 어색하거나 로고·장식 문구가 섞여 있을 수 있다. 의미 없는 파편은 버리고 실제 정보만 재구성한다.)
+- 텍스트 정보가 정말 아무것도 없을 때만(본문 없음 + OCR 결과 없음/무의미) 정확히 이 구조로:
 ## 본문
 본문이 이미지로 제공됩니다. 원문에서 자세한 내용을 확인해 주세요.
 ## 이미지
 - (이미지 1) {raw url}
 ## 첨부
 - {raw url}
-  (이미지/첨부 없으면 해당 섹션 생략. 분류용으로 이미지가 첨부돼 와도 본문을 전사하지 말고 위 안내 구조 사용)
+  (이미지/첨부 없으면 해당 섹션 생략. 이 구조는 최후 수단이며, 읽어낼 텍스트가 조금이라도 있으면 쓰지 않는다.)
 - body_markdown은 JSON 문자열이므로 줄바꿈은 \\n 으로 이스케이프
 - 재구성이 무의미하면 null
 
@@ -228,7 +238,7 @@ const SYSTEM_PROMPT = `당신은 중앙대학교(CAU) 학부생을 위한 공지
 }`;
 
 // deno-lint-ignore no-explicit-any
-function buildUserPrompt(notice: any, hasImageOnly: boolean): string {
+function buildUserPrompt(notice: any, hasImageOnly: boolean, ocrText = ""): string {
   const lines: string[] = [];
   lines.push("## 공지 정보");
   lines.push(`제목: ${notice.title}`);
@@ -250,6 +260,14 @@ function buildUserPrompt(notice: any, hasImageOnly: boolean): string {
     lines.push("(본문이 거의 없고 이미지 포스터로 구성됨. 아래 이미지를 분석해서 정보 추출)");
   } else {
     lines.push(notice.body_text || "(본문 없음)");
+  }
+  // OCR로 뽑은 포스터 텍스트. 이것이 사실상의 본문이므로 일반 본문과 동일하게 다루도록
+  // SYSTEM_PROMPT에 규칙을 두었다(회피 문구 금지).
+  if (ocrText) {
+    lines.push("");
+    lines.push("## 이미지에서 추출한 텍스트(OCR)");
+    lines.push("아래는 본문 이미지에서 OCR로 추출한 텍스트다. 이것을 본문으로 삼아 요약·구조화하고 마감일·자격·장소·금액을 뽑아낼 것.");
+    lines.push(ocrText.slice(0, 20000)); // 프롬프트 폭주 방어
   }
   // 방어: data: 인라인 URI나 비정상적으로 긴 문자열은 프롬프트에 싣지 않는다
   // (인라인 base64 이미지가 URL로 잘못 저장되면 프롬프트가 컨텍스트 한도를 초과함).
@@ -347,20 +365,146 @@ async function fetchImageAsBase64(url: string): Promise<{ mediaType: string; bas
   }
 }
 
+// ── CLOVA OCR ────────────────────────────────────────────────────────────────
+// 이미지 공지는 비전 모델에 원본을 싣는 대신 OCR로 텍스트를 뽑아 넘긴다.
+// 이유: Haiku는 이미지를 장축 1568px로 다운스케일해 포스터 소형 한글이 뭉개지고,
+//       요청당 1장·4.5MB 제한 때문에 여러 장/대용량 공지가 통째로 누락됐다.
+// OCR은 원본 URL을 그대로 넘겨 base64 인코딩이 필요 없고, 비용도 더 싸다(건당 3원, 월 100건 무료).
+const CLOVA_URL = Deno.env.get("CLOVA_OCR_INVOKE_URL");
+const CLOVA_SECRET = Deno.env.get("CLOVA_OCR_SECRET");
+const CLOVA_FORMATS = ["jpg", "jpeg", "png", "pdf", "tif", "tiff"];
+const MIN_IMAGE_BYTES = 20 * 1024;      // 이보다 작으면 SNS 아이콘·구분선 — 본문 이미지가 아니다
+const MAX_IMAGE_BYTES = 50 * 1024 * 1024; // CLOVA 요청 상한
+const MAX_OCR_IMAGES = 5;               // 공지당 OCR 장수 상한(비용·지연 방어)
+const CLOVA_TPS_DELAY_MS = 1200;        // 서비스 계정당 1 TPS 권장 → 순차 호출
+
+const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
+
+// CLOVA는 URL을 자체 정규식으로 검증하며 ( ) ! ' * ; $ [ ] 를 허용하지 않는다.
+// encodeURI가 이 문자들을 남겨두므로 직접 이스케이프한다.
+// (실측: "..._(세로_LED_107관).jpg" 가 괄호 때문에 400 거부됐다.)
+function clovaSafeUrl(raw: string): string {
+  const needsEncoding = /[^\x21-\x7e]/.test(raw) || raw.includes(" ");
+  const encoded = needsEncoding ? encodeURI(raw) : raw;
+  return encoded.replace(/[!'()*;$\[\]]/g, (c) => "%" + c.charCodeAt(0).toString(16).toUpperCase());
+}
+
+function formatFromUrl(url: string): string | null {
+  try {
+    const ext = new URL(url).pathname.split(".").pop()?.toLowerCase();
+    if (ext && CLOVA_FORMATS.includes(ext)) return ext === "jpeg" ? "jpg" : ext;
+  } catch { /* 잘못된 URL */ }
+  return null;
+}
+
+function formatFromBytes(b: Uint8Array): string | null {
+  const t = sniffImageType(b); // image/png | image/jpeg | image/gif | image/webp
+  if (t === "image/png") return "png";
+  if (t === "image/jpeg") return "jpg";
+  if (b.length >= 4 && b[0] === 0x25 && b[1] === 0x50 && b[2] === 0x44 && b[3] === 0x46) return "pdf";
+  if (b.length >= 4 && ((b[0] === 0x49 && b[1] === 0x49) || (b[0] === 0x4d && b[1] === 0x4d))) return "tif";
+  return null; // gif/webp는 CLOVA 미지원
+}
+
+/**
+ * 크기와 포맷을 확인한다. 실측상 URL 확장자로 포맷을 못 정하는 경우가 42%나 되므로
+ * (imgdown.php?filename=..., ckImgSubmit.do?uid=... 등) 앞부분 바이트를 받아 판별한다.
+ * Range 요청이라 대개 2KB만 내려받는다(무시하는 서버도 있으나 그 경우도 기존 동작과 동일).
+ */
+async function inspectImage(url: string): Promise<{ format: string; bytes: number } | null> {
+  try {
+    const res = await fetch(url, {
+      headers: { "User-Agent": "Mozilla/5.0 (compatible; NOTICAU/0.1)", Range: "bytes=0-2047" },
+      signal: AbortSignal.timeout(15000),
+    });
+    if (!res.ok) return null;
+    const cr = res.headers.get("content-range"); // "bytes 0-2047/123456"
+    const total = cr?.includes("/") ? Number(cr.split("/")[1]) : Number(res.headers.get("content-length") ?? 0);
+    // 실측상 서버 절반 정도가 Range를 무시하고 전체를 보낸다. 확장자로 포맷을 알 수 있으면
+    // 바디를 읽지 않고 끊어 불필요한 다운로드를 막는다(바이트 판별이 필요할 때만 읽는다).
+    const extFormat = formatFromUrl(url);
+    if (extFormat && Number.isFinite(total) && total > 0) {
+      await res.body?.cancel();
+      return { format: extFormat, bytes: total };
+    }
+    const head = new Uint8Array(await res.arrayBuffer());
+    const bytes = Number.isFinite(total) && total > 0 ? total : head.byteLength;
+    const format = extFormat ?? formatFromBytes(head);
+    return format ? { format, bytes } : null;
+  } catch {
+    return null;
+  }
+}
+
+// CLOVA General OCR은 요청당 이미지 1장만 받는다(2장 이상이면 400).
+// 따라서 장당 1요청이고 과금도 장당이다.
+async function ocrOne(url: string, format: string): Promise<string> {
+  const res = await fetch(CLOVA_URL!, {
+    method: "POST",
+    headers: { "X-OCR-SECRET": CLOVA_SECRET!, "Content-Type": "application/json" },
+    body: JSON.stringify({
+      version: "V2",
+      requestId: crypto.randomUUID(),
+      timestamp: Date.now(),
+      images: [{ format, name: "img", url: clovaSafeUrl(url) }],
+    }),
+    signal: AbortSignal.timeout(45000),
+  });
+  if (!res.ok) throw new Error(`CLOVA ${res.status}: ${(await res.text()).slice(0, 200)}`);
+  const body = await res.json();
+  const fields = body?.images?.[0]?.fields ?? [];
+  let text = "";
+  for (const f of fields) {
+    text += (f.inferText ?? "") + (f.lineBreak ? "\n" : " ");
+  }
+  return text.replace(/[ \t]+\n/g, "\n").trim();
+}
+
+/** 공지의 본문 이미지들을 OCR해 하나의 텍스트로 합친다. 실패한 장은 건너뛴다. */
+async function ocrImages(urls: string[]): Promise<string> {
+  if (!CLOVA_URL || !CLOVA_SECRET) return ""; // 미설정 시 비전 fallback
+  const chunks: string[] = [];
+  let done = 0;
+  for (const url of urls) {
+    if (done >= MAX_OCR_IMAGES) break;
+    const info = await inspectImage(url);
+    // 아이콘·구분선(수 KB)과 미지원 포맷은 호출하지 않는다 — 빈 결과에 과금만 발생.
+    if (!info || info.bytes < MIN_IMAGE_BYTES || info.bytes > MAX_IMAGE_BYTES) continue;
+    try {
+      await sleep(CLOVA_TPS_DELAY_MS);
+      const t = await ocrOne(url, info.format);
+      if (t) chunks.push(t);
+      done++;
+    } catch (e) {
+      console.error(`ocr failed ${url}: ${(e as Error).message}`);
+    }
+  }
+  return chunks.join("\n\n").trim();
+}
+
 // deno-lint-ignore no-explicit-any
 async function classifyNotice(notice: any) {
-  // 비전 대상은 실제 http(s) 이미지만 (data: 인라인/오염 URL 제외)
-  const httpImg: string | undefined = (notice.body_image_urls || []).find((u: string) => /^https?:\/\//.test(u) && !u.includes("data:image"));
-  const hasImageOnly = (notice.body_text || "").trim().length < 200 && !!httpImg;
+  // 대상은 실제 http(s) 이미지만 (data: 인라인/오염 URL 제외)
+  const httpImgs: string[] = (notice.body_image_urls || [])
+    .filter((u: string) => /^https?:\/\//.test(u) && !u.includes("data:image"));
+  const hasImageOnly = (notice.body_text || "").trim().length < 200 && httpImgs.length > 0;
 
+  // 1차: OCR. 여러 장·대용량·저해상도 문제가 여기서 모두 해소된다.
+  let ocrText = "";
+  if (hasImageOnly) {
+    ocrText = await ocrImages(httpImgs);
+  }
+
+  // 2차: OCR이 실패했거나 건진 텍스트가 너무 적으면 기존 비전 경로로 폴백.
+  // (디자인 위주 포스터처럼 OCR이 약한 케이스를 위한 안전망)
   let imgData: { mediaType: string; base64: string } | null = null;
-  if (hasImageOnly && httpImg) {
-    imgData = await fetchImageAsBase64(httpImg);
+  if (hasImageOnly && ocrText.length < 100) {
+    imgData = await fetchImageAsBase64(httpImgs[0]);
   }
   const useImage = !!imgData;
 
   // deno-lint-ignore no-explicit-any
-  const content: any[] = [{ type: "text", text: buildUserPrompt(notice, useImage) }];
+  const content: any[] = [{ type: "text", text: buildUserPrompt(notice, useImage, ocrText) }];
   if (useImage && imgData) {
     content.push({ type: "image", source: { type: "base64", media_type: imgData.mediaType, data: imgData.base64 } });
   }
