@@ -66,6 +66,8 @@ function kst(iso: string | null): string {
   return `${g("year")}-${g("month")}-${g("day")} ${g("hour")}:${g("minute")}`;
 }
 
+// last_active_at은 user_events(공지 열람/북마크/검색/캘린더/공유)와
+// user_feed_state(읽음/닫음/북마크) 중 최신값. 빈칸 = 공지를 한 번도 안 연 유저.
 function daysAgo(iso: string | null): string {
   if (!iso) return "";
   const d = Math.floor((Date.now() - new Date(iso).getTime()) / 86_400_000);
