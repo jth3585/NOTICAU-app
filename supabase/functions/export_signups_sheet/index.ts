@@ -1,4 +1,5 @@
-// export_signups_sheet — 닉네임을 설정한 가입자 현황을 Google Sheets에 매일 덮어쓰기.
+// export_signups_sheet — 전체 가입자 현황을 Google Sheets에 매일 덮어쓰기.
+// 온보딩 미완료(profiles 행 없음) 가입자도 포함하며, "온보딩" 칼럼으로 구분한다.
 // (cron: '0 0 * * *' UTC = 09:00 KST)
 //
 // 인증: verify_jwt=false 로 배포 + Authorization: Bearer <CRON_SECRET> 자체 검증.
@@ -24,7 +25,8 @@ const TOKEN_URL = "https://oauth2.googleapis.com/token";
 type Row = {
   user_id: string;
   joined_at: string;
-  nickname: string;
+  nickname: string | null;
+  onboarded: boolean;
   college_name: string | null;
   dept_name: string | null;
   dept_secondary_name: string | null;
@@ -124,6 +126,7 @@ Deno.serve(async (req) => {
   const header = [
     "가입일시(KST)",
     "닉네임",
+    "온보딩",
     "단과대",
     "학과",
     "복수/부전공",
@@ -141,7 +144,8 @@ Deno.serve(async (req) => {
   ];
   const body = rows.map((r) => [
     kst(r.joined_at),
-    r.nickname,
+    r.nickname ?? "",
+    r.onboarded ? "완료" : "미완료",
     r.college_name ?? "",
     r.dept_name ?? "",
     r.dept_secondary_name ?? "",
@@ -150,7 +154,7 @@ Deno.serve(async (req) => {
     (r.enrollment_status ?? []).map((s) => STATUS_LABEL[s] ?? s).join(", "),
     r.is_dormitory ? "O" : "",
     (r.career_paths ?? []).join(", "),
-    r.notifications_enabled === false ? "off" : "on",
+    r.notifications_enabled == null ? "" : (r.notifications_enabled ? "on" : "off"),
     r.keyword_count,
     r.keywords ?? "",
     r.bookmark_count,
