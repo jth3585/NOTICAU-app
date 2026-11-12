@@ -216,10 +216,10 @@ async function maintainToken(token: string, source: string, igUserId: string, pa
     before: { ...before, expires_at: tsIso(before.expires_at), data_access_expires_at: tsIso(before.data_access_expires_at) },
   };
 
-  // 이미 페이지 토큰이면 동작만 확인
-  if (before.type === "PAGE") {
+  // 페이지 토큰 또는 시스템 사용자 토큰(만료·재동의 없음)이면 동작만 확인
+  if (before.type === "PAGE" || before.type === "SYSTEM_USER") {
     const err = await probe(igUserId, token);
-    status.action = "none(page token)";
+    status.action = `none(${before.type.toLowerCase()} token)`;
     status.ok = !err;
     if (err) status.error = err;
     const warn = dataAccessWarning(before);
