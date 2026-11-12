@@ -653,27 +653,32 @@ Deno.serve(async (req) => {
     cau_music: ["composition", "vocal", "piano", "orchestra"], // 음악학부
     cau_kmusic: ["trad_music", "trad_perform"], // 전통예술학부(음악예술·연희예술)
   };
-  const { data: allSrc } = await supabase.from("sources").select("id,parser_key,owner_unit");
-  const ownerBySourceId = new Map<string, string>();
-  const ownerUnitBySourceId = new Map<string, string>(); // 게시판 소속 코드(dept/college)
-  const deptGroupBySourceId = new Map<string, string[]>(); // 학부 게시판 → 소속 학과 코드들
-  for (const s of (allSrc ?? []) as { id: string; parser_key: string; owner_unit: string | null }[]) {
-    const o = SOURCE_OWNER[s.parser_key];
-    if (o) ownerBySourceId.set(s.id, o);
-    if (s.owner_unit) ownerUnitBySourceId.set(s.id, s.owner_unit);
-    const grp = OWNER_DEPT_GROUP[s.parser_key];
-    if (grp) deptGroupBySourceId.set(s.id, grp);
-  }
-
   // 학과/단과대 이름→코드 맵: target_depts를 코드로 정규화해 앱의 profile(코드)과 직접 비교 가능하게.
-  const [{ data: depts }, { data: colls }] = await Promise.all([
+  const [{ data: allSrc }, { data: depts }, { data: colls }] = await Promise.all([
+    supabase.from("sources").select("id,parser_key,owner_unit,category_map"),
     supabase.from("departments").select("code,name"),
     supabase.from("colleges").select("code,name"),
   ]);
   const nameToCode = new Map<string, string>();
+  const codeToName = new Map<string, string>();
   const collegeCodes = new Set<string>();
-  for (const c of (colls ?? []) as { code: string; name: string }[]) { nameToCode.set(c.name, c.code); collegeCodes.add(c.code); }
-  for (const d of (depts ?? []) as { code: string; name: string }[]) nameToCode.set(d.name, d.code); // 학과가 단과대명과 겹치면 학과 우선
+  for (const c of (colls ?? []) as { code: string; name: string }[]) { nameToCode.set(c.name, c.code); codeToName.set(c.code, c.name); collegeCodes.add(c.code); }
+  for (const d of (depts ?? []) as { code: string; name: string }[]) { nameToCode.set(d.name, d.code); codeToName.set(d.code, d.name); } // 학과가 단과대명과 겹치면 학과 우선
+
+  const ownerBySourceId = new Map<string, string>();
+  const ownerUnitBySourceId = new Map<string, string>(); // 게시판 소속 코드(dept/college)
+  const deptGroupBySourceId = new Map<string, string[]>(); // 학부 게시판 → 소속 학과 코드들
+  for (const s of (allSrc ?? []) as { id: string; parser_key: string; owner_unit: string | null; category_map: any }[]) {
+    // 학생회 Instagram(cau_ig_*)은 계정이 많아 하드코딩 대신 owner_unit 코드→한글명으로 소속 힌트 생성.
+    const o = SOURCE_OWNER[s.parser_key] ??
+      (s.parser_key.startsWith("cau_ig_") && s.owner_unit ? codeToName.get(s.owner_unit) : undefined);
+    if (o) ownerBySourceId.set(s.id, o);
+    if (s.owner_unit) ownerUnitBySourceId.set(s.id, s.owner_unit);
+    // 여러 학과를 묶는 IG 계정(예: 연극학과 → 연출/연기/뮤지컬)은 sources.category_map.dept_group 으로 지정.
+    const grp = OWNER_DEPT_GROUP[s.parser_key] ??
+      (Array.isArray(s.category_map?.dept_group) ? s.category_map.dept_group as string[] : undefined);
+    if (grp) deptGroupBySourceId.set(s.id, grp);
+  }
 
   const stats = { fetched: (notices ?? []).length, classified: 0, failed: 0 };
   const results: { id: string; topic?: string; error?: string }[] = [];
