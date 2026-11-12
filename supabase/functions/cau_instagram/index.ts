@@ -41,6 +41,7 @@ const RATE_LIMIT_CODES = [4, 17, 32, 613]; // Graph API 호출 한도 오류 코
 const TOKEN_ERROR_CODES = [190, 102]; // 토큰 만료/무효 → 배치 중단 + integration_status 기록
 const DEFAULT_PAGE_ID = "1444376652096085"; // Noticau FB 페이지(noti_cau IG 연결)
 const PROBE_HANDLE = "cau.gyul"; // 토큰 검증용 대상(프로페셔널 확인됨)
+const META_APP_ID = "2500760047081878"; // NOTICAU notice 앱 — debug_token 용 앱 토큰(APP_ID|META_APP_SECRET)
 const DEFAULT_BATCH = 10; // crawl 1회당 처리 계정 수(오래 전에 크롤한 순). 계정당 ~5s, 함수 wall clock 한도 150s.
 
 // business_discovery 로 요청할 media 서브필드. like_count/comments_count 는 권한 이슈 가능성 있어 제외(공지용엔 불필요).
@@ -172,9 +173,13 @@ async function fetchAccount(
 // set_instagram_token() 으로 넣어야 한다 → integration_status 에 상태/오류를 남겨 감지.
 type TokenInfo = { type?: string; is_valid?: boolean; expires_at?: number; data_access_expires_at?: number; error?: string };
 
+// 조회 주체: META_APP_SECRET 이 있으면 앱 토큰, 없으면 토큰 자신.
+// (시스템 사용자 토큰은 앱 개발자가 아니라 자기 자신으로는 debug_token 이 code=100 으로 거절됨)
 async function debugToken(token: string): Promise<TokenInfo> {
   try {
-    const url = `${GRAPH_BASE}/debug_token?input_token=${encodeURIComponent(token)}&access_token=${encodeURIComponent(token)}`;
+    const appSecret = Deno.env.get("META_APP_SECRET");
+    const inspector = appSecret ? `${META_APP_ID}|${appSecret}` : token;
+    const url = `${GRAPH_BASE}/debug_token?input_token=${encodeURIComponent(token)}&access_token=${encodeURIComponent(inspector)}`;
     const j = await graphFetch(url);
     const d = j?.data ?? {};
     return { type: d.type, is_valid: d.is_valid, expires_at: d.expires_at, data_access_expires_at: d.data_access_expires_at };
@@ -220,10 +225,10 @@ async function maintainToken(candidates: { token: string; source: string }[], ig
     tried.push({ source: c.source, action: r.action, ok: r.ok, durable: r.durable, error: r.error ?? null });
     last = r;
     if (r.ok === null) break;        // 레이트리밋: 판단 불가, 다음 점검으로
-    if (r.ok && r.durable) break;    // 만료 없는 토큰 확보
+    if (r.ok && r.durable !== false) break; // 만료 없는 토큰 확보(또는 조회 불가지만 동작 확인 → 유지)
   }
   last = { ...last, tried };
-  if (last.ok && !last.durable) last.warning = `저장된 토큰이 만료됨(${(last.after as any)?.expires_at ?? (last.before as any)?.expires_at}) — 장기 토큰 필요`;
+  if (last.ok && last.durable === false) last.warning = `저장된 토큰이 만료됨(${(last.after as any)?.expires_at ?? (last.before as any)?.expires_at}) — 장기 토큰 필요`;
   await saveStatus(last);
   return last;
 }
@@ -241,6 +246,18 @@ async function maintainOne(token: string, source: string, igUserId: string, page
     status.action = "skipped (rate limited)";
     status.ok = null;
     return status;
+  }
+  // 조회 권한 없음(code=100: 시스템 사용자 토큰을 앱 토큰 없이 조회) → 실제 동작으로 판단.
+  // 동작하면 유지(덮어쓰지 않음), 만료 정보는 META_APP_SECRET 설정 후 확인 가능.
+  if (before.error && /code=100\b/.test(before.error)) {
+    const err = await probe(igUserId, token);
+    if (!err) {
+      status.action = "kept (inspect denied, probe ok)";
+      status.ok = true;
+      status.durable = null;
+      status.warning = "토큰 만료 정보 조회 불가 — META_APP_SECRET 시크릿을 설정하면 확인됨";
+      return status;
+    }
   }
   if (before.error || before.is_valid === false) {
     status.action = "invalid token";
