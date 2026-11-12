@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useState, type ComponentProps } from 'react';
 import { StyleSheet, Switch, Text, TouchableOpacity, View } from 'react-native';
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useNavigation } from '@react-navigation/native';
@@ -61,7 +61,13 @@ export default function CategoryPrefsScreen() {
 
   // 재정렬 팬 제스처를 세로 움직임에만 활성화 → iOS 왼쪽 엣지 스와이프백을 막지 않음.
   // (기본 panGesture는 activeOffset 제약이 없어 가로 스와이프도 가로채 뒤로가기가 안 됨)
-  const panGesture = useMemo(() => Gesture.Pan().activeOffsetY([-10, 10]), []);
+  // RNGH 3에서 Gesture.Pan()은 레거시 빌더(LegacyPanGesture 타입)로 계속 동작하지만, reorderable-list의
+  // 타입 선언은 RNGH 3의 새 PanGesture(hook API) 타입을 가리킨다. 라이브러리 내부도 레거시 빌더
+  // 메서드(onBegin·activateAfterLongPress 등)로 체이닝하므로 런타임은 호환 → 타입만 맞춰 넘긴다.
+  const panGesture = useMemo(
+    () => Gesture.Pan().activeOffsetY([-10, 10]) as unknown as ComponentProps<typeof ReorderableList>['panGesture'],
+    [],
+  );
 
   return (
     <SafeAreaView style={styles.container} edges={['top']}>

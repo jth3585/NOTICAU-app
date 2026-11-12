@@ -1,5 +1,7 @@
 import { Platform } from 'react-native';
-import * as Calendar from 'expo-calendar';
+// SDK 56+: 기존 함수형 API는 'expo-calendar' 기본 경로에서 호출 시 런타임 에러(throw) → legacy 경로로 유지.
+// (새 객체지향 API로의 이전은 별도 작업)
+import * as Calendar from 'expo-calendar/legacy';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import type { Notice } from './types';
 import { logEvent } from './events';

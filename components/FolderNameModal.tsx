@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useRef, useState, type ComponentRef } from 'react';
 import {
   KeyboardAvoidingView, Modal, Platform, StyleSheet, Text,
   TextInput, TouchableOpacity, TouchableWithoutFeedback, View,
@@ -25,7 +25,7 @@ export function FolderNameModal({
   onSubmit, onClose,
 }: Props) {
   const [value, setValue] = useState(initialValue);
-  const inputRef = useRef<TextInput>(null);
+  const inputRef = useRef<ComponentRef<typeof TextInput>>(null);
 
   // 열릴 때마다 초기값으로 리셋
   useEffect(() => {

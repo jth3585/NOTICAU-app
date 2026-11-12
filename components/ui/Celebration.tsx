@@ -53,6 +53,6 @@ export function Celebration() {
 }
 
 const styles = StyleSheet.create({
-  wrap: { ...StyleSheet.absoluteFillObject, alignItems: 'center', justifyContent: 'center' },
+  wrap: { ...StyleSheet.absoluteFill, alignItems: 'center', justifyContent: 'center' },
   dot: { position: 'absolute', width: 7, height: 7, borderRadius: 3.5 },
 });

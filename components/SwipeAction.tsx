@@ -46,7 +46,7 @@ export function SwipeAction({ icon, label, color, onTrigger, children }: Props) 
       friction={1.5}
       leftThreshold={OPEN_W * 0.55}
       overshootLeft={false}
-      dragOffsetFromLeftEdge={12}
+      dragOffsetFromLeft={12}
       // 복귀 스프링을 부드럽게 (기본 damping 1000 과감쇠 → 딱 붙는 느낌 제거)
       animationOptions={{ mass: 1, damping: 24, stiffness: 180, overshootClamping: false }}
       renderLeftActions={renderLeftActions}
@@ -77,7 +77,7 @@ const styles = StyleSheet.create({
     overflow: 'hidden',
   },
   panel: {
-    ...StyleSheet.absoluteFillObject, // 클립을 가득 채움
+    ...StyleSheet.absoluteFill, // 클립을 가득 채움
     flexDirection: 'row',
     alignItems: 'center',
     gap: SPACING.sm,

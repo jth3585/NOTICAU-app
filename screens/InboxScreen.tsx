@@ -423,7 +423,7 @@ export default function InboxScreen() {
             <View style={styles.footer}>
               <ActivityIndicator color={COLORS.accent} />
             </View>
-          ) : null
+          ) : undefined
         }
         contentContainerStyle={styles.listContent}
       />

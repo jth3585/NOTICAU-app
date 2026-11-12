@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useRef, useState, type ComponentRef } from 'react';
 import {
   FlatList, KeyboardAvoidingView, Platform, StyleSheet,
   Text, TextInput, TouchableOpacity, View,
@@ -23,7 +23,7 @@ export default function KeywordManageScreen() {
   const [popular, setPopular] = useState<string[]>([]); // 전체 사용자 인기 키워드
   const [input, setInput] = useState('');
   const [adding, setAdding] = useState(false);
-  const inputRef = useRef<TextInput>(null);
+  const inputRef = useRef<ComponentRef<typeof TextInput>>(null);
 
   const loadKeywords = async () => {
     const { data: { session } } = await supabase.auth.getSession();
