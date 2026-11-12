@@ -335,7 +335,8 @@ function AutoImage({ uri, width, onPress }: { uri: string; width: number; onPres
         source={{ uri }}
         style={{ width, height: width / ratio, marginTop: SPACING.md, borderRadius: RADIUS.box }}
         contentFit="contain"
-        transition={250}
+        // 캐시에 있는 이미지는 페이드 없이 즉시 표시(재방문 시 깜빡임 제거, iOS — SDK 58)
+        transition={{ duration: 250, skipOnCacheHit: 'all' }}
         cachePolicy="memory-disk"
         onLoad={(e) => {
           const { width: w, height: h } = e.source;

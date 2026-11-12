@@ -60,6 +60,9 @@
         "projectId": "c9517a88-bd0f-445b-b9dc-3d280691f69b"
       }
     },
-    "owner": "jooth"
+    "owner": "jooth",
+    "experiments": {
+      "reactCompiler": true
+    }
   }
 }
