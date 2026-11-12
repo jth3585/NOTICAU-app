@@ -235,7 +235,7 @@ Deno.serve(async (req) => {
   const onlyKey: string | null = typeof body?.parserKey === "string" ? body.parserKey : null;
   const limit = Number.isInteger(body?.limit) && body.limit > 0 ? Math.min(body.limit, 30) : DEFAULT_BATCH;
   let q = supabase.from("sources")
-    .select("id, name, parser_key, list_url, is_active")
+    .select("id, name, parser_key, list_url, is_active, created_at")
     .like("parser_key", `${SOURCE_PREFIX}%`)
     .eq("is_active", true)
     .order("last_crawled_at", { ascending: true, nullsFirst: true })
@@ -255,14 +255,22 @@ Deno.serve(async (req) => {
     const acc = { parser_key: src.parser_key, handle, listed: 0, inserted: 0, skippedOld: 0, skippedDup: 0, failed: 0, error: null as string | null };
     if (!handle) { acc.error = "list_url 에서 핸들 추출 실패"; overall.perAccount.push(acc); continue; }
 
+    // 과거 글은 안 가져온다: 소스 등록 시각 이전 게시물은 skip (앞으로 올라오는 글만 수집).
+    const regMs = src.created_at ? Date.parse(src.created_at) : NaN;
+    const regDate = Number.isFinite(regMs) ? new Date(regMs).toISOString().slice(0, 10) : backfillFrom;
+    const floorDate = regDate > backfillFrom ? regDate : backfillFrom;
+
     try {
-      const { media } = await fetchAccount(igUserId, token, handle, { backfillFrom, maxPages: MAX_MEDIA_PAGES });
+      const { media } = await fetchAccount(igUserId, token, handle, { backfillFrom: floorDate, maxPages: MAX_MEDIA_PAGES });
       acc.listed = media.length;
       overall.listed += media.length;
 
       for (const m of media) {
         const date = (m.timestamp ?? "").slice(0, 10);
-        if (!date || date < backfillFrom) { acc.skippedOld++; overall.skippedOld++; continue; }
+        const tsMs = Date.parse((m.timestamp ?? "").replace(/([+-]\d{2})(\d{2})$/, "$1:$2"));
+        if (!date || date < backfillFrom || (Number.isFinite(regMs) && Number.isFinite(tsMs) && tsMs < regMs)) {
+          acc.skippedOld++; overall.skippedOld++; continue;
+        }
         try {
           const title = captionToTitle(m.caption);
           const postedAt = m.timestamp;
