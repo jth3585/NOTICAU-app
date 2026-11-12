@@ -209,7 +209,26 @@ async function saveStatus(value: Record<string, unknown>) {
   await supabase.from("integration_status").upsert({ key: "instagram_token", value, updated_at: new Date().toISOString() });
 }
 
-async function maintainToken(token: string, source: string, igUserId: string, pageId: string) {
+// 후보 토큰(vault → env 순)을 차례로 시도해 '만료 없는(expires_at=never)' 토큰을 확보한다.
+// 단기 사용자 토큰(1~2h)에서 만든 페이지 토큰은 같이 만료되므로 durable 이 아니다 → 다음 후보로.
+// (2026-11-12 실측: 대시보드에 단기 토큰이 들어가 페이지 토큰도 1시간 뒤 만료될 뻔함 → env 장기 토큰으로 복구)
+async function maintainToken(candidates: { token: string; source: string }[], igUserId: string, pageId: string) {
+  let last: Record<string, unknown> = { ok: false, error: "no token candidates" };
+  const tried: unknown[] = [];
+  for (const c of candidates) {
+    const r = await maintainOne(c.token, c.source, igUserId, pageId);
+    tried.push({ source: c.source, action: r.action, ok: r.ok, durable: r.durable, error: r.error ?? null });
+    last = r;
+    if (r.ok === null) break;        // 레이트리밋: 판단 불가, 다음 점검으로
+    if (r.ok && r.durable) break;    // 만료 없는 토큰 확보
+  }
+  last = { ...last, tried };
+  if (last.ok && !last.durable) last.warning = `저장된 토큰이 만료됨(${(last.after as any)?.expires_at ?? (last.before as any)?.expires_at}) — 장기 토큰 필요`;
+  await saveStatus(last);
+  return last;
+}
+
+async function maintainOne(token: string, source: string, igUserId: string, pageId: string): Promise<Record<string, any>> {
   const before = await debugToken(token);
   const status: Record<string, unknown> = {
     checked_at: new Date().toISOString(),
@@ -221,20 +240,25 @@ async function maintainToken(token: string, source: string, igUserId: string, pa
   if (before.error && /code=(4|17|32|613)\b/.test(before.error)) {
     status.action = "skipped (rate limited)";
     status.ok = null;
-    await saveStatus(status);
+    return status;
+  }
+  if (before.error || before.is_valid === false) {
+    status.action = "invalid token";
+    status.ok = false;
+    status.error = before.error ?? "is_valid=false";
     return status;
   }
 
-  // 페이지 토큰 또는 시스템 사용자 토큰(만료·재동의 없음)이면 동작만 확인
+  // 페이지 토큰 또는 시스템 사용자 토큰이면 동작만 확인(만료 없음일 때만 durable)
   if (before.type === "PAGE" || before.type === "SYSTEM_USER") {
     const err = await probe(igUserId, token);
     status.action = `none(${before.type.toLowerCase()} token)`;
     status.ok = !err;
+    status.durable = !err && before.expires_at === 0;
     if (err) status.error = err;
     const warn = dataAccessWarning(before);
     if (warn) status.warning = warn;
-    if (source === "env" && !err) { await supabase.rpc("set_instagram_token", { p_token: token, p_note: "page token (from env)" }); status.action = "copied env→vault"; }
-    await saveStatus(status);
+    if (source === "env" && status.durable) { await supabase.rpc("set_instagram_token", { p_token: token, p_note: "page token (from env)" }); status.action = "copied env→vault"; }
     return status;
   }
 
@@ -246,19 +270,24 @@ async function maintainToken(token: string, source: string, igUserId: string, pa
     const err = await probe(igUserId, pageToken);
     if (err) throw new Error(`page token probe 실패: ${err}`);
     const after = await debugToken(pageToken);
-    const { error: setErr } = await supabase.rpc("set_instagram_token", { p_token: pageToken, p_note: `page token ${pageId}` });
-    if (setErr) throw new Error(`vault 저장 실패: ${setErr.message}`);
-    status.action = "exchanged user→page token";
+    status.after = { ...after, expires_at: tsIso(after.expires_at), data_access_expires_at: tsIso(after.data_access_expires_at) };
+    status.durable = after.expires_at === 0;
+    status.ok = true;
+    // 만료되는 페이지 토큰은, 현재 vault 토큰이 이미 그보다 나쁠 때(=이 후보가 vault 자신)만 저장
+    if (status.durable || source === "vault") {
+      const { error: setErr } = await supabase.rpc("set_instagram_token", { p_token: pageToken, p_note: `page token ${pageId} (${source})` });
+      if (setErr) throw new Error(`vault 저장 실패: ${setErr.message}`);
+      status.action = `exchanged user→page token (${source})`;
+    } else {
+      status.action = `skipped: ${source} page token not durable`;
+    }
     const warn = dataAccessWarning(after);
     if (warn) status.warning = warn;
-    status.after = { ...after, expires_at: tsIso(after.expires_at), data_access_expires_at: tsIso(after.data_access_expires_at) };
-    status.ok = true;
   } catch (e) {
     status.action = "exchange failed";
     status.ok = false;
     status.error = String((e as Error).message).slice(0, 300);
   }
-  await saveStatus(status);
   return status;
 }
 
@@ -311,7 +340,11 @@ Deno.serve(async (req) => {
   // ── 0) TOKEN MAINT: 토큰 상태 점검 + 사용자 토큰이면 '만료 없는 페이지 토큰'으로 교체 ─────
   if (body?.tokenMaint) {
     const pageId = typeof body?.pageId === "string" ? body.pageId : DEFAULT_PAGE_ID;
-    const result = await maintainToken(token, tokenSource, igUserId, pageId);
+    const candidates: { token: string; source: string }[] = [];
+    if (typeof vaultToken === "string" && vaultToken) candidates.push({ token: vaultToken, source: "vault" });
+    const envToken = Deno.env.get("INSTAGRAM_TOKEN");
+    if (envToken && envToken !== vaultToken) candidates.push({ token: envToken, source: "env" });
+    const result = await maintainToken(candidates, igUserId, pageId);
     return new Response(JSON.stringify(result, null, 2), { headers: { "Content-Type": "application/json" } });
   }
 
