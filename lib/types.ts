@@ -92,6 +92,9 @@ export type RootStackParamList = {
   Terms: undefined;
   Privacy: undefined;
   DeleteAccount: undefined;
+  // 알림함(홈 🔔) / 알림 하나에 묶인 공지 모음
+  Notifications: undefined;
+  NotificationNotices: { notificationId: string };
 };
 
 export type TabParamList = {

@@ -37,6 +37,19 @@ type Profile = {
   enrollment_status: string[];
   is_dormitory: boolean;
   last_keyword_push_at: string | null;
+  notifications_enabled: boolean | null;
+};
+
+// 알림함(notifications) 기록 + 푸시 대상. 푸시를 꺼둔 유저도 알림함에는 기록한다.
+type PendingNotif = {
+  user_id: string;
+  type: string;
+  title: string;
+  body: string;
+  notice_ids: string[];
+  data: Record<string, unknown>;
+  pushed: boolean;
+  tokens: string[];
 };
 
 function one<T>(v: T | T[] | null): T | null {
@@ -142,14 +155,15 @@ Deno.serve(async (req) => {
   // ---- 알림 ON 유저 ----
   const { data: profiles, error: profErr } = await supabase
     .from("profiles")
-    .select("user_id, grade, campus, dept, dept_secondary, college, enrollment_status, is_dormitory, last_keyword_push_at")
-    .eq("notifications_enabled", true);
+    // 푸시 OFF 유저도 알림함 기록 대상이라 notifications_enabled 로 거르지 않는다(발송 단계에서 판단).
+    .select("user_id, grade, campus, dept, dept_secondary, college, enrollment_status, is_dormitory, last_keyword_push_at, notifications_enabled");
   if (profErr) {
     return new Response(JSON.stringify({ error: profErr.message }), { status: 500 });
   }
 
   const messages: any[] = [];
-  const sentUserIds: string[] = [];
+  const sentUserIds: string[] = []; // 알림함 기록한 유저(푸시 여부 무관) → 쿨다운 갱신 대상
+  const pending: PendingNotif[] = [];
   let skippedCooldown = 0;
 
   for (const profile of (profiles ?? []) as Profile[]) {
@@ -170,7 +184,7 @@ Deno.serve(async (req) => {
     const keywords = ((kwRes.data ?? []) as any[]).map((k) => ({ keyword: k.keyword as string, title_only: !!k.title_only }));
     if (keywords.length === 0) continue; // notify 키워드 없으면 skip
     const tokens = ((tokRes.data ?? []) as any[]).map((t) => t.token);
-    if (tokens.length === 0) continue;
+    const canPush = profile.notifications_enabled !== false && tokens.length > 0;
 
     const disabledTopics = new Set<string>(
       ((prefRes.data ?? []) as any[]).filter((p) => !p.is_enabled).map((p) => p.topic),
@@ -209,12 +223,37 @@ Deno.serve(async (req) => {
       ? `키워드 '${rep}' 매칭 공지 ${K}개`
       : `키워드 '${rep}' 외 ${distinctKw - 1}개 매칭 공지 ${K}개`;
 
-    // 딥링크용: 매칭 공지 id (1개면 앱에서 바로 해당 글로, 여러 개면 키워드매치 탭으로)
-    const noticeIds = [...matchedNoticeIds].slice(0, 20);
-    for (const token of tokens) {
-      messages.push({ to: token, sound: "default", title: "키워드 알림", body, data: { type: "keyword", noticeIds } });
-    }
+    // 딥링크용: 매칭 공지 id (1개면 앱에서 바로 해당 글로, 여러 개면 알림의 공지 모음으로)
+    const noticeIds = [...matchedNoticeIds].slice(0, 50);
+    pending.push({
+      user_id: uid,
+      type: "keyword",
+      title: "키워드 알림",
+      body,
+      notice_ids: noticeIds,
+      data: { keywords: [...perKeyword.keys()] },
+      pushed: canPush,
+      tokens: canPush ? tokens : [],
+    });
     sentUserIds.push(uid);
+  }
+
+  // ---- 알림함 기록 → 생성된 id를 푸시 data에 실어 앱이 그 알림의 공지 모음으로 이동 ----
+  if (pending.length > 0) {
+    const { data: inserted, error: insErr } = await supabase
+      .from("notifications")
+      .insert(pending.map(({ tokens: _t, ...row }) => row))
+      .select("id, user_id");
+    if (insErr) console.error(`notifications insert failed: ${insErr.message}`);
+    const idByUser = new Map<string, string>(((inserted ?? []) as any[]).map((r) => [r.user_id, r.id]));
+    for (const p of pending) {
+      for (const token of p.tokens) {
+        messages.push({
+          to: token, sound: "default", title: p.title, body: p.body,
+          data: { type: p.type, noticeIds: p.notice_ids, notificationId: idByUser.get(p.user_id) ?? null },
+        });
+      }
+    }
   }
 
   // ---- Expo Push 발송 (100개씩 배치) ----

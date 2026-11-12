@@ -1,5 +1,5 @@
 // daily_digest_push — 매일 KST 18:00 데일리 다이제스트 푸시. (cron: '0 9 * * *' UTC = 18:00 KST)
-// notifications_enabled=true 인 유저에게 "오늘 새 공지 N개 (키워드 매칭 M개)" 발송.
+// 모든 유저의 알림함(notifications)에 "오늘 새 공지 N건"(+해당 공지 id) 기록, notifications_enabled=true 면 푸시도 발송.
 //
 // 인증: verify_jwt=false 로 배포 + Authorization: Bearer <CRON_SECRET> 자체 검증.
 // 매칭 로직(isMismatch / 키워드 매칭)은 앱 lib/matching.ts 를 그대로 포팅 (Deno에서 app import 불가).
@@ -39,6 +39,7 @@ type Profile = {
   is_dormitory: boolean;
   show_cross_dept: boolean | null;
   last_daily_push_at: string | null;
+  notifications_enabled: boolean | null;
 };
 
 // PostgREST 임베드는 객체/배열 둘 다 가능 → 단일 객체로 정규화.
@@ -146,14 +147,15 @@ Deno.serve(async (req) => {
   // ---- 알림 ON 유저 ----
   const { data: profiles, error: profErr } = await supabase
     .from("profiles")
-    .select("user_id, grade, campus, dept, dept_secondary, college, enrollment_status, is_dormitory, show_cross_dept, last_daily_push_at")
-    .eq("notifications_enabled", true);
+    // 푸시 OFF 유저도 알림함 기록 대상(발송 단계에서 notifications_enabled 판단).
+    .select("user_id, grade, campus, dept, dept_secondary, college, enrollment_status, is_dormitory, show_cross_dept, last_daily_push_at, notifications_enabled");
   if (profErr) {
     return new Response(JSON.stringify({ error: profErr.message }), { status: 500 });
   }
 
   const messages: any[] = [];
-  const sentUserIds: string[] = [];
+  const sentUserIds: string[] = []; // 알림함 기록한 유저(푸시 여부 무관) → 하루 1회 가드 갱신 대상
+  const pending: { user_id: string; title: string; body: string; notice_ids: string[]; pushed: boolean; tokens: string[] }[] = [];
   let skippedAlreadySent = 0;
 
   for (const profile of (profiles ?? []) as Profile[]) {
@@ -177,7 +179,7 @@ Deno.serve(async (req) => {
     const disabledSources = new Set<string>(((srcPrefRes.data ?? []) as any[]).map((r) => r.parser_key));
     const readIds = new Set<string>(((readRes.data ?? []) as any[]).map((r) => r.notice_id));
     const tokens = ((tokRes.data ?? []) as any[]).map((t) => t.token);
-    if (tokens.length === 0) continue;
+    const canPush = profile.notifications_enabled !== false && tokens.length > 0;
 
     // N = 미스매치 아닌(미만료) 최근 공지 수
     const matched = recent.filter((n: any) => {
@@ -189,11 +191,35 @@ Deno.serve(async (req) => {
 
     const body = `오늘 새 공지 ${N}건`;
 
-    // 브리핑은 집계형 → 특정 글 딥링크 없음(앱만 열림). type만 표기.
-    for (const token of tokens) {
-      messages.push({ to: token, sound: "default", title: "NOTICAU", body, data: { type: "digest" } });
-    }
+    // 알림함에 해당 공지 id를 남겨, 알림을 누르면 '오늘 새 공지 N건'이 무엇인지 바로 보이게.
+    pending.push({
+      user_id: uid,
+      title: "오늘의 공지 브리핑",
+      body,
+      notice_ids: matched.slice(0, 100).map((n: any) => n.id),
+      pushed: canPush,
+      tokens: canPush ? tokens : [],
+    });
     sentUserIds.push(uid);
+  }
+
+  // ---- 알림함 기록 → id를 푸시 data에 실어 앱이 그 알림의 공지 모음으로 이동 ----
+  if (pending.length > 0) {
+    const { data: inserted, error: insErr } = await supabase
+      .from("notifications")
+      .insert(pending.map(({ tokens: _t, ...row }) => ({ ...row, type: "digest" })))
+      .select("id, user_id");
+    if (insErr) console.error(`notifications insert failed: ${insErr.message}`);
+    const idByUser = new Map<string, string>(((inserted ?? []) as any[]).map((r) => [r.user_id, r.id]));
+    for (const p of pending) {
+      for (const token of p.tokens) {
+        // 공지 id 목록은 data 4KB 한도 때문에 싣지 않고 notificationId로 앱이 조회
+        messages.push({
+          to: token, sound: "default", title: p.title, body: p.body,
+          data: { type: "digest", notificationId: idByUser.get(p.user_id) ?? null },
+        });
+      }
+    }
   }
 
   // ---- Expo Push 발송 (100개씩 배치) ----

@@ -16,6 +16,7 @@ import { ensureAnonSession } from './lib/auth';
 import { migrateLocalToDB } from './lib/migrate';
 import { setupPushNotifications } from './lib/push';
 import { fetchNoticeById } from './lib/notices';
+import { fetchNotification, markNotificationRead } from './lib/notifications';
 import { loadSourceLabels } from './lib/sources';
 import { loadOrgNames } from './lib/org';
 import { ToastHost } from './components/ui/ToastHost';
@@ -38,6 +39,8 @@ import BookmarkScreen from './screens/BookmarkScreen';
 import BookmarkFolderScreen from './screens/BookmarkFolderScreen';
 import MyPageScreen from './screens/MyPageScreen';
 import NoticeDetailScreen from './screens/NoticeDetailScreen';
+import NotificationsScreen from './screens/NotificationsScreen';
+import NotificationNoticesScreen from './screens/NotificationNoticesScreen';
 
 // 콜드 스타트 시 네이티브 스플래시를 수동 제어 (init 완료 + 최소 표시시간 후 hide).
 SplashScreen.preventAutoHideAsync().catch(() => {});
@@ -81,11 +84,30 @@ async function waitUntilNavReady(timeoutMs = 5000): Promise<boolean> {
 }
 
 // 알림 응답(탭) → 적절한 화면으로 라우팅.
-// keyword: 매칭 공지 1건이면 바로 Detail, 여러 건이면 홈 키워드매치 탭. digest(브리핑) 등은 무시(앱만 열림).
+// notificationId 있음(알림함 기록된 푸시): 알림 읽음 처리 후 공지 1건이면 바로 Detail,
+//   여러 건이면 그 알림에 묶인 공지 모음(NotificationNotices). 키워드·브리핑 공통.
+// notificationId 없음(구버전 서버가 보낸 키워드 푸시): 1건이면 Detail, 아니면 홈 키워드매치 탭.
 async function routeFromNotificationData(data: any): Promise<void> {
-  if (!data || data.type !== 'keyword') return;
+  if (!data || typeof data !== 'object') return;
   const ids: string[] = Array.isArray(data.noticeIds) ? data.noticeIds : [];
+  const notificationId: string | null = typeof data.notificationId === 'string' ? data.notificationId : null;
+  if (!notificationId && data.type !== 'keyword') return;
   if (!(await waitUntilNavReady())) return;
+
+  if (notificationId) {
+    markNotificationRead(notificationId);
+    // 브리핑 푸시는 data 크기 한도 때문에 noticeIds를 싣지 않음 → 알림 레코드에서 확인
+    const noticeIds = ids.length ? ids : ((await fetchNotification(notificationId))?.notice_ids ?? []);
+    if (noticeIds.length === 1) {
+      const notice = await fetchNoticeById(noticeIds[0]);
+      if (notice) {
+        navigationRef.navigate('Detail', { notice, source: `push_${data.type ?? 'unknown'}` });
+        return;
+      }
+    }
+    navigationRef.navigate('NotificationNotices', { notificationId });
+    return;
+  }
 
   if (ids.length === 1) {
     const notice = await fetchNoticeById(ids[0]);
@@ -196,6 +218,8 @@ export default function App() {
             <Stack.Screen name="Terms" component={TermsScreen} />
             <Stack.Screen name="Privacy" component={PrivacyScreen} />
             <Stack.Screen name="DeleteAccount" component={DeleteAccountScreen} />
+            <Stack.Screen name="Notifications" component={NotificationsScreen} />
+            <Stack.Screen name="NotificationNotices" component={NotificationNoticesScreen} />
           </Stack.Navigator>
         </NavigationContainer>
         <ToastHost />
