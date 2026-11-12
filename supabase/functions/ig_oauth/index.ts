@@ -68,7 +68,7 @@ const tsIso = (s?: number) => (s && s > 0 ? new Date(s * 1000).toISOString() : s
 Deno.serve(async (req) => {
   const url = new URL(req.url);
   const code = url.searchParams.get("code");
-  const appSecret = Deno.env.get("META_APP_SECRET");
+  const appSecret = Deno.env.get("META_APP_SECRET")?.trim();
   if (!appSecret) return text("설정 필요: Supabase secret META_APP_SECRET 이 없습니다.", 500);
 
   // 1) 시작: FB 재동의 화면으로

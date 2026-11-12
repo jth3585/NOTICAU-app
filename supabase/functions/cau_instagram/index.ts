@@ -175,17 +175,26 @@ type TokenInfo = { type?: string; is_valid?: boolean; expires_at?: number; data_
 
 // 조회 주체: META_APP_SECRET 이 있으면 앱 토큰, 없으면 토큰 자신.
 // (시스템 사용자 토큰은 앱 개발자가 아니라 자기 자신으로는 debug_token 이 code=100 으로 거절됨)
+// 앱 토큰이 거절되면(시크릿 값 오류 → code=190 signature) 토큰 자신으로 재시도하고 appSecretError 를 남긴다.
+let appSecretError: string | null = null;
 async function debugToken(token: string): Promise<TokenInfo> {
-  try {
-    const appSecret = Deno.env.get("META_APP_SECRET");
-    const inspector = appSecret ? `${META_APP_ID}|${appSecret}` : token;
-    const url = `${GRAPH_BASE}/debug_token?input_token=${encodeURIComponent(token)}&access_token=${encodeURIComponent(inspector)}`;
-    const j = await graphFetch(url);
-    const d = j?.data ?? {};
-    return { type: d.type, is_valid: d.is_valid, expires_at: d.expires_at, data_access_expires_at: d.data_access_expires_at };
-  } catch (e) {
-    return { error: String((e as Error).message).slice(0, 200) };
+  const inspect = async (inspector: string): Promise<TokenInfo> => {
+    try {
+      const url = `${GRAPH_BASE}/debug_token?input_token=${encodeURIComponent(token)}&access_token=${encodeURIComponent(inspector)}`;
+      const j = await graphFetch(url);
+      const d = j?.data ?? {};
+      return { type: d.type, is_valid: d.is_valid, expires_at: d.expires_at, data_access_expires_at: d.data_access_expires_at };
+    } catch (e) {
+      return { error: String((e as Error).message).slice(0, 200) };
+    }
+  };
+  const appSecret = Deno.env.get("META_APP_SECRET")?.trim();
+  if (appSecret) {
+    const r = await inspect(`${META_APP_ID}|${appSecret}`);
+    if (!(r.error && /code=190\b/.test(r.error))) return r;
+    appSecretError = `META_APP_SECRET 로 만든 앱 토큰 거절됨(${r.error}) — 시크릿 값 확인 필요`;
   }
+  return inspect(token);
 }
 
 async function probe(igUserId: string, token: string): Promise<string | null> {
@@ -218,6 +227,7 @@ async function saveStatus(value: Record<string, unknown>) {
 // 단기 사용자 토큰(1~2h)에서 만든 페이지 토큰은 같이 만료되므로 durable 이 아니다 → 다음 후보로.
 // (2026-11-12 실측: 대시보드에 단기 토큰이 들어가 페이지 토큰도 1시간 뒤 만료될 뻔함 → env 장기 토큰으로 복구)
 async function maintainToken(candidates: { token: string; source: string }[], igUserId: string, pageId: string) {
+  appSecretError = null; // 웜 인스턴스에서 이전 요청 값이 남지 않게
   let last: Record<string, unknown> = { ok: false, error: "no token candidates" };
   const tried: unknown[] = [];
   for (const c of candidates) {
@@ -228,6 +238,7 @@ async function maintainToken(candidates: { token: string; source: string }[], ig
     if (r.ok && r.durable !== false) break; // 만료 없는 토큰 확보(또는 조회 불가지만 동작 확인 → 유지)
   }
   last = { ...last, tried };
+  if (appSecretError) last.app_secret_error = appSecretError;
   if (last.ok && last.durable === false) last.warning = `저장된 토큰이 만료됨(${(last.after as any)?.expires_at ?? (last.before as any)?.expires_at}) — 장기 토큰 필요`;
   await saveStatus(last);
   return last;
