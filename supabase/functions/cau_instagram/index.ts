@@ -15,7 +15,10 @@
 //      (토큰·IG_USER_ID 만 있으면 sources 행 없이도 "어떤 계정이 읽히나"를 즉시 점검)
 //   2) crawl(기본): sources(cau_ig_%) 순회 → 최근 게시물을 notices에 적재. llm_classify cron이 자동 분류.
 //
-// 비밀값(Supabase secrets): INSTAGRAM_TOKEN(필수), INSTAGRAM_IG_USER_ID(조회용 비즈니스 계정 ID).
+// 토큰: vault 'instagram_token'(만료 없는 페이지 토큰, tokenMaint 모드가 관리) 우선, 없으면 env INSTAGRAM_TOKEN.
+//   3) tokenMaint: body {"tokenMaint":true} → 토큰 점검, 사용자 토큰이면 페이지 토큰으로 교환해 vault 저장,
+//      결과는 integration_status('instagram_token'). 주 1회 cron(cau_instagram_token).
+// IG_USER_ID 는 body.igUserId(cron) 또는 env INSTAGRAM_IG_USER_ID.
 // 인증: Bearer <CRON_SECRET>.
 
 import { createClient } from "jsr:@supabase/supabase-js@2";
@@ -25,13 +28,18 @@ const GRAPH_VERSION = "v23.0"; // 필요 시 상향(2026-11 기준 v26.0까지 �
 const GRAPH_BASE = `https://graph.facebook.com/${GRAPH_VERSION}`;
 const DEFAULT_BACKFILL = "2026-05-01";
 
-const MEDIA_PAGE_SIZE = 25;
+// 계정당 게시물 수. 앱 한도는 호출 수뿐 아니라 CPU/처리시간도 세므로 작게(25→10 실측 후 축소).
+// 등록 이후 글만 받고 계정당 ~2h 주기라 10개면 충분, 넘치면 페이지네이션으로 이어 받음.
+const MEDIA_PAGE_SIZE = 10;
 const MAX_MEDIA_PAGES = 6; // 백필 깊이 상한 (25 * 6 = 150개)
 const FETCH_TIMEOUT_MS = 30_000;
 const MAX_RETRIES = 2;
 const RETRY_BACKOFF_MS = [1_000, 3_000];
 const POLITE_DELAY_MS = 400; // 계정 간 간격 (레이트리밋 완화)
 const RATE_LIMIT_CODES = [4, 17, 32, 613]; // Graph API 호출 한도 오류 코드
+const TOKEN_ERROR_CODES = [190, 102]; // 토큰 만료/무효 → 배치 중단 + integration_status 기록
+const DEFAULT_PAGE_ID = "1444376652096085"; // Noticau FB 페이지(noti_cau IG 연결)
+const PROBE_HANDLE = "cau.gyul"; // 토큰 검증용 대상(프로페셔널 확인됨)
 const DEFAULT_BATCH = 10; // crawl 1회당 처리 계정 수(오래 전에 크롤한 순). 계정당 ~5s, 함수 wall clock 한도 150s.
 
 // business_discovery 로 요청할 media 서브필드. like_count/comments_count 는 권한 이슈 가능성 있어 제외(공지용엔 불필요).
@@ -76,11 +84,15 @@ type BusinessDiscovery = {
   media?: { data?: IgMedia[]; paging?: { cursors?: { after?: string } } };
 };
 
+let lastAppUsage: string | null = null;
+
 async function graphFetch(url: string): Promise<any> {
   let lastErr: unknown;
   for (let attempt = 0; attempt <= MAX_RETRIES; attempt++) {
     try {
       const res = await fetch(url, { signal: AbortSignal.timeout(FETCH_TIMEOUT_MS) });
+      const usage = res.headers.get("x-app-usage"); // {"call_count":%, "total_cputime":%, "total_time":%} — 앱 한도 대비 사용률
+      if (usage) lastAppUsage = usage;
       const json = await res.json().catch(() => ({}));
       if (!res.ok || json?.error) {
         const e = json?.error ?? {};
@@ -122,9 +134,10 @@ async function fetchAccount(
   igUserId: string,
   token: string,
   handle: string,
-  opts: { backfillFrom?: string; maxPages?: number } = {},
+  opts: { backfillFrom?: string; maxPages?: number; pageSize?: number } = {},
 ): Promise<{ followers?: number; mediaCount?: number; media: IgMedia[] }> {
   const maxPages = opts.maxPages ?? 1;
+  const pageSize = opts.pageSize ?? MEDIA_PAGE_SIZE;
   const backfillFrom = opts.backfillFrom;
   const all: IgMedia[] = [];
   let after: string | undefined;
@@ -132,7 +145,7 @@ async function fetchAccount(
   let mediaCount: number | undefined;
 
   for (let page = 0; page < maxPages; page++) {
-    const json = await graphFetch(bdUrl(igUserId, token, handle, MEDIA_PAGE_SIZE, after));
+    const json = await graphFetch(bdUrl(igUserId, token, handle, pageSize, after));
     const bd: BusinessDiscovery | undefined = json?.business_discovery;
     if (!bd) throw new Error("no business_discovery in response");
     if (page === 0) {
@@ -149,6 +162,95 @@ async function fetchAccount(
     await sleep(300);
   }
   return { followers, mediaCount, media: all };
+}
+
+// ── 토큰 관리 ────────────────────────────────────────────────────────────────
+// 장기(60일) '사용자' 토큰으로 GET /{page_id}?fields=access_token 하면 만료 없는 '페이지' 토큰이 나온다.
+// 페이지 토큰으로도 business_discovery 가 동작하므로 이걸 vault에 저장해 쓴다.
+// 페이지 토큰이 무효화되는 경우(FB 비번 변경·페이지 권한 상실·앱 권한 해제)는 사람이 새 사용자 토큰을
+// set_instagram_token() 으로 넣어야 한다 → integration_status 에 상태/오류를 남겨 감지.
+type TokenInfo = { type?: string; is_valid?: boolean; expires_at?: number; data_access_expires_at?: number; error?: string };
+
+async function debugToken(token: string): Promise<TokenInfo> {
+  try {
+    const url = `${GRAPH_BASE}/debug_token?input_token=${encodeURIComponent(token)}&access_token=${encodeURIComponent(token)}`;
+    const j = await graphFetch(url);
+    const d = j?.data ?? {};
+    return { type: d.type, is_valid: d.is_valid, expires_at: d.expires_at, data_access_expires_at: d.data_access_expires_at };
+  } catch (e) {
+    return { error: String((e as Error).message).slice(0, 200) };
+  }
+}
+
+async function probe(igUserId: string, token: string): Promise<string | null> {
+  try {
+    const url = `${GRAPH_BASE}/${igUserId}?fields=${encodeURIComponent(`business_discovery.username(${PROBE_HANDLE}){followers_count}`)}&access_token=${encodeURIComponent(token)}`;
+    const j = await graphFetch(url);
+    return j?.business_discovery ? null : "no business_discovery";
+  } catch (e) {
+    return String((e as Error).message).slice(0, 200);
+  }
+}
+
+const tsIso = (s?: number) => (s && s > 0 ? new Date(s * 1000).toISOString() : s === 0 ? "never" : null);
+
+// 페이지 토큰은 expires_at=never 이지만 data_access_expires_at(마지막 동의 후 90일)은 남는다.
+// 21일 안으로 다가오면 경고 → 사람이 Graph Explorer 등에서 앱 재동의 후 새 사용자 토큰을 set_instagram_token().
+const DATA_ACCESS_WARN_DAYS = 21;
+function dataAccessWarning(info: TokenInfo): string | null {
+  const t = info.data_access_expires_at;
+  if (!t || t <= 0) return null;
+  const days = Math.floor((t * 1000 - Date.now()) / 86_400_000);
+  return days <= DATA_ACCESS_WARN_DAYS ? `data access expires in ${days}d (${tsIso(t)}) — 앱 재동의 후 set_instagram_token 필요` : null;
+}
+
+async function saveStatus(value: Record<string, unknown>) {
+  await supabase.from("integration_status").upsert({ key: "instagram_token", value, updated_at: new Date().toISOString() });
+}
+
+async function maintainToken(token: string, source: string, igUserId: string, pageId: string) {
+  const before = await debugToken(token);
+  const status: Record<string, unknown> = {
+    checked_at: new Date().toISOString(),
+    source,
+    before: { ...before, expires_at: tsIso(before.expires_at), data_access_expires_at: tsIso(before.data_access_expires_at) },
+  };
+
+  // 이미 페이지 토큰이면 동작만 확인
+  if (before.type === "PAGE") {
+    const err = await probe(igUserId, token);
+    status.action = "none(page token)";
+    status.ok = !err;
+    if (err) status.error = err;
+    const warn = dataAccessWarning(before);
+    if (warn) status.warning = warn;
+    if (source === "env" && !err) { await supabase.rpc("set_instagram_token", { p_token: token, p_note: "page token (from env)" }); status.action = "copied env→vault"; }
+    await saveStatus(status);
+    return status;
+  }
+
+  // 사용자 토큰 → 페이지 토큰 교환
+  try {
+    const j = await graphFetch(`${GRAPH_BASE}/${pageId}?fields=access_token&access_token=${encodeURIComponent(token)}`);
+    const pageToken: string | undefined = j?.access_token;
+    if (!pageToken) throw new Error("page access_token 없음 (페이지 권한/pages_show_list 확인)");
+    const err = await probe(igUserId, pageToken);
+    if (err) throw new Error(`page token probe 실패: ${err}`);
+    const after = await debugToken(pageToken);
+    const { error: setErr } = await supabase.rpc("set_instagram_token", { p_token: pageToken, p_note: `page token ${pageId}` });
+    if (setErr) throw new Error(`vault 저장 실패: ${setErr.message}`);
+    status.action = "exchanged user→page token";
+    const warn = dataAccessWarning(after);
+    if (warn) status.warning = warn;
+    status.after = { ...after, expires_at: tsIso(after.expires_at), data_access_expires_at: tsIso(after.data_access_expires_at) };
+    status.ok = true;
+  } catch (e) {
+    status.action = "exchange failed";
+    status.ok = false;
+    status.error = String((e as Error).message).slice(0, 300);
+  }
+  await saveStatus(status);
+  return status;
 }
 
 function captionToTitle(caption: string | undefined): string {
@@ -179,7 +281,10 @@ Deno.serve(async (req) => {
     return new Response(JSON.stringify({ error: "Unauthorized" }), { status: 401 });
   }
 
-  const token = Deno.env.get("INSTAGRAM_TOKEN");
+  // 토큰: vault(instagram_token, tokenMaint가 관리) 우선, 없으면 env INSTAGRAM_TOKEN(초기 시드).
+  const { data: vaultToken } = await supabase.rpc("get_instagram_token");
+  const token: string | undefined = (typeof vaultToken === "string" && vaultToken) || Deno.env.get("INSTAGRAM_TOKEN");
+  const tokenSource = typeof vaultToken === "string" && vaultToken ? "vault" : "env";
   let igUserId = Deno.env.get("INSTAGRAM_IG_USER_ID");
 
   let body: any = {};
@@ -194,6 +299,13 @@ Deno.serve(async (req) => {
     );
   }
 
+  // ── 0) TOKEN MAINT: 토큰 상태 점검 + 사용자 토큰이면 '만료 없는 페이지 토큰'으로 교체 ─────
+  if (body?.tokenMaint) {
+    const pageId = typeof body?.pageId === "string" ? body.pageId : DEFAULT_PAGE_ID;
+    const result = await maintainToken(token, tokenSource, igUserId, pageId);
+    return new Response(JSON.stringify(result, null, 2), { headers: { "Content-Type": "application/json" } });
+  }
+
   // ── 1) VERIFY(드라이런): 계정별 도달성만 점검, DB 미기록 ──────────────────────────
   if (body?.verify) {
     const accounts: string[] = Array.isArray(body.accounts) ? body.accounts : [];
@@ -205,7 +317,7 @@ Deno.serve(async (req) => {
       const handle = extractHandle(raw);
       if (!handle) { results.push({ input: raw, ok: false, error: "bad handle" }); continue; }
       try {
-        const { followers, mediaCount, media } = await fetchAccount(igUserId, token, handle, { maxPages: 1 });
+        const { followers, mediaCount, media } = await fetchAccount(igUserId, token, handle, { maxPages: 1, pageSize: 3 });
         const latest = media[0];
         results.push({
           handle,
@@ -224,7 +336,7 @@ Deno.serve(async (req) => {
     }
     const reachable = results.filter((r) => r.ok).length;
     return new Response(
-      JSON.stringify({ mode: "verify", total: accounts.length, reachable, results }, null, 2),
+      JSON.stringify({ mode: "verify", total: accounts.length, reachable, appUsage: lastAppUsage, results }, null, 2),
       { headers: { "Content-Type": "application/json" } },
     );
   }
@@ -316,6 +428,13 @@ Deno.serve(async (req) => {
     } catch (e) {
       acc.error = String(e).slice(0, 300);
       overall.failed++;
+      if (TOKEN_ERROR_CODES.includes((e as any)?.graphCode)) {
+        // 토큰 문제: 모든 계정이 실패할 것이므로 즉시 중단하고 상태 기록(사람이 set_instagram_token 필요).
+        overall.perAccount.push(acc);
+        (overall as any).tokenError = acc.error;
+        await saveStatus({ checked_at: new Date().toISOString(), ok: false, action: "crawl aborted", error: acc.error });
+        break;
+      }
       if (RATE_LIMIT_CODES.includes((e as any)?.graphCode)) {
         // 앱 호출 한도 소진: 계정 문제가 아니므로 순번 유지하고 이번 배치 중단(다음 cron에서 이어서).
         overall.perAccount.push(acc);
@@ -334,5 +453,6 @@ Deno.serve(async (req) => {
     await sleep(POLITE_DELAY_MS);
   }
 
+  (overall as any).appUsage = lastAppUsage;
   return new Response(JSON.stringify(overall, null, 2), { headers: { "Content-Type": "application/json" } });
 });
