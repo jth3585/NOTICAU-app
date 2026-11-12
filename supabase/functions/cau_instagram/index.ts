@@ -31,6 +31,7 @@ const DEFAULT_BACKFILL = "2026-05-01";
 // 계정당 게시물 수. 앱 한도는 호출 수뿐 아니라 CPU/처리시간도 세므로 작게(25→10 실측 후 축소).
 // 등록 이후 글만 받고 계정당 ~2h 주기라 10개면 충분, 넘치면 페이지네이션으로 이어 받음.
 const MEDIA_PAGE_SIZE = 10;
+const LIGHT_CHECK_SIZE = 5; // 1단계 새 글 확인용(permalink,timestamp만)
 const MAX_MEDIA_PAGES = 6; // 백필 깊이 상한 (25 * 6 = 150개)
 const FETCH_TIMEOUT_MS = 30_000;
 const MAX_RETRIES = 2;
@@ -216,6 +217,14 @@ async function maintainToken(token: string, source: string, igUserId: string, pa
     before: { ...before, expires_at: tsIso(before.expires_at), data_access_expires_at: tsIso(before.data_access_expires_at) },
   };
 
+  // 앱 호출 한도에 걸렸으면 판단 불가 → 아무것도 바꾸지 않고 다음 점검으로 미룸
+  if (before.error && /code=(4|17|32|613)\b/.test(before.error)) {
+    status.action = "skipped (rate limited)";
+    status.ok = null;
+    await saveStatus(status);
+    return status;
+  }
+
   // 페이지 토큰 또는 시스템 사용자 토큰(만료·재동의 없음)이면 동작만 확인
   if (before.type === "PAGE" || before.type === "SYSTEM_USER") {
     const err = await probe(igUserId, token);
@@ -373,7 +382,45 @@ Deno.serve(async (req) => {
     const floorDate = regDate > backfillFrom ? regDate : backfillFrom;
 
     try {
-      const { media } = await fetchAccount(igUserId, token, handle, { backfillFrom: floorDate, maxPages: MAX_MEDIA_PAGES });
+      // 1단계(가벼움): 최근 게시물의 permalink/timestamp만 받아 새 글이 있는지 확인.
+      // Meta 앱 한도는 처리시간(total_time)이 먼저 차므로, 새 글 없는 대부분의 회차를 이 호출 하나로 끝낸다.
+      const lightJson = await graphFetch(
+        `${GRAPH_BASE}/${igUserId}?fields=${encodeURIComponent(`business_discovery.username(${handle}){media.limit(${LIGHT_CHECK_SIZE}){permalink,timestamp}}`)}` +
+        `&access_token=${encodeURIComponent(token)}`,
+      );
+      const recent: { permalink?: string; timestamp?: string }[] = lightJson?.business_discovery?.media?.data ?? [];
+      const candidates = recent.filter((m) => {
+        const ts = Date.parse((m.timestamp ?? "").replace(/([+-]\d{2})(\d{2})$/, "$1:$2"));
+        return m.permalink && (m.timestamp ?? "").slice(0, 10) >= floorDate && !(Number.isFinite(regMs) && Number.isFinite(ts) && ts < regMs);
+      });
+      let newCount = 0;
+      let lastNewIdx = -1; // 고정 게시물이 앞에 올 수 있어 '개수'가 아니라 '위치'로 받을 범위를 정한다
+      if (candidates.length > 0) {
+        const { data: seen } = await supabase.from("notices").select("source_url")
+          .eq("source_id", src.id).in("source_url", candidates.map((m) => m.permalink!));
+        const seenSet = new Set((seen ?? []).map((r: { source_url: string }) => r.source_url));
+        recent.forEach((m, i) => {
+          if (candidates.includes(m) && !seenSet.has(m.permalink!)) { newCount++; lastNewIdx = i; }
+        });
+      }
+      if (newCount === 0) {
+        await supabase.from("sources").update({ last_crawled_at: new Date().toISOString() }).eq("id", src.id);
+        await supabase.from("crawler_health").upsert({
+          source_id: src.id, last_success_at: new Date().toISOString(), last_attempt_at: new Date().toISOString(),
+          failure_count: 0, last_error: null, is_healthy: true,
+        });
+        overall.perAccount.push(acc);
+        await sleep(POLITE_DELAY_MS);
+        continue;
+      }
+
+      // 2단계: 새 글이 있을 때만 본문·이미지까지. 5개 모두 새 글이면 더 있을 수 있으니 기본 크기로 페이지네이션.
+      const mayHaveMore = lastNewIdx === recent.length - 1 && recent.length === LIGHT_CHECK_SIZE; // 마지막 칸까지 새 글
+      const { media } = await fetchAccount(igUserId, token, handle, {
+        backfillFrom: floorDate,
+        maxPages: mayHaveMore ? MAX_MEDIA_PAGES : 1,
+        pageSize: mayHaveMore ? MEDIA_PAGE_SIZE : lastNewIdx + 1,
+      });
       acc.listed = media.length;
       overall.listed += media.length;
 
