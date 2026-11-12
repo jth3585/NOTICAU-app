@@ -125,6 +125,7 @@ Deno.serve(async (req) => {
     .from("notices")
     .select("id, title, body_text, crawled_at, notice_meta(topic,target_grades,target_depts,target_campuses,target_enrollment_status,targets_freshmen,excludes_undergrad), sources(campus)")
     .is("duplicate_of", null) // 교차출처 중복은 대표 1건만 (중복 푸시 방지 + 중복본은 미분류)
+    .eq("channel", "board") // 인스타 공지는 공지탭/푸시 미노출(추후 '내 학과' 탭 전용)
     .gte("crawled_at", windowStart)
     .gte("posted_at", postWindowStart)
     .order("crawled_at", { ascending: false });
