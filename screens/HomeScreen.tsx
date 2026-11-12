@@ -1,5 +1,5 @@
-import { useCallback, useEffect, useRef } from 'react';
-import { RefreshControl, ScrollView, StyleSheet, TouchableOpacity, View } from 'react-native';
+import { useCallback, useEffect, useRef, type ComponentRef } from 'react';
+import { RefreshControl, ScrollView, StyleSheet, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useFocusEffect, useNavigation, useRoute, useScrollToTop, type RouteProp } from '@react-navigation/native';
@@ -12,7 +12,6 @@ import { HomeGreeting } from '../components/HomeGreeting';
 import { HomeFilterTabs } from '../components/HomeFilterTabs';
 import { HomeCuration } from '../components/HomeCuration';
 import { NoticeListSkeleton } from '../components/ui/Skeleton';
-import { BellIcon } from '../components/ui/icons';
 import { useUnreadNotifications } from '../lib/notifications';
 import type { Notice, RootStackParamList, TabParamList } from '../lib/types';
 import { COLORS, SPACING } from '../lib/theme';
@@ -55,7 +54,7 @@ export default function HomeScreen() {
   }, [feed, digestRefresh, refreshUnread]);
 
   // 홈 탭 재탭 → 맨 위로 스크롤 + 새로고침
-  const scrollRef = useRef<ScrollView>(null);
+  const scrollRef = useRef<ComponentRef<typeof ScrollView>>(null);
   useScrollToTop(scrollRef);
   useTabReselect(onRefresh);
 
@@ -88,20 +87,6 @@ export default function HomeScreen() {
     <View style={styles.root}>
       <LinearGradient colors={TOP_TINT} style={styles.topTint} pointerEvents="none" />
       <SafeAreaView style={styles.flex} edges={['top']}>
-      {/* 상단 바: 우측 🔔 알림함. 안 읽은 알림이 있으면 빨간 점 */}
-      <View style={styles.topBar}>
-        <TouchableOpacity
-          onPress={() => navigation.navigate('Notifications')}
-          hitSlop={10}
-          activeOpacity={0.6}
-          style={styles.bellBtn}
-          accessibilityRole="button"
-          accessibilityLabel={hasUnread ? '알림, 읽지 않은 알림 있음' : '알림'}
-        >
-          <BellIcon size={24} color={COLORS.text} />
-          {hasUnread ? <View style={styles.bellDot} /> : null}
-        </TouchableOpacity>
-      </View>
       <ScrollView
         ref={scrollRef}
         contentContainerStyle={styles.scroll}
@@ -111,6 +96,8 @@ export default function HomeScreen() {
           nickname={feed.nickname}
           deadlineSoonCount={feed.deadlineSoonCount}
           newCount={feed.newCount}
+          hasUnreadNotifications={hasUnread}
+          onPressNotifications={() => navigation.navigate('Notifications')}
         />
         <HomeFilterTabs
           newList={feed.newList}
@@ -141,10 +128,4 @@ const styles = StyleSheet.create({
   topTint: { position: 'absolute', top: 0, left: 0, right: 0, height: 240 },
   center: { flex: 1, justifyContent: 'center', alignItems: 'center' },
   scroll: { paddingBottom: SPACING.xxl },
-  topBar: { flexDirection: 'row', justifyContent: 'flex-end', paddingHorizontal: SPACING.lg, paddingTop: SPACING.xs },
-  bellBtn: { padding: SPACING.xs },
-  bellDot: {
-    position: 'absolute', top: 4, right: 5, width: 8, height: 8, borderRadius: 4,
-    backgroundColor: COLORS.danger, borderWidth: 1.5, borderColor: COLORS.bg,
-  },
 });
