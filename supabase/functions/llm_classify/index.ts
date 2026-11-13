@@ -234,6 +234,72 @@ const SYSTEM_PROMPT = `당신은 중앙대학교(CAU) 학부생을 위한 공지
   "body_markdown": "## 핵심 요약\\n..." 또는 null
 }`;
 
+// ── 행사 추출 확장 (검증 단계: dryRun 호출에서만 시스템 프롬프트에 덧붙인다) ──────────────
+// topic/action과 별개의 축으로 공지 종류(kind)와 행사 일시·장소·공개범위를 뽑는다.
+// 운영 분류(cron)는 이 확장을 쓰지 않으므로 기존 출력·notice_meta upsert에 영향 없음.
+const EVENT_PROMPT_EXT = `
+
+## 추가 추출: 공지 종류(kind)와 행사 정보
+위 topic/action과 **별개의 축**으로, 아래 필드를 함께 출력한다(어느 topic이든 행사일 수 있다 — 채용설명회는 topic=채용&인턴 이면서 kind=event).
+**topic은 kind와 무관하게, 위 8개 카테고리 정의만으로 먼저 정한다.** kind를 추가로 뽑는다고 topic 판단을 바꾸지 말 것. 학생회 선거·회계 보고 등 학생자치 소식의 topic은 "교내외활동"이다(학적 변동이 아니므로 "재학상태"가 아니다).
+
+### kind — 넷 중 하나
+- "event": **정해진 일시에 정해진 장소(또는 온라인)에서 열리고, 학생이 그 자리에 '참석'하는 것**이 공지의 핵심인 경우.
+  예: 특강·세미나·콜로퀴엄·설명회·포럼·심포지엄·토크콘서트·박람회·공연·연주회·전시·상영회·축제·학술제·일일호프·개강/종강총회·MT·체육대회·현장에서 치르는 대회·해커톤.
+  사전 신청이 필요해도 참석형이면 event다(신청 기간은 기존 apply_start_at/deadline_at에).
+- "giveaway": 참석이 아니라 **혜택을 받는 것**이 핵심. 간식·굿즈 배부, 경품 추첨, 댓글·인증·설문 참여 이벤트, 제휴 할인, 대여 사업.
+- "election": 학생회·학생자치기구 **선거 관련 전부** — 선거 일정·후보 등록·선전물·공약·출마 소견·공직 사퇴·선관위 구성·투표 안내·개표 결과·선거 공청회/토론회. 공청회처럼 일시·장소가 있어도 election이며, 이 경우에도 아래 event_* 필드는 채운다.
+- "general": 그 외 전부.
+  다음은 event가 **아니다** → general: 작품·서류를 내는 공모전, 봉사자·서포터즈·단원·기자단·멘토 모집, 여러 주에 걸친 교육과정·프로그램 수강생 모집, 교환학생·인턴 모집, 결과·수상자·당첨자 발표, 회계 보고, 일정표(학사달력), 시설·운영 안내, 수요조사.
+  · **행사를 돕는 사람을 뽑는 글**(축제·캠프·발표회의 자원봉사자·멘토·스태프 모집)은 그 행사가 아무리 일시·장소가 분명해도 모집 공지이므로 general.
+  · **시험·평가·점검**(졸업시험, 자격시험, 생활관 생활점검, 소방·시설 점검, 수업·보강)은 의무 일정이지 행사가 아니므로 general.
+  · **신청형 서비스**(귀향버스 같은 교통편, 사물함·물품 대여)는 신청·환불·노선 안내 어느 글이든 general.
+  판단 기준: "가고 싶어서 달력에 '이 날 여기 간다'로 적을 일인가?" YES → event.
+
+### 행사 정보 (kind가 event·giveaway·election이고 해당 정보가 있을 때만, 없으면 null)
+- event_name: 행사의 고유 이름만 짧게(30자 이내). "안내/개최/공지/홍보/모집/포스터/NEW", 대괄호 말머리, 날짜, 주최 부서명, 맨 앞의 연도·학년도 표기("2026", "2026학년도") 같은 수식은 뺀다(회차 "제47회"는 유지). **같은 행사를 다룬 다른 글(포스터 공지·일정 변경·추가 모집 등)에서도 똑같은 이름이 나오도록** 원문의 공식 명칭을 그대로 쓴다. 예: "2026 CAU공학학술제 포스터 홍보의 건" → "2026 CAU공학학술제".
+- event_start_at / event_end_at: 행사가 실제로 열리는 시작·종료 일시(신청 기간이 아님). ISO 8601 + 한국시간. 시간이 명시되지 않으면 00:00:00으로 둔다(지어내지 말 것). 하루짜리이고 종료 시각이 없으면 event_end_at=null. 여러 날이면 마지막 날을 event_end_at에. giveaway는 배부·진행 기간. 일시를 알 수 없으면 둘 다 null.
+- event_place: 장소 원문 그대로 짧게("310관 B501호", "온라인(Zoom)"). 없으면 null.
+- event_open: "all" 또는 "members". **기본값은 "all"** 이다.
+  · "members"는 다음 둘 중 하나일 때만 쓴다:
+    (a) 본문에 참석 대상이 특정 학과·단과대 소속 학생으로 **명시**된 경우("○○학과 재학생 대상").
+    (b) 성격상 구성원끼리만 하는 내부 행사 — 개강/종강총회, MT, 학과 체육대회, 학과 간담회, 학과 간식행사, 선거·투표·선거 공청회.
+  · 그 외는 전부 "all" — 일일호프, 공연·연주회·전시·상영회, 축제, 학술제, 공개 특강·세미나·심포지엄, 대회, 전교생·양 캠퍼스 재학생 대상 행사, 외부 기관 행사.
+  · **'게시판 소속'이 주어졌다는 이유만으로 "members"로 하지 말 것.** 학과 게시판·학생회 계정에 올라왔어도 전교 행사를 옮겨 적은 글이거나 누구나 올 수 있는 행사면 "all"이다.
+  · "○○학과 재학생은 할인/우대"는 타과생도 올 수 있다는 뜻이므로 "all".
+  · 이 값은 target_depts와 독립이다(target_depts는 기존 규칙대로 채운다).
+
+### 출력 JSON에 다음 키를 추가 (body_markdown보다 앞에 둔다)
+  "kind": "event" | "giveaway" | "election" | "general",
+  "event_name": "문자열" 또는 null,
+  "event_start_at": "ISO 8601" 또는 null,
+  "event_end_at": "ISO 8601" 또는 null,
+  "event_place": "문자열" 또는 null,
+  "event_open": "all" | "members" 또는 null`;
+
+// 드라이런은 분류 필드만 보면 되므로 긴 출력(본문 재구성)을 생략해 호출당 시간을 줄인다.
+const DRYRUN_LITE = `
+
+## 드라이런 모드
+이번 호출은 분류 검증용이다. summary_long과 body_markdown은 생성하지 말고 null로 출력한다. 나머지 필드는 평소와 똑같이 판단한다.`;
+
+const KINDS = ["event", "giveaway", "election", "general"];
+
+// deno-lint-ignore no-explicit-any
+function validateEventFields(obj: any): void {
+  if (!KINDS.includes(obj.kind)) throw new Error(`Invalid kind: ${obj.kind}`);
+  for (const k of ["event_name", "event_start_at", "event_end_at", "event_place", "event_open"]) {
+    if (obj[k] === undefined || obj[k] === "") obj[k] = null;
+  }
+  for (const k of ["event_start_at", "event_end_at"]) {
+    if (obj[k] && isNaN(new Date(obj[k]).getTime())) obj[k] = null;
+  }
+  if (obj.event_open !== "all" && obj.event_open !== "members") obj.event_open = null;
+  if (obj.kind === "general") {
+    obj.event_name = obj.event_start_at = obj.event_end_at = obj.event_place = obj.event_open = null;
+  }
+}
+
 // deno-lint-ignore no-explicit-any
 function buildUserPrompt(notice: any, hasImageOnly: boolean, ocrText = ""): string {
   const lines: string[] = [];
@@ -480,7 +546,8 @@ async function ocrImages(urls: string[]): Promise<string> {
 }
 
 // deno-lint-ignore no-explicit-any
-async function classifyNotice(notice: any) {
+async function classifyNotice(notice: any, opts: { events?: boolean; lite?: boolean } = {}) {
+  const systemPrompt = SYSTEM_PROMPT + (opts.events ? EVENT_PROMPT_EXT : "") + (opts.lite ? DRYRUN_LITE : "");
   // 대상은 실제 http(s) 이미지만 (data: 인라인/오염 URL 제외)
   const httpImgs: string[] = (notice.body_image_urls || [])
     .filter((u: string) => /^https?:\/\//.test(u) && !u.includes("data:image"));
@@ -513,7 +580,7 @@ async function classifyNotice(notice: any) {
         model: MODEL,
         max_tokens: MAX_TOKENS,
         // prompt caching: 거대한 시스템 프롬프트를 캐시 → 배치 내 2번째 호출부터 입력 토큰 대폭 절감
-        system: [{ type: "text", text: SYSTEM_PROMPT, cache_control: { type: "ephemeral" } }],
+        system: [{ type: "text", text: systemPrompt, cache_control: { type: "ephemeral" } }],
         messages: [{ role: "user", content }],
       });
       // 출력이 잘렸으면 JSON이 불완전 → 재시도해도 또 잘림. 재시도 없이 즉시 실패 처리.
@@ -524,6 +591,7 @@ async function classifyNotice(notice: any) {
       const parsed = extractJson(text);
       if (!parsed) throw new Error(`LLM did not return valid JSON: ${text.slice(0, 200)}`);
       validateAndFix(parsed);
+      if (opts.events) validateEventFields(parsed);
       // 가드: 마감일이 게시일보다 이르면(게시 시점에 이미 지난 마감) 오추출로 보고 무효화.
       if (parsed.deadline_at && notice.posted_at) {
         const dl = new Date(parsed.deadline_at);
@@ -548,16 +616,25 @@ Deno.serve(async (req) => {
   }
 
   let batch = DEFAULT_BATCH;
+  // dryRun: 지정한 공지 id들을 '행사 추출 확장' 프롬프트로 분류만 해서 돌려준다(DB 기록 없음).
+  let dryIds: string[] | null = null;
   try {
     const body = await req.json();
     if (body && Number.isInteger(body.batch) && body.batch > 0) batch = Math.min(body.batch, 30);
+    if (body?.dryRun === true && Array.isArray(body.ids)) {
+      dryIds = body.ids.filter((x: unknown) => typeof x === "string").slice(0, 10);
+    }
   } catch { /* cron 빈 body */ }
 
   // 교차출처 중복 표시(dedup_notices)는 별도 cron(10분)에서 수행한다. 여기서 매 실행마다
   // 호출하면 notices 전체 재계산으로 Disk IO가 급증(→ IO 예산 소진)하므로 분리했다.
   // notices_unclassified는 duplicate_of is null만 반환 → 이미 표시된 중복본은 분류 제외.
   // (dedup 직전 크롤된 중복본이 한두 틱 먼저 분류될 수 있으나 낭비는 미미.)
-  const { data: notices, error: qErr } = await supabase.rpc("notices_unclassified", { lim: batch });
+  const { data: notices, error: qErr } = dryIds
+    ? await supabase.from("notices")
+      .select("id,source_id,title,author,body_text,body_image_urls,attachment_urls,source_category,posted_at")
+      .in("id", dryIds)
+    : await supabase.rpc("notices_unclassified", { lim: batch });
   if (qErr) {
     return new Response(JSON.stringify({ error: qErr.message }), { status: 500 });
   }
@@ -675,6 +752,38 @@ Deno.serve(async (req) => {
     const grp = OWNER_DEPT_GROUP[s.parser_key] ??
       (Array.isArray(s.category_map?.dept_group) ? s.category_map.dept_group as string[] : undefined);
     if (grp) deptGroupBySourceId.set(s.id, grp);
+  }
+
+  if (dryIds) {
+    // deno-lint-ignore no-explicit-any
+    const out: any[] = [];
+    // deno-lint-ignore no-explicit-any
+    for (const n of (notices ?? []) as any[]) {
+      const t0 = Date.now();
+      try {
+        const m = await classifyNotice({
+          title: n.title,
+          author: n.author,
+          body_text: n.body_text,
+          body_image_urls: n.body_image_urls,
+          attachment_urls: n.attachment_urls,
+          source_category: n.source_category,
+          posted_at: n.posted_at,
+          file_count: (n.attachment_urls?.length ?? 0),
+          owner: ownerBySourceId.get(n.source_id) ?? null,
+        }, { events: true, lite: true });
+        out.push({
+          id: n.id, kind: m.kind, event_name: m.event_name, event_start_at: m.event_start_at,
+          event_end_at: m.event_end_at, event_place: m.event_place, event_open: m.event_open,
+          topic: m.topic, action: m.action, apply_start_at: m.apply_start_at, deadline_at: m.deadline_at,
+          target_depts: m.target_depts, summary_short: m.summary_short,
+          has_image_content: m.has_image_content, ms: Date.now() - t0,
+        });
+      } catch (e) {
+        out.push({ id: n.id, error: String((e as Error).message).slice(0, 200), ms: Date.now() - t0 });
+      }
+    }
+    return new Response(JSON.stringify({ dryRun: true, results: out }), { headers: { "Content-Type": "application/json" } });
   }
 
   const stats = { fetched: (notices ?? []).length, classified: 0, failed: 0 };
