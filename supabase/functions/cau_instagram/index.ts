@@ -18,6 +18,13 @@
 // 토큰: vault 'instagram_token'(만료 없는 페이지 토큰, tokenMaint 모드가 관리) 우선, 없으면 env INSTAGRAM_TOKEN.
 //   3) tokenMaint: body {"tokenMaint":true} → 토큰 점검, 사용자 토큰이면 페이지 토큰으로 교환해 vault 저장,
 //      결과는 integration_status('instagram_token'). 주 1회 cron(cau_instagram_token).
+//
+// 이미지: IG CDN URL(media_url)은 서명값 oe= 시각(대략 2~4일 뒤)에 만료된다 → 수집 즉시 Storage
+//   'crawled-images/ig/<parser_key>/<shortcode>_<i>' 로 옮겨 그 공개 URL을 body_image_urls 에 저장한다.
+//   옮기다 실패한 URL은 CDN URL 그대로 두고, 매 crawl 끝에 rehostPending 이 만료 전까지 다시 시도한다.
+//   4) rehost: body {"rehost":true,"limit":N} → 밀린 이미지만 옮김(수동 백필용).
+//   5) purgeImages: body {"purgeImages":true} → 게시 IMG_KEEP_DAYS 지난 글의 이미지를 Storage 에서 지우고
+//      body_image_urls 를 비운다(무료 Storage 1GB 보호). 누군가 북마크한 글은 남긴다. 매일 cron(cau_instagram_purge).
 // IG_USER_ID 는 body.igUserId(cron) 또는 env INSTAGRAM_IG_USER_ID.
 // 인증: Bearer <CRON_SECRET>.
 
@@ -43,6 +50,17 @@ const DEFAULT_PAGE_ID = "1444376652096085"; // Noticau FB 페이지(noti_cau IG 
 const PROBE_HANDLE = "cau.gyul"; // 토큰 검증용 대상(프로페셔널 확인됨)
 const META_APP_ID = "2500760047081878"; // NOTICAU notice 앱 — debug_token 용 앱 토큰(APP_ID|META_APP_SECRET)
 const DEFAULT_BATCH = 10; // crawl 1회당 처리 계정 수(오래 전에 크롤한 순). 계정당 ~5s, 함수 wall clock 한도 150s.
+
+// 이미지 재호스팅
+const IMG_BUCKET = "crawled-images"; // cau_dorm 과 같은 공개 버킷
+const IMG_PUBLIC_MARK = `/storage/v1/object/public/${IMG_BUCKET}/`;
+const IMG_MAX_BYTES = 8_000_000;
+const IMG_FETCH_TIMEOUT_MS = 15_000;
+// 보관 기간. 실측 ~200KB/장, 하루 80~90장(2026-11 선거철) ≈ 17MB/일 → 30일이면 ~500MB(무료 1GB 안).
+// 행사 탭은 최근 60일 글까지 보지만, 한 달 넘게 지난 글의 이미지는 거의 안 열린다.
+const IMG_KEEP_DAYS = 30;
+const PENDING_SWEEP_LIMIT = 5; // crawl 끝에 함께 처리할 '밀린 이미지' 공지 수
+const SWEEP_TIME_BUDGET_MS = 90_000; // crawl 이 이 시간 안에 끝났을 때만 sweep(wall clock 150s 보호)
 
 // business_discovery 로 요청할 media 서브필드. like_count/comments_count 는 권한 이슈 가능성 있어 제외(공지용엔 불필요).
 const MEDIA_FIELDS =
@@ -340,7 +358,125 @@ function collectImages(m: IgMedia): string[] {
   return urls;
 }
 
+// ── 이미지 재호스팅 ─────────────────────────────────────────────────────────────
+
+const isRehosted = (u: string) => u.includes(IMG_PUBLIC_MARK);
+
+// IG CDN URL의 서명 만료 시각(oe=16진 초). 없거나 못 읽으면 null.
+function cdnExpiry(u: string): number | null {
+  const m = u.match(/[?&]oe=([0-9A-Fa-f]+)/);
+  if (!m) return null;
+  const s = parseInt(m[1], 16);
+  return Number.isFinite(s) ? s * 1000 : null;
+}
+const cdnExpired = (u: string) => {
+  const t = cdnExpiry(u);
+  return t !== null && t < Date.now();
+};
+
+// 게시물 키: permalink 의 shortcode(/p/XXX/, /reel/XXX/). 못 뽑으면 fallback(미디어 id 등).
+function postKey(permalink: string | null | undefined, fallback: string): string {
+  const m = (permalink ?? "").match(/instagram\.com\/(?:[^/?#]+\/)?(?:p|reel|reels|tv)\/([A-Za-z0-9_-]+)/);
+  return m ? m[1] : fallback.replace(/[^A-Za-z0-9_-]/g, "_");
+}
+
+const EXT: Record<string, string> = { "image/jpeg": "jpg", "image/png": "png", "image/webp": "webp", "image/gif": "gif", "image/heic": "heic" };
+
+async function rehostOne(url: string, basePath: string): Promise<string | null> {
+  try {
+    const res = await fetch(url, { signal: AbortSignal.timeout(IMG_FETCH_TIMEOUT_MS) });
+    if (!res.ok) { await res.body?.cancel(); return null; }
+    const type = (res.headers.get("content-type") ?? "").split(";")[0].trim().toLowerCase();
+    if (!type.startsWith("image/")) { await res.body?.cancel(); return null; }
+    const bytes = new Uint8Array(await res.arrayBuffer());
+    if (bytes.length === 0 || bytes.length > IMG_MAX_BYTES) return null;
+    const path = `${basePath}.${EXT[type] ?? "jpg"}`;
+    const { error } = await supabase.storage.from(IMG_BUCKET)
+      .upload(path, bytes, { contentType: type, upsert: true, cacheControl: "31536000" });
+    if (error) { console.error(`rehost upload ${path}: ${error.message}`); return null; }
+    return supabase.storage.from(IMG_BUCKET).getPublicUrl(path).data.publicUrl;
+  } catch (e) {
+    console.error(`rehost fetch: ${(e as Error).message}`);
+    return null;
+  }
+}
+
+// 이미지 목록을 Storage 로 옮긴다. 옮긴 건 Storage URL, 실패한 건 원래 URL(만료됐으면 제외).
+async function rehostImages(parserKey: string, key: string, urls: string[]): Promise<{ urls: string[]; failed: number; dropped: number }> {
+  let failed = 0;
+  let dropped = 0;
+  const out = await Promise.all(urls.map(async (u, i) => {
+    if (isRehosted(u)) return u;
+    if (cdnExpired(u)) { dropped++; return null; } // 서명 만료 → 다시 받을 수 없음
+    const r = await rehostOne(u, `ig/${parserKey}/${key}_${i}`);
+    if (!r) failed++;
+    return r ?? u;
+  }));
+  return { urls: out.filter((u): u is string => !!u), failed, dropped };
+}
+
+// 아직 CDN URL이 남은 인스타 공지(보관 기간 안)를 최신순으로 limit 건 옮긴다.
+async function rehostPending(limit: number) {
+  const cutoff = new Date(Date.now() - IMG_KEEP_DAYS * 86_400_000).toISOString();
+  const { data, error } = await supabase.from("notices")
+    .select("id, source_url, body_image_urls, sources!inner(parser_key)")
+    .eq("channel", "instagram")
+    .gt("posted_at", cutoff)
+    .order("posted_at", { ascending: false })
+    .limit(500);
+  if (error) return { error: error.message };
+  const pending = (data ?? []).filter((n: any) => (n.body_image_urls ?? []).some((u: string) => !isRehosted(u)));
+  const res = { pending: pending.length, notices: 0, images: 0, failed: 0, dropped: 0 };
+  for (const n of pending.slice(0, limit) as any[]) {
+    const parserKey = (Array.isArray(n.sources) ? n.sources[0] : n.sources)?.parser_key ?? "unknown";
+    const before: string[] = n.body_image_urls ?? [];
+    const r = await rehostImages(parserKey, postKey(n.source_url, n.id), before);
+    res.failed += r.failed;
+    res.dropped += r.dropped;
+    res.images += r.urls.filter(isRehosted).length - before.filter(isRehosted).length;
+    if (r.urls.join("\n") !== before.join("\n")) {
+      const { error: upErr } = await supabase.from("notices").update({ body_image_urls: r.urls }).eq("id", n.id);
+      if (upErr) { res.failed++; continue; }
+      res.notices++;
+    }
+  }
+  return res;
+}
+
+// 보관 기간이 지난 글의 이미지를 Storage 에서 지운다(북마크된 글은 유지).
+async function purgeOldImages() {
+  const cutoff = new Date(Date.now() - IMG_KEEP_DAYS * 86_400_000).toISOString();
+  const { data, error } = await supabase.from("notices")
+    .select("id, body_image_urls")
+    .eq("channel", "instagram")
+    .lt("posted_at", cutoff)
+    .not("body_image_urls", "eq", "{}")
+    .order("posted_at", { ascending: true })
+    .limit(200);
+  if (error) return { error: error.message };
+  const rows = (data ?? []).filter((n: any) => (n.body_image_urls ?? []).length > 0) as { id: string; body_image_urls: string[] }[];
+  if (rows.length === 0) return { notices: 0, removed: 0, keptBookmarked: 0 };
+  const { data: bm } = await supabase.from("user_feed_state").select("notice_id")
+    .in("notice_id", rows.map((r) => r.id)).not("bookmarked_at", "is", null);
+  const keep = new Set((bm ?? []).map((r: { notice_id: string }) => r.notice_id));
+  const res = { notices: 0, removed: 0, keptBookmarked: 0, failed: 0 };
+  for (const n of rows) {
+    if (keep.has(n.id)) { res.keptBookmarked++; continue; }
+    const paths = n.body_image_urls.filter(isRehosted).map((u) => decodeURIComponent(u.split(IMG_PUBLIC_MARK)[1].split("?")[0]));
+    if (paths.length > 0) {
+      const { error: rmErr } = await supabase.storage.from(IMG_BUCKET).remove(paths);
+      if (rmErr) { res.failed++; continue; }
+      res.removed += paths.length;
+    }
+    const { error: upErr } = await supabase.from("notices").update({ body_image_urls: [] }).eq("id", n.id);
+    if (upErr) { res.failed++; continue; }
+    res.notices++;
+  }
+  return res;
+}
+
 Deno.serve(async (req) => {
+  const startedAt = Date.now();
   const cronSecret = Deno.env.get("CRON_SECRET");
   const auth = req.headers.get("Authorization");
   if (!cronSecret || auth !== `Bearer ${cronSecret}`) {
@@ -357,6 +493,17 @@ Deno.serve(async (req) => {
   try { body = await req.json(); } catch { /* cron 빈 body */ }
   if (typeof body?.igUserId === "string") igUserId = body.igUserId; // body 로 override 허용
   const backfillFrom = /^\d{4}-\d{2}-\d{2}$/.test(body?.backfillFrom) ? body.backfillFrom : DEFAULT_BACKFILL;
+
+  // 이미지 전용 모드(Graph API 호출 없음)
+  if (body?.rehost) {
+    const n = Number.isInteger(body?.limit) && body.limit > 0 ? Math.min(body.limit, 60) : 20;
+    return new Response(JSON.stringify({ mode: "rehost", ...(await rehostPending(n)) }, null, 2),
+      { headers: { "Content-Type": "application/json" } });
+  }
+  if (body?.purgeImages) {
+    return new Response(JSON.stringify({ mode: "purgeImages", keepDays: IMG_KEEP_DAYS, ...(await purgeOldImages()) }, null, 2),
+      { headers: { "Content-Type": "application/json" } });
+  }
 
   if (!token || !igUserId) {
     return new Response(
@@ -499,13 +646,15 @@ Deno.serve(async (req) => {
             .from("notices").select("id").eq("content_hash", contentHash).maybeSingle();
           if (existing) { acc.skippedDup++; overall.skippedDup++; continue; }
 
-          const images = collectImages(m);
+          // 이미지는 Storage 로 옮겨 저장(CDN URL은 며칠 뒤 만료). 실패분은 CDN URL로 두고 rehostPending 이 재시도.
+          const rh = await rehostImages(src.parser_key, postKey(m.permalink, m.id), collectImages(m));
+          (acc as any).imgFailed = ((acc as any).imgFailed ?? 0) + rh.failed;
           const { error: insErr } = await supabase.from("notices").insert({
             source_id: src.id,
             source_category: null,
             title,
             body_text: (m.caption ?? "").trim(),
-            body_image_urls: images,
+            body_image_urls: rh.urls,
             attachment_urls: [],
             source_url: m.permalink,
             author: src.name,
@@ -562,5 +711,9 @@ Deno.serve(async (req) => {
   }
 
   (overall as any).appUsage = lastAppUsage;
+  // 시간 여유가 있으면 밀린 이미지(업로드 실패분)를 만료 전에 조금씩 옮긴다.
+  if (!onlyKey && Date.now() - startedAt < SWEEP_TIME_BUDGET_MS) {
+    (overall as any).rehost = await rehostPending(PENDING_SWEEP_LIMIT);
+  }
   return new Response(JSON.stringify(overall, null, 2), { headers: { "Content-Type": "application/json" } });
 });
