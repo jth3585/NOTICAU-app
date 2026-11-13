@@ -136,7 +136,15 @@ export function useBookmarkNotices() {
         .from('notices')
         .select(NOTICE_CARD_SELECT)
         .in('id', rows.map((r) => r.notice_id));
-      const enriched = ((data as Notice[]) ?? [])
+      const found = (data as Notice[]) ?? [];
+      // 행사 탭에서 북마크한 인스타 공지는 notices RLS(channel='board')에 막혀 위 조회에 안 잡힌다.
+      // 빠진 id만 notice_by_id RPC로 보충(보통 0~몇 건).
+      const foundIds = new Set(found.map((n) => n.id));
+      const missing = rows.map((r) => r.notice_id).filter((id) => !foundIds.has(id));
+      const extra = (await Promise.all(
+        missing.slice(0, 30).map(async (id) => (await supabase.rpc('notice_by_id', { p_id: id })).data as Notice | null),
+      )).filter((n): n is Notice => !!n);
+      const enriched = [...found, ...extra]
         .map((n) => {
           const row = byId.get(n.id);
           return {

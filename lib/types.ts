@@ -47,10 +47,27 @@ export type Notice = {
   dup_count: number | null;
   dup_source_keys: string[] | null;
 
+  // 'board'(게시판) | 'instagram'(학생회 인스타). 행사 탭 RPC 응답에만 실려 온다(일반 피드는 게시판뿐).
+  channel?: string | null;
+  // 행사 탭(events_feed RPC) 전용: 공지에서 뽑은 행사 정보.
+  event?: EventInfo | null;
+
   // PostgREST 임베드. 1:1/N:1이라 보통 단일 객체로 오지만,
   // 방어적으로 배열 가능성도 허용 (format.ts의 one()으로 정규화).
   notice_meta: NoticeMeta | NoticeMeta[] | null;
   sources: Source | Source[] | null;
+};
+
+// 행사 탭: event_extract 가 뽑은 행사 정보(같은 행사를 올린 여러 글은 서버가 대표 1건으로 묶어 준다).
+export type EventInfo = {
+  kind: 'event' | 'giveaway';   // 참석형 행사 | 경품·혜택 참여형
+  name: string | null;          // 말머리·수식어를 뺀 행사 이름
+  start_at: string | null;      // 자정(00:00 KST)이면 시간 미상
+  end_at: string | null;
+  place: string | null;
+  ends_at: string | null;       // 이 시각이 지나면 목록에서 빠진다(서버 계산). null = 일정 미정
+  open: boolean;                // true = 타 학과도 참석 가능
+  member_units: string[];       // open=false 일 때 참석 가능한 소속 코드(학과·단과대)
 };
 
 // 다이제스트/매칭용 공유 타입
@@ -101,6 +118,7 @@ export type TabParamList = {
   // tab: 알림 딥링크로 특정 필터 탭을 열 때 (소비 후 비움)
   Home: { tab?: 'new' | 'keyword' | 'deadline' } | undefined;
   Feed: undefined;
+  Events: undefined;
   Bookmark: undefined;
   MyPage: undefined;
 };

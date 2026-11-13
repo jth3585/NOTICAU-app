@@ -8,7 +8,9 @@
 // 입력은 이미 분류가 끝난 공지: 원문 body_text + (본문이 이미지뿐이면) notice_meta.body_markdown.
 // body_markdown 에는 llm_classify 가 OCR 로 읽어낸 포스터 내용이 들어 있어 OCR 을 다시 돌리지 않는다.
 //
-// 현재는 검증 단계 — dryRun 만 지원(응답으로만 돌려주고 DB 기록 없음).
+// 운영(5분 cron, body {}): notices_needing_events RPC 로 '분류는 끝났고 행사 추출은 아직'인 공지를
+//   batch 건(기본 30, 최대 200) 받아 notice_events 에 upsert. 실패는 kind=null + attempts 로 남겨 3회까지 재시도.
+// 검증(dryRun): 응답으로만 돌려주고 DB 기록 없음.
 //   body: { "dryRun": true, "ids": ["<notice uuid>", ...최대 40] }
 //
 // 인증: verify_jwt=false + Authorization: Bearer <CRON_SECRET>.
@@ -20,6 +22,8 @@ const MODEL = "claude-haiku-5-5";
 // Haiku 5.5 는 적응형 사고가 기본으로 켜져 있고 사고 토큰도 max_tokens 에 포함된다 → 짧은 JSON 이어도 넉넉히.
 const MAX_TOKENS = 4000;
 const MAX_IDS = 40;
+const DEFAULT_BATCH = 30;
+const MAX_BATCH = 200; // 백필용. 건당 ~2초 × 동시 5 → 200건 ≈ 80초(wall clock 150초 이내)
 const CONCURRENCY = 5;
 const MAX_BODY_CHARS = 20000; // 오염된 초장문 방어. 넘으면 잘랐다는 사실을 프롬프트·응답에 남긴다.
 
@@ -44,7 +48,7 @@ const SYSTEM_PROMPT = `당신은 중앙대학교 공지·학생회 게시물에�
   · 시험·평가·점검(졸업시험, 자격시험, 생활관 생활점검, 시설 점검)과 수업·보강 — 의무 일정이지 행사가 아니다.
   · 신청형 서비스(귀향버스 같은 교통편, 사물함·물품 대여)와 그 환불·변경 안내.
   · 정해진 일시 없이 상시 운영되는 프로그램·상담 안내.
-  · 결과·수상자·당첨자 발표, 회계 보고, 일정표(학사달력), 시설·운영 안내, 수요조사.
+  · 결과·수상자·당첨자 발표(경품 이벤트의 당첨자 공지도 giveaway가 아니라 general), 회계 보고, 일정표(학사달력), 시설·운영 안내, 수요조사.
   판단 기준: "가고 싶어서 달력에 '이 날 여기 간다'고 적을 일인가?" 그렇다 → event.
 
 ## 행사 정보 — kind가 "general"이면 전부 null
@@ -196,12 +200,29 @@ Deno.serve(async (req) => {
     return new Response(JSON.stringify({ error: "Unauthorized" }), { status: 401 });
   }
 
-  let body: { dryRun?: boolean; ids?: unknown } = {};
-  try { body = await req.json(); } catch { /* 빈 body */ }
-  if (body.dryRun !== true || !Array.isArray(body.ids)) {
-    return new Response(JSON.stringify({ error: "dryRun:true 와 ids 배열이 필요합니다(운영 모드 미구현)" }), { status: 400 });
+  let body: { dryRun?: boolean; ids?: unknown; batch?: unknown } = {};
+  try { body = await req.json(); } catch { /* cron 빈 body */ }
+  const dryRun = body.dryRun === true;
+  if (dryRun && !Array.isArray(body.ids)) {
+    return new Response(JSON.stringify({ error: "dryRun 에는 ids 배열이 필요합니다" }), { status: 400 });
   }
-  const ids = body.ids.filter((x): x is string => typeof x === "string").slice(0, MAX_IDS);
+
+  // 처리 대상: dryRun 은 지정한 ids, 운영은 RPC 가 골라준 미처리 공지.
+  const prevAttempts = new Map<string, number>();
+  let ids: string[];
+  if (dryRun) {
+    ids = (body.ids as unknown[]).filter((x): x is string => typeof x === "string").slice(0, MAX_IDS);
+  } else {
+    const batch = Number.isInteger(body.batch) && (body.batch as number) > 0
+      ? Math.min(body.batch as number, MAX_BATCH) : DEFAULT_BATCH;
+    const { data: todo, error: tErr } = await supabase.rpc("notices_needing_events", { lim: batch });
+    if (tErr) return new Response(JSON.stringify({ error: tErr.message }), { status: 500 });
+    for (const r of (todo ?? []) as { id: string; attempts: number }[]) prevAttempts.set(r.id, r.attempts ?? 0);
+    ids = [...prevAttempts.keys()];
+    if (ids.length === 0) {
+      return new Response(JSON.stringify({ fetched: 0, extracted: 0, failed: 0 }), { headers: { "Content-Type": "application/json" } });
+    }
+  }
 
   const [{ data: notices, error: qErr }, { data: depts }, { data: colls }] = await Promise.all([
     supabase.from("notices")
@@ -217,6 +238,7 @@ Deno.serve(async (req) => {
 
   const rows = (notices ?? []) as unknown as NoticeRow[];
   const results: Record<string, unknown>[] = new Array(rows.length);
+  const stats = { fetched: rows.length, extracted: 0, failed: 0 };
   let next = 0;
   async function worker() {
     while (next < rows.length) {
@@ -224,17 +246,37 @@ Deno.serve(async (req) => {
       const n = rows[i];
       const t0 = Date.now();
       const owner = one(n.sources)?.owner_unit;
+      const attempts = (prevAttempts.get(n.id) ?? 0) + 1;
       try {
         const r = await extractOne(n, owner ? codeToName.get(owner) : undefined);
-        results[i] = { id: n.id, ...r, ms: Date.now() - t0 };
+        if (!dryRun) {
+          const { truncated: _t, usage: _u, ...fields } = r;
+          const { error: upErr } = await supabase.from("notice_events").upsert({
+            notice_id: n.id, ...fields, llm_model: MODEL, attempts, last_error: null,
+            processed_at: new Date().toISOString(),
+          });
+          if (upErr) throw new Error(`upsert: ${upErr.message}`);
+        }
+        stats.extracted++;
+        results[i] = dryRun ? { id: n.id, ...r, ms: Date.now() - t0 } : { id: n.id, kind: r.kind };
       } catch (e) {
-        results[i] = { id: n.id, error: errorLabel(e), ms: Date.now() - t0 };
+        const msg = errorLabel(e);
+        stats.failed++;
+        results[i] = { id: n.id, error: msg, ms: Date.now() - t0 };
+        if (!dryRun) {
+          // kind=null 로 남겨 다음 실행에서 재시도(3회까지). 재시도 한도는 RPC 의 attempts<3 가드.
+          await supabase.from("notice_events").upsert({
+            notice_id: n.id, kind: null, llm_model: MODEL, attempts, last_error: msg,
+            processed_at: new Date().toISOString(),
+          });
+          console.error(`event_extract ${n.id} failed: ${msg}`);
+        }
       }
     }
   }
   await Promise.all(Array.from({ length: Math.min(CONCURRENCY, rows.length) }, worker));
 
-  return new Response(JSON.stringify({ dryRun: true, model: MODEL, results }), {
+  return new Response(JSON.stringify({ dryRun, model: MODEL, ...stats, results }), {
     headers: { "Content-Type": "application/json" },
   });
 });

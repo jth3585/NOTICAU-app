@@ -12,11 +12,15 @@ export const NOTICE_CARD_SELECT =
 
 // 단일 공지를 상세화면에 필요한 형태(meta + source 조인)로 전체 조회 (body_markdown 포함).
 // 알림 딥링크처럼 id만 있을 때 사용.
+// 인스타 공지(행사 탭에서 진입)는 notices RLS(channel='board')에 막혀 테이블 조회가 비므로,
+// 그때만 notice_by_id RPC(security definer)로 폴백한다.
 export async function fetchNoticeById(id: string): Promise<Notice | null> {
   const { data } = await supabase
     .from('notices')
     .select('*, notice_meta(*), sources(parser_key, name, campus)')
     .eq('id', id)
     .maybeSingle();
-  return (data as Notice) ?? null;
+  if (data) return data as Notice;
+  const { data: viaRpc } = await supabase.rpc('notice_by_id', { p_id: id });
+  return (viaRpc as Notice) ?? null;
 }

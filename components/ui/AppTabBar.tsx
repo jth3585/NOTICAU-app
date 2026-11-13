@@ -3,7 +3,7 @@ import Animated, { useSharedValue, useAnimatedStyle, withSequence, withTiming, w
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import type { BottomTabBarProps } from '@react-navigation/bottom-tabs';
 import { COLORS, FONT, WEIGHT } from '../../lib/theme';
-import { HomeIcon, ClipboardListIcon, UserIcon } from './icons';
+import { HomeIcon, ClipboardListIcon, CalendarIcon, UserIcon } from './icons';
 import { BookmarkIcon } from './BookmarkIcon';
 import { softHaptic } from '../../lib/haptics';
 
@@ -12,11 +12,12 @@ type IconCmp = (p: { size?: number; color: string }) => React.ReactElement;
 const ICONS: Record<string, IconCmp> = {
   Home: HomeIcon,
   Feed: ClipboardListIcon,
+  Events: CalendarIcon,
   Bookmark: (p) => <BookmarkIcon size={p.size} color={p.color} />,
   MyPage: UserIcon,
 };
 const LABELS: Record<string, string> = {
-  Home: '홈', Feed: '공지', Bookmark: '북마크', MyPage: '프로필',
+  Home: '홈', Feed: '공지', Events: '행사', Bookmark: '북마크', MyPage: '프로필',
 };
 
 function TabItem({ focused, Icon, label, onPress }: {

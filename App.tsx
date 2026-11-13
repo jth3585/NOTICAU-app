@@ -35,6 +35,7 @@ import DeleteAccountScreen from './screens/DeleteAccountScreen';
 
 import HomeScreen from './screens/HomeScreen';
 import InboxScreen from './screens/InboxScreen';
+import EventsScreen from './screens/EventsScreen';
 import BookmarkScreen from './screens/BookmarkScreen';
 import BookmarkFolderScreen from './screens/BookmarkFolderScreen';
 import MyPageScreen from './screens/MyPageScreen';
@@ -128,6 +129,7 @@ function Tabs() {
     >
       <Tab.Screen name="Home" component={HomeScreen} />
       <Tab.Screen name="Feed" component={InboxScreen} />
+      <Tab.Screen name="Events" component={EventsScreen} />
       <Tab.Screen name="Bookmark" component={BookmarkScreen} />
       <Tab.Screen name="MyPage" component={MyPageScreen} />
     </Tab.Navigator>
