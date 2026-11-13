@@ -10,6 +10,15 @@ import type { Notice } from './types';
 export const NOTICE_CARD_SELECT =
   'id, source_id, source_category, title, source_url, author, posted_at, is_pinned, crawled_at, duplicate_of, dup_count, dup_source_keys, notice_meta(notice_id, topic, action, apply_start_at, deadline_at, target_grades, target_depts, target_campuses, target_enrollment_status, targets_freshmen, excludes_undergrad), sources(parser_key, name, campus, owner_unit)';
 
+// 공지탭 '내 학과' 칩: 내 학과·복수전공·단과대 게시판 + 같은 소속 학생회 인스타 글(최신순).
+// 인스타 공지는 RLS 에 막혀 있어 my_units_feed RPC(security definer)로 받는다.
+// before = 이전 페이지 마지막 글의 posted_at(커서). 타게팅(학년·캠퍼스 등)은 호출부가 isMismatch 로 거른다.
+export async function fetchMyUnitsFeed(units: string[], before: string | null, limit: number): Promise<Notice[]> {
+  const { data, error } = await supabase.rpc('my_units_feed', { p_units: units, p_before: before, p_limit: limit });
+  if (error) throw error;
+  return (data ?? []) as Notice[];
+}
+
 // 단일 공지를 상세화면에 필요한 형태(meta + source 조인)로 전체 조회 (body_markdown 포함).
 // 알림 딥링크처럼 id만 있을 때 사용.
 // 인스타 공지(행사 탭에서 진입)는 notices RLS(channel='board')에 막혀 테이블 조회가 비므로,

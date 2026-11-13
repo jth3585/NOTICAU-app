@@ -27,7 +27,7 @@ import { EmptyState } from '../components/ui/EmptyState';
 import { NoticeListSkeleton } from '../components/ui/Skeleton';
 import { PressableScale } from '../components/ui/PressableScale';
 import { useReadSet } from '../lib/read';
-import { NOTICE_CARD_SELECT } from '../lib/notices';
+import { NOTICE_CARD_SELECT, fetchMyUnitsFeed } from '../lib/notices';
 import { fetchDisabledSources } from '../lib/sourcePrefs';
 import { logEvent } from '../lib/events';
 import { useBookmarkSet, addBookmark } from '../lib/bookmarks';
@@ -43,6 +43,10 @@ const SORT_LABELS: Record<SortMode, string> = {
 
 // 인박스는 읽은 공지도 계속 노출 → isMismatch의 readIds 자리에 넘길 빈 셋(안정 참조).
 const NO_READ: Set<string> = new Set();
+
+// '전체' 바로 뒤에 붙는 소속 칩. 토픽 칩(CHIP_TOPICS·카테고리 설정)과 별개로, 데이터도 따로 받는다.
+const MY_CHIP = '내 학과';
+const MY_PAGE = 200;
 
 export default function InboxScreen() {
   const navigation = useNavigation<NativeStackNavigationProp<RootStackParamList>>();
@@ -192,11 +196,60 @@ export default function InboxScreen() {
     (async () => { await loadNotices(); setLoading(false); })();
   }, [loadNotices]);
 
+  // ---- '내 학과' 칩: 내 학과·복수전공·단과대 게시판 + 학생회 인스타 (별도 풀, posted_at 커서 페이징) ----
+  const myUnitsKey = [profile?.dept, profile?.dept_secondary, profile?.college].filter(Boolean).join(',');
+  const [myNotices, setMyNotices] = useState<Notice[]>([]);
+  const [myLoadedKey, setMyLoadedKey] = useState<string | null>(null); // 어떤 소속 조합으로 받은 풀인지
+  const [myHasMore, setMyHasMore] = useState(true);
+  const [myError, setMyError] = useState(false);
+  const myLoadingRef = useRef(false);
+
+  const loadMyFirst = useCallback(async () => {
+    if (!myUnitsKey) return;
+    try {
+      const rows = await fetchMyUnitsFeed(myUnitsKey.split(','), null, MY_PAGE);
+      setMyNotices(rows);
+      setMyHasMore(rows.length === MY_PAGE);
+      setMyError(false);
+    } catch {
+      setMyError(true);
+    }
+    setMyLoadedKey(myUnitsKey);
+  }, [myUnitsKey]);
+
+  const loadMyMore = useCallback(async () => {
+    if (myLoadingRef.current || !myHasMore || !myUnitsKey || myNotices.length === 0) return;
+    myLoadingRef.current = true;
+    setLoadingMore(true);
+    try {
+      const before = myNotices[myNotices.length - 1].posted_at;
+      const rows = await fetchMyUnitsFeed(myUnitsKey.split(','), before, MY_PAGE);
+      setMyNotices((prev) => {
+        const seen = new Set(prev.map((n) => n.id));
+        return [...prev, ...rows.filter((n) => !seen.has(n.id))];
+      });
+      setMyHasMore(rows.length === MY_PAGE);
+    } catch { /* 다음 스크롤에서 재시도 */ }
+    myLoadingRef.current = false;
+    setLoadingMore(false);
+  }, [myHasMore, myUnitsKey, myNotices]);
+
+  // 칩을 처음 고르거나 프로필 소속이 바뀌면 받는다.
+  useEffect(() => {
+    if (selected === MY_CHIP && myUnitsKey && myLoadedKey !== myUnitsKey) loadMyFirst();
+  }, [selected, myUnitsKey, myLoadedKey, loadMyFirst]);
+
+  // 소속이 없어져 칩이 사라지면 '전체'로 되돌린다.
+  useEffect(() => {
+    if (selected === MY_CHIP && profile && !myUnitsKey) setSelected('전체');
+  }, [selected, profile, myUnitsKey]);
+
   const onRefresh = useCallback(async () => {
     setRefreshing(true);
-    await loadNotices();
+    await Promise.all([loadNotices(), selected === MY_CHIP ? loadMyFirst() : null]);
+    if (selected !== MY_CHIP) setMyLoadedKey(null); // 다음에 칩을 고를 때 새로 받게
     setRefreshing(false);
-  }, [loadNotices]);
+  }, [loadNotices, loadMyFirst, selected]);
 
   // 전체 공지 탭 재탭 → 맨 위로 스크롤 + 새로고침
   const listRef = useRef<SectionList<Notice>>(null);
@@ -266,12 +319,25 @@ export default function InboxScreen() {
       return searchResults.filter((n) => !isMismatch(n, metaOf(n), profile, disabledTopics, NO_READ, disabledSources));
     }
     if (!profile) return [];
+    // '내 학과': 내 소속 게시판·인스타만 받아 온 별도 풀. 학년·캠퍼스·학과 한정(단과대 게시판의 타 학과 글) 등
+    // 타게팅은 그대로 적용한다. 내 게시판이라 '타 학과 공지' 설정(disabledSources)과는 무관.
+    if (selected === MY_CHIP) {
+      if (myLoadedKey !== myUnitsKey) return [];
+      return sortNotices(myNotices.filter((n) => !isMismatch(n, metaOf(n), profile, disabledTopics, NO_READ)), sortMode);
+    }
     // '기숙사' 카테고리를 직접 선택하면 비기숙사 사용자에게도 기숙사 공지를 보여준다.
     const dormOpt = { skipDormFilter: selected === '기숙사' };
     const matched = notices.filter((n) => !isMismatch(n, metaOf(n), profile, disabledTopics, NO_READ, disabledSources, dormOpt));
     const f = selected === '전체' ? matched : matched.filter((n) => metaOf(n)?.topic === selected);
     return sortNotices(f, sortMode);
-  }, [notices, selected, sortMode, query, searchResults, disabledTopics, disabledSources, profile, campusAllows]);
+  }, [notices, selected, sortMode, query, searchResults, disabledTopics, disabledSources, profile, campusAllows, myNotices, myLoadedKey, myUnitsKey]);
+
+  // 소속(학과·단과대)이 있으면 '전체' 바로 뒤에 '내 학과' 칩.
+  const shownChips = useMemo(
+    () => (myUnitsKey ? [chipTopics[0], MY_CHIP, ...chipTopics.slice(1)] : chipTopics),
+    [chipTopics, myUnitsKey],
+  );
+  const myPending = selected === MY_CHIP && myLoadedKey !== myUnitsKey;
 
   if (loading) return (
     <SafeAreaView style={styles.container} edges={['top']}>
@@ -295,7 +361,10 @@ export default function InboxScreen() {
         onScroll={onListScroll}
         scrollEventThrottle={16}
         onEndReachedThreshold={0.6}
-        onEndReached={() => { if (!query.trim()) loadMore(); }}
+        onEndReached={() => {
+          if (query.trim()) return;
+          if (selected === MY_CHIP) loadMyMore(); else loadMore();
+        }}
         stickySectionHeadersEnabled
         // 제목 + 검색/정렬 → 스크롤하면 함께 사라짐
         ListHeaderComponent={
@@ -377,7 +446,7 @@ export default function InboxScreen() {
         renderSectionHeader={() =>
           query ? null : (
             <View style={styles.filterRow}>
-              <CategoryChips topics={chipTopics} selected={selected} onSelect={setSelected} />
+              <CategoryChips topics={shownChips} selected={selected} onSelect={setSelected} />
             </View>
           )
         }
@@ -405,6 +474,22 @@ export default function InboxScreen() {
         ListEmptyComponent={
           searching ? (
             <Text style={styles.empty}>검색 중…</Text>
+          ) : myPending ? (
+            <View style={styles.footer}>
+              <ActivityIndicator color={COLORS.accent} />
+            </View>
+          ) : selected === MY_CHIP && myError ? (
+            <EmptyState
+              icon={<ClipboardListIcon size={30} color={COLORS.textTertiary} />}
+              title="내 학과 공지를 불러오지 못했어요"
+              subtitle="아래로 당겨 다시 시도해 주세요"
+            />
+          ) : selected === MY_CHIP ? (
+            <EmptyState
+              icon={<ClipboardListIcon size={30} color={COLORS.textTertiary} />}
+              title="내 학과 공지가 아직 없어요"
+              subtitle="학과·단과대 게시판과 학생회 인스타 글이 여기 모여요"
+            />
           ) : query ? (
             <EmptyState
               icon={<SearchIcon size={30} color={COLORS.textTertiary} />}
