@@ -160,20 +160,11 @@ export type EventsLayout = { hero: EventNotice[]; sections: EventSection[] };
 
 const HERO_MIN = 2;
 
-// rows: 이미 '나에게 해당되는 것'으로 추린 목록. giveawaysOnly = '참여 이벤트' 칩.
+// rows: 이미 '나에게 해당되는 것'으로 추린 목록.
 //  이미 시작한 여러 날짜리 행사 중 곧(3일 안에) 끝나는 것(축제 둘째 날, 공연 기간 등)은 이번 주에 두고,
 //  몇 주씩 이어지는 연속 특강·교육은 '진행 중'으로 내려 다가오는 행사가 묻히지 않게 한다.
-export function buildEventsLayout(rows: EventNotice[], giveawaysOnly = false): EventsLayout {
+export function buildEventsLayout(rows: EventNotice[]): EventsLayout {
   const give = sortGiveaways(rows.filter((n) => n.event.kind === 'giveaway'));
-  if (giveawaysOnly) {
-    return {
-      hero: [],
-      sections: [
-        { title: '마감이 가까운 순', data: give.dated },
-        { title: '상시 참여', data: give.open },
-      ].filter((s) => s.data.length > 0),
-    };
-  }
 
   const today: EventNotice[] = [];
   const week: EventNotice[] = [];
