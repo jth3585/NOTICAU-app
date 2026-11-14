@@ -20,9 +20,9 @@ import { CalendarIcon } from '../components/ui/icons';
 // 행사 탭: 게시판·학생회 인스타에서 뽑은 행사 중 나에게 해당되는 것을 포스터 중심으로 모아 본다.
 //  - 맨 위: 오늘·이번 주에 열리는 행사를 큰 포스터 캐러셀로
 //  - 그 아래: 2열 포스터 그리드(다가오는 행사 → 참여 이벤트 → 진행 중 → 일정 미정)
-// 칩은 탭이 아니라 필터다: 전체 / 우리 학과(우리 학과·단과대가 열거나 우리를 대상으로 한 것) / 참여 이벤트(경품·혜택).
+// 칩은 탭이 아니라 필터다: 전체 / 내 학과(내 학과·단과대가 열거나 내 학과를 대상으로 한 것) / 참여 이벤트(경품·혜택).
 const FILTER_ALL = '전체';
-const FILTER_MINE = '우리 학과';
+const FILTER_MINE = '내 학과';
 const FILTER_JOIN = '참여 이벤트';
 const FILTERS = [FILTER_ALL, FILTER_MINE, FILTER_JOIN] as const;
 
@@ -170,7 +170,7 @@ export default function EventsScreen() {
       icon={<CalendarIcon size={30} color={COLORS.textTertiary} />}
       title={
         filter === FILTER_JOIN ? '지금은 참여할 이벤트가 없어요'
-          : filter === FILTER_MINE ? '지금은 우리 학과 행사가 없어요'
+          : filter === FILTER_MINE ? '지금은 내 학과 행사가 없어요'
           : '지금은 예정된 행사가 없어요'
       }
       subtitle="새로 올라오면 여기에 모아 둘게요"

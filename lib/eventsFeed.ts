@@ -31,7 +31,7 @@ export function isEventForMe(n: EventNotice, profile: Profile): boolean {
   return !isMismatch(n, metaNoDept, { ...profile, show_cross_dept: true }, NONE, NONE);
 }
 
-// 우리 학과·단과대가 주최했거나 우리를 대상으로 한 행사인가('우리 학과' 칩).
+// 내 학과·단과대가 주최했거나 내 학과를 대상으로 한 행사인가('내 학과' 칩).
 export function isMyUnitEvent(n: EventNotice, profile: Profile): boolean {
   const mine = [profile.dept, profile.dept_secondary, profile.college].filter(Boolean) as string[];
   return n.event.member_units.some((u) => mine.includes(u));

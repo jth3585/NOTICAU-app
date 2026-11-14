@@ -68,7 +68,7 @@ function EventPosterCardBase({
           {title}
         </Text>
         {detail ? <Text style={styles.detail} numberOfLines={1}>{detail}</Text> : null}
-        {!ev.open ? <Text style={styles.memberTag} numberOfLines={1}>우리 학과·단과대 행사</Text> : null}
+        {!ev.open ? <Text style={styles.memberTag} numberOfLines={1}>내 학과·단과대 행사</Text> : null}
 
         <View style={styles.sourceRow}>
           <SourceBadge name={sourceName} parserKey={src?.parser_key} />
