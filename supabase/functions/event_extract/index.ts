@@ -142,7 +142,9 @@ function kstDate(iso: string | null): string {
   return new Date(Date.parse(iso) + 9 * 3600 * 1000).toISOString().slice(0, 10);
 }
 
-function buildUserPrompt(n: NoticeRow, ownerName: string | undefined, posterText = ""): { prompt: string; truncated: boolean } {
+const KIND_LABEL: Record<string, string> = { event: "참석 행사(event)", giveaway: "참여 이벤트(giveaway)" };
+
+function buildUserPrompt(n: NoticeRow, ownerName: string | undefined, posterText = "", priorKind = ""): { prompt: string; truncated: boolean } {
   const body = (n.body_text ?? "").trim();
   const md = (one(n.notice_meta)?.body_markdown ?? "").trim();
   // 본문이 짧으면(이미지 공지) OCR 내용이 담긴 정리본을 함께 준다. 본문이 충분하면 원문만(정리본은 중복).
@@ -163,6 +165,17 @@ function buildUserPrompt(n: NoticeRow, ownerName: string | undefined, posterText
   if (useMd) lines.push("", "## 정리본 (본문 이미지에서 읽어낸 내용 포함)", md.slice(0, MAX_BODY_CHARS));
   if (posterText) {
     lines.push("", "## 포스터에서 읽은 글자 (본문 이미지 OCR — 줄 순서가 뒤섞여 있을 수 있다)", posterText.slice(0, MAX_BODY_CHARS));
+    // 포스터의 제출처·상금 표 같은 곁가지에 끌려 '모집 공고'로 뒤집히는 것을 막는다(공학학술제·연속 특강에서 실제로 뒤집혔다).
+    if (KIND_LABEL[priorKind]) {
+      lines.push(
+        "",
+        "## 이번 요청",
+        `이 글은 제목과 본문으로 이미 ${KIND_LABEL[priorKind]}로 판정됐다. 이번에는 포스터에서 일시·장소·참석 대상을 찾아 채우는 것이 목적이다.`,
+        "kind는 그대로 둔다. 포스터에 제출처·상금·신청 방법이 함께 적혀 있어도 열리는 날짜와 장소가 있으면 행사다.",
+        "여러 회차로 나뉜 프로그램이면 첫 회차 시작을 event_start_at, 마지막 회차 종료를 event_end_at에 적는다.",
+        "포스터 내용이 그 판정과 명백히 어긋날 때(장학생·직원 선발, 채용, 결과 발표 등)에만 general로 바꾼다.",
+      );
+    }
   }
   return { prompt: lines.join("\n"), truncated };
 }
@@ -180,8 +193,8 @@ function normalize(f: EventFields): EventFields {
   return f;
 }
 
-async function extractOne(n: NoticeRow, ownerName: string | undefined, posterText = "") {
-  const { prompt, truncated } = buildUserPrompt(n, ownerName, posterText);
+async function extractOne(n: NoticeRow, ownerName: string | undefined, posterText = "", priorKind = "") {
+  const { prompt, truncated } = buildUserPrompt(n, ownerName, posterText, priorKind);
   const response = await anthropic.messages.create({
     model: MODEL,
     max_tokens: MAX_TOKENS,
@@ -348,11 +361,13 @@ async function readPosters(limit: number, dryRun = false) {
   res.pending = ids.length;
   if (ids.length === 0) return res;
 
-  const [{ data: notices, error: qErr }, codeToName] = await Promise.all([
+  const [{ data: notices, error: qErr }, { data: prior }, codeToName] = await Promise.all([
     supabase.from("notices").select(NOTICE_SELECT).in("id", ids),
+    supabase.from("notice_events").select("notice_id,kind").in("notice_id", ids),
     loadUnitNames(),
   ]);
   if (qErr) return { ...res, error: qErr.message };
+  const kindOf = new Map(((prior ?? []) as { notice_id: string; kind: string | null }[]).map((r) => [r.notice_id, r.kind ?? ""]));
 
   for (const n of (notices ?? []) as unknown as NoticeRow[]) {
     const imgs = (n.body_image_urls ?? []).filter((u) => /^https?:\/\//.test(u));
@@ -363,11 +378,12 @@ async function readPosters(limit: number, dryRun = false) {
       let fields: EventFields | null = null;
       if (posterText.length >= POSTER_MIN_CHARS) {
         const owner = one(n.sources)?.owner_unit;
-        const { truncated: _t, usage: _u, ...f } = await extractOne(n, owner ? codeToName.get(owner) : undefined, posterText);
+        const { truncated: _t, usage: _u, ...f } = await extractOne(n, owner ? codeToName.get(owner) : undefined, posterText, kindOf.get(n.id) ?? "");
         fields = f;
-        // 포스터까지 읽고도 행사가 아니라고 하면 처음 판단을 그대로 둔다(일시만 얻으러 온 단계다).
         found = (f.kind === "event" || f.kind === "giveaway") && !!(f.event_start_at || f.event_end_at);
-        if (found) Object.assign(update, f);
+        // 일시를 찾았으면 반영한다. 처음 판정을 유지하라고 했는데도 행사가 아니라고 하면(장학생 선발 등)
+        // 본문 없이 제목만 보고 내린 처음 판정이 틀린 것이므로 그것도 반영해 행사 탭에서 뺀다.
+        if (found || f.kind === "general") Object.assign(update, f);
       }
       if (!dryRun) {
         const { error: upErr } = await supabase.from("notice_events").update(update).eq("notice_id", n.id);
