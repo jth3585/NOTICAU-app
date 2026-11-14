@@ -70,28 +70,35 @@ export function giveawayDeadline(n: EventNotice): string | null {
   return valid(dl) ? dl : null;
 }
 
-// 카드 왼쪽 날짜 타일.
-export type DateTile = { top: string; main: string; sub: string };
+// 날짜 타일(포스터 위 도장 · 포스터 없는 카드의 큰 타일). 작은 윗줄(top) + 굵은 아랫줄(main).
+//  - 오늘부터 7일 안에 열리는 행사(week): 월은 뻔하고 요일이 더 궁금하므로 "목요일 / 19"
+//  - 그 뒤 행사: "11월 / 19" (요일은 카드의 시간 줄에서 알려 준다)
+//  sub 는 요일 한 글자(날짜가 없으면 빈 문자열).
+export type DateTile = { top: string; main: string; sub: string; week: boolean };
 
 export function eventDateTile(n: EventNotice): DateTile {
   if (n.event.kind === 'giveaway') {
     const dl = giveawayDeadline(n);
-    if (!dl) return { top: '', main: '상시', sub: '' };
+    if (!dl) return { top: '', main: '상시', sub: '', week: false };
     const k = kst(dl);
-    return { top: '마감', main: `${k.getUTCMonth() + 1}/${k.getUTCDate()}`, sub: WEEKDAYS[k.getUTCDay()] };
+    return { top: '마감', main: `${k.getUTCMonth() + 1}/${k.getUTCDate()}`, sub: WEEKDAYS[k.getUTCDay()], week: false };
   }
   const st = n.event.start_at;
-  if (!valid(st)) return { top: '일정', main: '미정', sub: '' };
+  if (!valid(st)) return { top: '일정', main: '미정', sub: '', week: false };
   const k = kst(st);
-  return { top: `${k.getUTCMonth() + 1}월`, main: String(k.getUTCDate()), sub: WEEKDAYS[k.getUTCDay()] };
+  const wd = WEEKDAYS[k.getUTCDay()];
+  // 이미 시작한 여러 날짜리 행사는 지난 요일이 헷갈리므로 월 표기로 둔다.
+  const d = daysFromToday(st);
+  const week = d >= 0 && d <= 7;
+  return { top: week ? `${wd}요일` : `${k.getUTCMonth() + 1}월`, main: String(k.getUTCDate()), sub: wd, week };
 }
 
 // 카드의 시간 줄. 없으면 null(줄 생략).
 //  - 하루 안에 끝나는 행사: "목 18:30 ~ 21:00" (자정을 넘겨도 24시간 이내면 같은 표기), 시간 미상이면 "목요일"
-//    포스터 위 날짜 도장에는 월 · 일만 있으므로 요일은 여기서 알려 준다.
+//    날짜 도장이 월 · 일일 때는 요일을 여기서 알려 주고, 도장에 요일이 있으면(withWeekday=false) 뺀다.
 //  - 여러 날: "12/3(수) ~ 12/4(목)"
 //  - 참여 이벤트: "11/20(금) 18:00까지"
-export function formatEventWhen(n: EventNotice): string | null {
+export function formatEventWhen(n: EventNotice, withWeekday = true): string | null {
   if (n.event.kind === 'giveaway') {
     const dl = giveawayDeadline(n);
     if (!dl) return null;
@@ -102,8 +109,9 @@ export function formatEventWhen(n: EventNotice): string | null {
   if (!valid(st)) return null;
   if (valid(en) && Date.parse(en) - Date.parse(st) >= 86_400_000) return `${md(st)} ~ ${md(en)}`;
   const wd = WEEKDAYS[kst(st).getUTCDay()];
-  if (!hasTime(st)) return `${wd}요일`;
-  return valid(en) && hasTime(en) ? `${wd} ${hm(st)} ~ ${hm(en)}` : `${wd} ${hm(st)}`;
+  if (!hasTime(st)) return withWeekday ? `${wd}요일` : null;
+  const time = valid(en) && hasTime(en) ? `${hm(st)} ~ ${hm(en)}` : hm(st);
+  return withWeekday ? `${wd} ${time}` : time;
 }
 
 export type EventBadge = { label: string; tone: 'live' | 'urgent' | 'normal' };

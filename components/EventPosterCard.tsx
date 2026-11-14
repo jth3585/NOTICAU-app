@@ -36,7 +36,8 @@ function EventPosterCardBase({
   const sourceLabel = useSourceLabels();
   const sourceName = src?.name || sourceLabel(src?.parser_key);
   const tile = eventDateTile(notice);
-  const when = formatEventWhen(notice);
+  // 도장에 요일이 있으면(이번 주 행사) 시간 줄에서는 요일을 뺀다.
+  const when = formatEventWhen(notice, !tile.week);
   const badge = eventBadge(notice);
   // 뽑아낸 행사 이름이 있으면 그걸 제목으로(말머리·수식어가 빠져 읽기 쉽다), 없으면 공지 제목.
   const title = ev.name || notice.title;
@@ -51,7 +52,7 @@ function EventPosterCardBase({
       onPress={onPress}
       accessible
       accessibilityRole="button"
-      accessibilityLabel={[title, badge?.label, detail, sourceName, isRead ? '읽음' : undefined].filter(Boolean).join(', ')}
+      accessibilityLabel={[title, badge?.label, tile.week ? tile.top : undefined, detail, sourceName, isRead ? '읽음' : undefined].filter(Boolean).join(', ')}
       style={[styles.card, { width }]}
     >
       <View style={[styles.poster, { height: posterH }]}>
@@ -136,7 +137,7 @@ function Poster({ notice, tile, hero }: { notice: EventNotice; tile: Tile; hero:
 // 글자 크기 설정을 크게 써도 날짜 도장이 포스터를 덮지 않게 확대 폭을 제한한다.
 const STAMP_SCALE = 1.2;
 
-// 포스터가 없는 행사: 날짜를 크게 쓴 타일. 도장과 같이 월 · 일만 적고 요일은 카드의 시간 줄에 둔다.
+// 포스터가 없는 행사: 날짜를 크게 쓴 타일. 도장과 같은 두 줄 구성(이번 주는 요일 · 일, 그 뒤는 월 · 일).
 function DateFallback({ tile, hero }: { tile: Tile; hero: boolean }) {
   const undated = tile.sub === '' && tile.top !== '마감';
   const long = tile.main.length > 2; // "11/20", "미정", "상시"
@@ -179,7 +180,8 @@ const styles = StyleSheet.create({
   // (RN 0.88 에서 StyleSheet.absoluteFillObject 가 없어져 직접 적는다.)
   blurVeil: { position: 'absolute', top: 0, left: 0, right: 0, bottom: 0, backgroundColor: 'rgba(245, 247, 250, 0.35)' },
 
-  // 포스터 위 날짜 도장: 흰 타일에 작은 회색 월 + 굵은 일, 두 줄만(요일은 카드의 시간 줄에 있다).
+  // 포스터 위 날짜 도장: 흰 타일에 작은 회색 윗줄 + 굵은 일, 두 줄만.
+  // 윗줄은 이번 주 행사면 요일("목요일"), 그 뒤 행사면 월("11월", 요일은 카드의 시간 줄에 있다).
   // 흰 포스터 위에서도 경계가 보이도록 옅은 그림자를 둔다.
   stamp: {
     position: 'absolute',
