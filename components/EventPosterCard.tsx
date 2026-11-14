@@ -5,7 +5,7 @@ import { LinearGradient } from 'expo-linear-gradient';
 import { COLORS, FONT, RADIUS, SHADOW, SPACING, WEIGHT } from '../lib/theme';
 import { sourceOf } from '../lib/format';
 import { useSourceLabels } from '../lib/sources';
-import { eventBadge, eventDateChip, eventDateTile, formatEventWhen, type EventNotice } from '../lib/eventsFeed';
+import { eventBadge, eventDateTile, formatEventWhen, type EventNotice } from '../lib/eventsFeed';
 import { PressableScale } from './ui/PressableScale';
 import { SourceBadge } from './ui/SourceBadge';
 
@@ -93,8 +93,10 @@ function Poster({ notice, tile, hero }: { notice: EventNotice; tile: Tile; hero:
 
   const ratio = notice.event.cover_ratio ?? null;
   const fits = ratio == null || (ratio >= 0.6 && ratio <= 0.95);
-  // 일정 미정·상시 참여는 찍을 날짜가 없으므로 칩을 생략한다.
-  const chip = eventDateChip(notice);
+  // 일정 미정·상시 참여는 찍을 날짜가 없으므로 도장을 생략한다.
+  const stamped = tile.sub !== '' || tile.top === '마감';
+  const deadline = tile.top === '마감';
+  const long = tile.main.length > 2; // "11/20"
 
   return (
     <>
@@ -114,20 +116,27 @@ function Poster({ notice, tile, hero }: { notice: EventNotice; tile: Tile; hero:
         onError={() => setFailedUri(uri)}
         accessible={false}
       />
-      {chip ? (
-        <View style={[styles.chip, hero && styles.chipHero]}>
-          <Text style={[styles.chipDate, hero && styles.chipTextHero]} maxFontSizeMultiplier={CHIP_SCALE}>{chip.date}</Text>
-          <Text style={[styles.chipTag, hero && styles.chipTextHero]} maxFontSizeMultiplier={CHIP_SCALE}>{chip.tag}</Text>
+      {stamped ? (
+        <View style={[styles.stamp, hero && styles.stampHero]}>
+          <Text style={[styles.stampTop, hero && styles.stampTopHero, deadline && styles.stampTopDeadline]} maxFontSizeMultiplier={STAMP_SCALE}>
+            {tile.top}
+          </Text>
+          <Text
+            style={[styles.stampMain, hero && styles.stampMainHero, long && (hero ? styles.stampMainHeroLong : styles.stampMainLong)]}
+            maxFontSizeMultiplier={STAMP_SCALE}
+          >
+            {tile.main}
+          </Text>
         </View>
       ) : null}
     </>
   );
 }
 
-// 글자 크기 설정을 크게 써도 날짜 칩이 포스터를 덮지 않게 확대 폭을 제한한다.
-const CHIP_SCALE = 1.2;
+// 글자 크기 설정을 크게 써도 날짜 도장이 포스터를 덮지 않게 확대 폭을 제한한다.
+const STAMP_SCALE = 1.2;
 
-// 포스터가 없는 행사: 날짜를 크게 쓴 타일(기존 날짜 타일의 확대판).
+// 포스터가 없는 행사: 날짜를 크게 쓴 타일. 도장과 같이 월 · 일만 적고 요일은 카드의 시간 줄에 둔다.
 function DateFallback({ tile, hero }: { tile: Tile; hero: boolean }) {
   const undated = tile.sub === '' && tile.top !== '마감';
   const long = tile.main.length > 2; // "11/20", "미정", "상시"
@@ -149,7 +158,6 @@ function DateFallback({ tile, hero }: { tile: Tile; hero: boolean }) {
       >
         {tile.main}
       </Text>
-      {tile.sub ? <Text style={styles.fbSub}>{tile.sub}요일</Text> : null}
     </LinearGradient>
   );
 }
@@ -171,27 +179,33 @@ const styles = StyleSheet.create({
   // (RN 0.88 에서 StyleSheet.absoluteFillObject 가 없어져 직접 적는다.)
   blurVeil: { position: 'absolute', top: 0, left: 0, right: 0, bottom: 0, backgroundColor: 'rgba(245, 247, 250, 0.35)' },
 
-  // 포스터 위 날짜 칩: 반투명 먹색 한 줄("11/19 목"). 포스터를 최대한 덜 가린다.
-  // 모서리는 카드 라운드(16)에서 안쪽 여백(8)을 뺀 값으로 맞춰 카드 모서리와 나란히 돈다.
-  // 반투명 배경에 elevation 을 주면 Android 에서 얼룩이 생기므로 그림자 대신 옅은 테두리로 어두운 포스터와 구분한다.
-  chip: {
+  // 포스터 위 날짜 도장: 흰 타일에 작은 회색 월 + 굵은 일, 두 줄만(요일은 카드의 시간 줄에 있다).
+  // 흰 포스터 위에서도 경계가 보이도록 옅은 그림자를 둔다.
+  stamp: {
     position: 'absolute',
     top: SPACING.sm,
     left: SPACING.sm,
-    flexDirection: 'row',
+    minWidth: 42,
+    paddingHorizontal: 7,
+    paddingTop: 6,
+    paddingBottom: 5,
+    borderRadius: RADIUS.box,
+    backgroundColor: COLORS.surface,
     alignItems: 'center',
-    gap: SPACING.xs,
-    paddingHorizontal: SPACING.sm,
-    paddingVertical: 3,
-    borderRadius: RADIUS.card - SPACING.sm,
-    backgroundColor: 'rgba(17, 20, 24, 0.6)',
-    borderWidth: StyleSheet.hairlineWidth,
-    borderColor: 'rgba(255, 255, 255, 0.22)',
+    shadowColor: COLORS.text,
+    shadowOpacity: 0.14,
+    shadowRadius: 8,
+    shadowOffset: { width: 0, height: 2 },
+    elevation: 3,
   },
-  chipHero: { paddingHorizontal: 10, paddingVertical: SPACING.xs },
-  chipDate: { fontSize: 12, lineHeight: 16, fontWeight: WEIGHT.bold, color: '#FFFFFF', fontVariant: ['tabular-nums'], includeFontPadding: false },
-  chipTag: { fontSize: 12, lineHeight: 16, fontWeight: WEIGHT.semibold, color: 'rgba(255, 255, 255, 0.8)', includeFontPadding: false },
-  chipTextHero: { fontSize: FONT.caption, lineHeight: 18 },
+  stampHero: { top: SPACING.md, left: SPACING.md, minWidth: 50, paddingHorizontal: 9, paddingTop: SPACING.sm, paddingBottom: 7, borderRadius: 14 },
+  stampTop: { fontSize: 10, lineHeight: 12, fontWeight: WEIGHT.semibold, color: COLORS.textTertiary, includeFontPadding: false },
+  stampTopHero: { fontSize: FONT.micro, lineHeight: 14 },
+  stampTopDeadline: { color: COLORS.danger },
+  stampMain: { fontSize: 19, lineHeight: 22, fontWeight: WEIGHT.bold, color: COLORS.text, letterSpacing: -0.3, fontVariant: ['tabular-nums'], includeFontPadding: false },
+  stampMainHero: { fontSize: 24, lineHeight: 27 },
+  stampMainLong: { fontSize: 15, lineHeight: 22 },
+  stampMainHeroLong: { fontSize: 18, lineHeight: 27 },
 
   fallback: { flex: 1, alignItems: 'center', justifyContent: 'center', gap: 2 },
   fbTop: { fontSize: FONT.caption, fontWeight: WEIGHT.semibold, color: COLORS.accentText },
@@ -199,7 +213,6 @@ const styles = StyleSheet.create({
   fbMainHero: { fontSize: 60, lineHeight: 66 },
   fbMainLong: { fontSize: 26, lineHeight: 32 },
   fbMainHeroLong: { fontSize: 34, lineHeight: 40 },
-  fbSub: { fontSize: FONT.caption, fontWeight: WEIGHT.semibold, color: COLORS.accentText },
   fbMuted: { color: COLORS.textSecondary },
 
   body: { flexGrow: 1, padding: SPACING.md, gap: SPACING.xs },

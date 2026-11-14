@@ -86,17 +86,9 @@ export function eventDateTile(n: EventNotice): DateTile {
   return { top: `${k.getUTCMonth() + 1}월`, main: String(k.getUTCDate()), sub: WEEKDAYS[k.getUTCDay()] };
 }
 
-// 포스터 위 한 줄 날짜 칩: "11/19 목", 참여 이벤트는 "11/20 마감". 찍을 날짜가 없으면 null.
-export function eventDateChip(n: EventNotice): { date: string; tag: string } | null {
-  const giveaway = n.event.kind === 'giveaway';
-  const iso = giveaway ? giveawayDeadline(n) : n.event.start_at;
-  if (!valid(iso)) return null;
-  const k = kst(iso);
-  return { date: `${k.getUTCMonth() + 1}/${k.getUTCDate()}`, tag: giveaway ? '마감' : WEEKDAYS[k.getUTCDay()] };
-}
-
 // 카드의 시간 줄. 없으면 null(줄 생략).
-//  - 하루 안에 끝나는 행사: "18:30 ~ 21:00" (자정을 넘겨도 24시간 이내면 같은 표기)
+//  - 하루 안에 끝나는 행사: "목 18:30 ~ 21:00" (자정을 넘겨도 24시간 이내면 같은 표기), 시간 미상이면 "목요일"
+//    포스터 위 날짜 도장에는 월 · 일만 있으므로 요일은 여기서 알려 준다.
 //  - 여러 날: "12/3(수) ~ 12/4(목)"
 //  - 참여 이벤트: "11/20(금) 18:00까지"
 export function formatEventWhen(n: EventNotice): string | null {
@@ -109,8 +101,9 @@ export function formatEventWhen(n: EventNotice): string | null {
   const en = n.event.end_at;
   if (!valid(st)) return null;
   if (valid(en) && Date.parse(en) - Date.parse(st) >= 86_400_000) return `${md(st)} ~ ${md(en)}`;
-  if (!hasTime(st)) return null;
-  return valid(en) && hasTime(en) ? `${hm(st)} ~ ${hm(en)}` : hm(st);
+  const wd = WEEKDAYS[kst(st).getUTCDay()];
+  if (!hasTime(st)) return `${wd}요일`;
+  return valid(en) && hasTime(en) ? `${wd} ${hm(st)} ~ ${hm(en)}` : `${wd} ${hm(st)}`;
 }
 
 export type EventBadge = { label: string; tone: 'live' | 'urgent' | 'normal' };
