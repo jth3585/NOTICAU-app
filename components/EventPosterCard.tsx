@@ -5,7 +5,7 @@ import { LinearGradient } from 'expo-linear-gradient';
 import { COLORS, FONT, RADIUS, SHADOW, SPACING, WEIGHT } from '../lib/theme';
 import { sourceOf } from '../lib/format';
 import { useSourceLabels } from '../lib/sources';
-import { eventBadge, eventDateTile, formatEventWhen, type EventNotice } from '../lib/eventsFeed';
+import { eventBadge, eventDateChip, eventDateTile, formatEventWhen, type EventNotice } from '../lib/eventsFeed';
 import { PressableScale } from './ui/PressableScale';
 import { SourceBadge } from './ui/SourceBadge';
 
@@ -17,8 +17,6 @@ import { SourceBadge } from './ui/SourceBadge';
 // 포스터 글자는 이 크기에서 읽히지 않으므로 날짜·장소는 언제나 텍스트로 따로 적는다.
 
 const ASPECT = { grid: 3 / 4, hero: 4 / 5 } as const;
-const STAMP_RADIUS = 10;
-const STAMP_RADIUS_HERO = 12;
 
 function EventPosterCardBase({
   notice,
@@ -95,8 +93,8 @@ function Poster({ notice, tile, hero }: { notice: EventNotice; tile: Tile; hero:
 
   const ratio = notice.event.cover_ratio ?? null;
   const fits = ratio == null || (ratio >= 0.6 && ratio <= 0.95);
-  // 일정 미정·상시 참여는 찍을 날짜가 없으므로 도장을 생략한다.
-  const stamped = tile.sub !== '' || tile.top === '마감';
+  // 일정 미정·상시 참여는 찍을 날짜가 없으므로 칩을 생략한다.
+  const chip = eventDateChip(notice);
 
   return (
     <>
@@ -116,42 +114,18 @@ function Poster({ notice, tile, hero }: { notice: EventNotice; tile: Tile; hero:
         onError={() => setFailedUri(uri)}
         accessible={false}
       />
-      {stamped ? <DateStamp tile={tile} hero={hero} /> : null}
+      {chip ? (
+        <View style={[styles.chip, hero && styles.chipHero]}>
+          <Text style={[styles.chipDate, hero && styles.chipTextHero]} maxFontSizeMultiplier={CHIP_SCALE}>{chip.date}</Text>
+          <Text style={[styles.chipTag, hero && styles.chipTextHero]} maxFontSizeMultiplier={CHIP_SCALE}>{chip.tag}</Text>
+        </View>
+      ) : null}
     </>
   );
 }
 
-// 포스터 위 날짜 도장: 달력 낱장 모양. 위 띠에 월(참여 이벤트는 '마감'), 아래 흰 칸에 일 · 요일.
-// 띠 색이 있어 밝은 포스터에서도 어두운 포스터에서도 날짜로 읽히고, 흰 포스터 위에서는 그림자가 경계를 만든다.
-// 글자 크기 설정을 크게 써도 도장이 포스터를 덮지 않게 확대 폭을 제한한다.
-const STAMP_SCALE = 1.2;
-
-function DateStamp({ tile, hero }: { tile: Tile; hero: boolean }) {
-  const deadline = tile.top === '마감';
-  const long = tile.main.length > 2; // "11/20"
-  return (
-    <View style={[styles.stamp, hero && styles.stampHero]}>
-      <View style={[styles.stampBand, hero && styles.stampBandHero, deadline && styles.stampBandDeadline]}>
-        <Text style={[styles.stampTop, hero && styles.stampTopHero]} maxFontSizeMultiplier={STAMP_SCALE}>{tile.top}</Text>
-      </View>
-      <View style={[styles.stampBody, hero && styles.stampBodyHero]}>
-        <Text
-          style={[
-            styles.stampMain,
-            hero && styles.stampMainHero,
-            long && (hero ? styles.stampMainHeroLong : styles.stampMainLong),
-          ]}
-          maxFontSizeMultiplier={STAMP_SCALE}
-        >
-          {tile.main}
-        </Text>
-        {tile.sub ? (
-          <Text style={[styles.stampSub, hero && styles.stampSubHero]} maxFontSizeMultiplier={STAMP_SCALE}>{tile.sub}요일</Text>
-        ) : null}
-      </View>
-    </View>
-  );
-}
+// 글자 크기 설정을 크게 써도 날짜 칩이 포스터를 덮지 않게 확대 폭을 제한한다.
+const CHIP_SCALE = 1.2;
 
 // 포스터가 없는 행사: 날짜를 크게 쓴 타일(기존 날짜 타일의 확대판).
 function DateFallback({ tile, hero }: { tile: Tile; hero: boolean }) {
@@ -197,42 +171,27 @@ const styles = StyleSheet.create({
   // (RN 0.88 에서 StyleSheet.absoluteFillObject 가 없어져 직접 적는다.)
   blurVeil: { position: 'absolute', top: 0, left: 0, right: 0, bottom: 0, backgroundColor: 'rgba(245, 247, 250, 0.35)' },
 
-  // 포스터 위 날짜 도장(달력 낱장). 그림자가 잘리지 않게 overflow 를 두지 않고 띠의 위쪽 모서리만 따로 깎는다.
-  stamp: {
+  // 포스터 위 날짜 칩: 반투명 먹색 한 줄("11/19 목"). 포스터를 최대한 덜 가린다.
+  // 모서리는 카드 라운드(16)에서 안쪽 여백(8)을 뺀 값으로 맞춰 카드 모서리와 나란히 돈다.
+  // 반투명 배경에 elevation 을 주면 Android 에서 얼룩이 생기므로 그림자 대신 옅은 테두리로 어두운 포스터와 구분한다.
+  chip: {
     position: 'absolute',
     top: SPACING.sm,
     left: SPACING.sm,
-    minWidth: 42,
-    borderRadius: STAMP_RADIUS,
-    backgroundColor: COLORS.surface,
-    shadowColor: COLORS.text,
-    shadowOpacity: 0.2,
-    shadowRadius: 6,
-    shadowOffset: { width: 0, height: 2 },
-    elevation: 3,
-  },
-  stampHero: { top: SPACING.md, left: SPACING.md, minWidth: 52, borderRadius: STAMP_RADIUS_HERO },
-  // 흰 글자가 읽히도록 띠는 accent 보다 한 단계 진한 파랑(대비 약 5:1). 마감 날짜는 행사 날짜와 헷갈리지 않게 먹색.
-  stampBand: {
+    flexDirection: 'row',
     alignItems: 'center',
-    paddingVertical: 2,
-    paddingHorizontal: 6,
-    backgroundColor: COLORS.accentText,
-    borderTopLeftRadius: STAMP_RADIUS,
-    borderTopRightRadius: STAMP_RADIUS,
+    gap: SPACING.xs,
+    paddingHorizontal: SPACING.sm,
+    paddingVertical: 3,
+    borderRadius: RADIUS.card - SPACING.sm,
+    backgroundColor: 'rgba(17, 20, 24, 0.6)',
+    borderWidth: StyleSheet.hairlineWidth,
+    borderColor: 'rgba(255, 255, 255, 0.22)',
   },
-  stampBandHero: { paddingVertical: 3, borderTopLeftRadius: STAMP_RADIUS_HERO, borderTopRightRadius: STAMP_RADIUS_HERO },
-  stampBandDeadline: { backgroundColor: COLORS.text },
-  stampTop: { fontSize: 10, lineHeight: 13, fontWeight: WEIGHT.bold, color: '#FFFFFF', includeFontPadding: false },
-  stampTopHero: { fontSize: FONT.micro, lineHeight: 14 },
-  stampBody: { alignItems: 'center', paddingTop: 3, paddingBottom: SPACING.xs, paddingHorizontal: 6 },
-  stampBodyHero: { paddingTop: SPACING.xs, paddingBottom: 5, paddingHorizontal: SPACING.sm },
-  stampMain: { fontSize: 19, lineHeight: 22, fontWeight: WEIGHT.bold, color: COLORS.text, fontVariant: ['tabular-nums'], includeFontPadding: false },
-  stampMainHero: { fontSize: 24, lineHeight: 27 },
-  stampMainLong: { fontSize: 14, lineHeight: 20 },
-  stampMainHeroLong: { fontSize: 17, lineHeight: 23 },
-  stampSub: { fontSize: 10, lineHeight: 13, fontWeight: WEIGHT.semibold, color: COLORS.textSecondary, includeFontPadding: false },
-  stampSubHero: { fontSize: FONT.micro, lineHeight: 14 },
+  chipHero: { paddingHorizontal: 10, paddingVertical: SPACING.xs },
+  chipDate: { fontSize: 12, lineHeight: 16, fontWeight: WEIGHT.bold, color: '#FFFFFF', fontVariant: ['tabular-nums'], includeFontPadding: false },
+  chipTag: { fontSize: 12, lineHeight: 16, fontWeight: WEIGHT.semibold, color: 'rgba(255, 255, 255, 0.8)', includeFontPadding: false },
+  chipTextHero: { fontSize: FONT.caption, lineHeight: 18 },
 
   fallback: { flex: 1, alignItems: 'center', justifyContent: 'center', gap: 2 },
   fbTop: { fontSize: FONT.caption, fontWeight: WEIGHT.semibold, color: COLORS.accentText },

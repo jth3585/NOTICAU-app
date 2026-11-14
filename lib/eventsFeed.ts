@@ -86,6 +86,15 @@ export function eventDateTile(n: EventNotice): DateTile {
   return { top: `${k.getUTCMonth() + 1}월`, main: String(k.getUTCDate()), sub: WEEKDAYS[k.getUTCDay()] };
 }
 
+// 포스터 위 한 줄 날짜 칩: "11/19 목", 참여 이벤트는 "11/20 마감". 찍을 날짜가 없으면 null.
+export function eventDateChip(n: EventNotice): { date: string; tag: string } | null {
+  const giveaway = n.event.kind === 'giveaway';
+  const iso = giveaway ? giveawayDeadline(n) : n.event.start_at;
+  if (!valid(iso)) return null;
+  const k = kst(iso);
+  return { date: `${k.getUTCMonth() + 1}/${k.getUTCDate()}`, tag: giveaway ? '마감' : WEEKDAYS[k.getUTCDay()] };
+}
+
 // 카드의 시간 줄. 없으면 null(줄 생략).
 //  - 하루 안에 끝나는 행사: "18:30 ~ 21:00" (자정을 넘겨도 24시간 이내면 같은 표기)
 //  - 여러 날: "12/3(수) ~ 12/4(목)"
