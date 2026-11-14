@@ -20,10 +20,16 @@
 //   앱은 우리 Storage 만 보므로 프록시가 죽어도 이미 만든 커버는 그대로 나온다(새 커버만 밀린다).
 //   body {"covers": N} → 추출 없이 커버만 N건(최대 60) 만든다(백필용).
 //
+// 포스터 재확인: 본문 글자만으로 일시를 못 찾은 행사 글은(일시가 포스터 이미지에만 적힌 경우)
+//   events_needing_poster_read RPC 로 골라 포스터를 CLOVA OCR 로 읽고 한 번 더 추출한다.
+//   일시를 찾으면 notice_events 를 덮어쓰고, 못 찾아도 poster_read_at 을 찍어 다시 시도하지 않는다.
+//   body {"posters": N} → 포스터 재확인만 N건(최대 20). "dryRun": true 를 함께 주면 기록 없이 결과만 돌려준다.
+//
 // 인증: verify_jwt=false + Authorization: Bearer <CRON_SECRET>.
 
 import Anthropic from "npm:@anthropic-ai/sdk";
 import { createClient } from "jsr:@supabase/supabase-js@2";
+import { ocrConfigured, ocrImages } from "../_shared/clova_ocr.ts";
 
 const MODEL = "claude-haiku-5-5";
 // Haiku 5.5 는 적응형 사고가 기본으로 켜져 있고 사고 토큰도 max_tokens 에 포함된다 → 짧은 JSON 이어도 넉넉히.
@@ -111,6 +117,7 @@ type NoticeRow = {
   body_text: string | null;
   posted_at: string | null;
   channel: string | null;
+  body_image_urls?: string[] | null;
   sources: SourceRow | SourceRow[] | null;
   notice_meta: { body_markdown: string | null } | { body_markdown: string | null }[] | null;
 };
@@ -135,7 +142,7 @@ function kstDate(iso: string | null): string {
   return new Date(Date.parse(iso) + 9 * 3600 * 1000).toISOString().slice(0, 10);
 }
 
-function buildUserPrompt(n: NoticeRow, ownerName: string | undefined): { prompt: string; truncated: boolean } {
+function buildUserPrompt(n: NoticeRow, ownerName: string | undefined, posterText = ""): { prompt: string; truncated: boolean } {
   const body = (n.body_text ?? "").trim();
   const md = (one(n.notice_meta)?.body_markdown ?? "").trim();
   // 본문이 짧으면(이미지 공지) OCR 내용이 담긴 정리본을 함께 준다. 본문이 충분하면 원문만(정리본은 중복).
@@ -154,6 +161,9 @@ function buildUserPrompt(n: NoticeRow, ownerName: string | undefined): { prompt:
   ];
   if (truncated) lines.push("", `(본문이 길어 앞 ${MAX_BODY_CHARS}자만 실었다.)`);
   if (useMd) lines.push("", "## 정리본 (본문 이미지에서 읽어낸 내용 포함)", md.slice(0, MAX_BODY_CHARS));
+  if (posterText) {
+    lines.push("", "## 포스터에서 읽은 글자 (본문 이미지 OCR — 줄 순서가 뒤섞여 있을 수 있다)", posterText.slice(0, MAX_BODY_CHARS));
+  }
   return { prompt: lines.join("\n"), truncated };
 }
 
@@ -170,8 +180,8 @@ function normalize(f: EventFields): EventFields {
   return f;
 }
 
-async function extractOne(n: NoticeRow, ownerName: string | undefined) {
-  const { prompt, truncated } = buildUserPrompt(n, ownerName);
+async function extractOne(n: NoticeRow, ownerName: string | undefined, posterText = "") {
+  const { prompt, truncated } = buildUserPrompt(n, ownerName, posterText);
   const response = await anthropic.messages.create({
     model: MODEL,
     max_tokens: MAX_TOKENS,
@@ -310,19 +320,96 @@ async function purgeCovers() {
   return { removed: paths.length };
 }
 
+// ---- 포스터 재확인 -----------------------------------------------------------------
+
+const POSTER_BATCH = 3;       // cron 1회당. 장당 OCR 이 수 초 걸리고 1 TPS 라 순차 처리한다.
+const POSTER_MAX_BATCH = 20;  // 백필 1회당
+const POSTER_MAX_IMAGES = 3;  // 공지당 OCR 장수
+const POSTER_MIN_CHARS = 30;  // 이보다 적게 읽히면 글자 없는 이미지로 본다
+
+const NOTICE_SELECT = "id,title,body_text,posted_at,channel,body_image_urls,sources(parser_key,name,scope_type,owner_unit),notice_meta(body_markdown)";
+
+async function loadUnitNames(): Promise<Map<string, string>> {
+  const [{ data: depts }, { data: colls }] = await Promise.all([
+    supabase.from("departments").select("code,name"),
+    supabase.from("colleges").select("code,name"),
+  ]);
+  const m = new Map<string, string>();
+  for (const r of [...(colls ?? []), ...(depts ?? [])] as { code: string; name: string }[]) m.set(r.code, r.name);
+  return m;
+}
+
+async function readPosters(limit: number, dryRun = false) {
+  const res = { pending: 0, dated: 0, nodate: 0, failed: 0, results: [] as Record<string, unknown>[] };
+  if (!ocrConfigured()) return { ...res, skipped: "ocr not configured" };
+  const { data, error } = await supabase.rpc("events_needing_poster_read", { lim: limit });
+  if (error) return { ...res, error: error.message };
+  const ids = ((data ?? []) as { notice_id: string }[]).map((r) => r.notice_id);
+  res.pending = ids.length;
+  if (ids.length === 0) return res;
+
+  const [{ data: notices, error: qErr }, codeToName] = await Promise.all([
+    supabase.from("notices").select(NOTICE_SELECT).in("id", ids),
+    loadUnitNames(),
+  ]);
+  if (qErr) return { ...res, error: qErr.message };
+
+  for (const n of (notices ?? []) as unknown as NoticeRow[]) {
+    const imgs = (n.body_image_urls ?? []).filter((u) => /^https?:\/\//.test(u));
+    try {
+      const posterText = await ocrImages(imgs, POSTER_MAX_IMAGES);
+      const update: Record<string, unknown> = { poster_read_at: new Date().toISOString() };
+      let found = false;
+      let fields: EventFields | null = null;
+      if (posterText.length >= POSTER_MIN_CHARS) {
+        const owner = one(n.sources)?.owner_unit;
+        const { truncated: _t, usage: _u, ...f } = await extractOne(n, owner ? codeToName.get(owner) : undefined, posterText);
+        fields = f;
+        // 포스터까지 읽고도 행사가 아니라고 하면 처음 판단을 그대로 둔다(일시만 얻으러 온 단계다).
+        found = (f.kind === "event" || f.kind === "giveaway") && !!(f.event_start_at || f.event_end_at);
+        if (found) Object.assign(update, f);
+      }
+      if (!dryRun) {
+        const { error: upErr } = await supabase.from("notice_events").update(update).eq("notice_id", n.id);
+        if (upErr) throw new Error(`update: ${upErr.message}`);
+      }
+      if (found) res.dated++; else res.nodate++;
+      res.results.push(dryRun
+        ? { id: n.id, title: n.title, ocr_chars: posterText.length, found, fields }
+        : { id: n.id, ocr_chars: posterText.length, found });
+    } catch (e) {
+      const msg = errorLabel(e);
+      res.failed++;
+      res.results.push({ id: n.id, error: msg });
+      console.error(`poster read ${n.id} failed: ${msg}`);
+      // 일시적인 한도 초과만 다음 실행에서 다시 보고, 그 밖의 실패는 닫는다(5분마다 같은 글에 비용을 쓰지 않게).
+      if (!dryRun && !(e instanceof Anthropic.RateLimitError)) {
+        await supabase.from("notice_events").update({ poster_read_at: new Date().toISOString() }).eq("notice_id", n.id);
+      }
+    }
+  }
+  return res;
+}
+
 Deno.serve(async (req) => {
   const cronSecret = Deno.env.get("CRON_SECRET");
   if (!cronSecret || req.headers.get("Authorization") !== `Bearer ${cronSecret}`) {
     return new Response(JSON.stringify({ error: "Unauthorized" }), { status: 401 });
   }
 
-  let body: { dryRun?: boolean; ids?: unknown; batch?: unknown; covers?: unknown } = {};
+  let body: { dryRun?: boolean; ids?: unknown; batch?: unknown; covers?: unknown; posters?: unknown } = {};
   try { body = await req.json(); } catch { /* cron 빈 body */ }
 
   // 커버 전용 모드(백필): LLM 호출 없음
   if (Number.isInteger(body.covers) && (body.covers as number) > 0) {
     const covers = await makeCovers(Math.min(body.covers as number, COVER_MAX_BATCH));
     return new Response(JSON.stringify({ mode: "covers", covers }), { headers: { "Content-Type": "application/json" } });
+  }
+
+  // 포스터 재확인 전용 모드(백필·검증)
+  if (Number.isInteger(body.posters) && (body.posters as number) > 0) {
+    const posters = await readPosters(Math.min(body.posters as number, POSTER_MAX_BATCH), body.dryRun === true);
+    return new Response(JSON.stringify({ mode: "posters", dryRun: body.dryRun === true, posters }), { headers: { "Content-Type": "application/json" } });
   }
 
   const dryRun = body.dryRun === true;
@@ -343,24 +430,19 @@ Deno.serve(async (req) => {
     for (const r of (todo ?? []) as { id: string; attempts: number }[]) prevAttempts.set(r.id, r.attempts ?? 0);
     ids = [...prevAttempts.keys()];
     if (ids.length === 0) {
-      // 새로 추출할 글이 없어도 밀린 커버는 이어서 만든다.
+      // 새로 추출할 글이 없어도 밀린 커버·포스터 재확인은 이어서 한다.
       const covers = await makeCovers(COVER_BATCH);
       const coverPurge = await purgeCovers();
-      return new Response(JSON.stringify({ fetched: 0, extracted: 0, failed: 0, covers, coverPurge }), { headers: { "Content-Type": "application/json" } });
+      const { results: _r, ...posters } = await readPosters(POSTER_BATCH);
+      return new Response(JSON.stringify({ fetched: 0, extracted: 0, failed: 0, covers, coverPurge, posters }), { headers: { "Content-Type": "application/json" } });
     }
   }
 
-  const [{ data: notices, error: qErr }, { data: depts }, { data: colls }] = await Promise.all([
-    supabase.from("notices")
-      .select("id,title,body_text,posted_at,channel,sources(parser_key,name,scope_type,owner_unit),notice_meta(body_markdown)")
-      .in("id", ids),
-    supabase.from("departments").select("code,name"),
-    supabase.from("colleges").select("code,name"),
+  const [{ data: notices, error: qErr }, codeToName] = await Promise.all([
+    supabase.from("notices").select(NOTICE_SELECT).in("id", ids),
+    loadUnitNames(),
   ]);
   if (qErr) return new Response(JSON.stringify({ error: qErr.message }), { status: 500 });
-
-  const codeToName = new Map<string, string>();
-  for (const r of [...(colls ?? []), ...(depts ?? [])] as { code: string; name: string }[]) codeToName.set(r.code, r.name);
 
   const rows = (notices ?? []) as unknown as NoticeRow[];
   const results: Record<string, unknown>[] = new Array(rows.length);
@@ -405,8 +487,11 @@ Deno.serve(async (req) => {
   // 방금 추출된 행사까지 포함해 커버를 만든다(드라이런은 기록을 남기지 않으므로 건너뛴다).
   const covers = dryRun ? undefined : await makeCovers(COVER_BATCH);
   const coverPurge = dryRun ? undefined : await purgeCovers();
+  // 방금 추출에서 일시를 못 찾은 행사 글의 포스터를 읽어 본다.
+  let posters: Record<string, unknown> | undefined;
+  if (!dryRun) { const { results: _r, ...p } = await readPosters(POSTER_BATCH); posters = p; }
 
-  return new Response(JSON.stringify({ dryRun, model: MODEL, ...stats, covers, coverPurge, results }), {
+  return new Response(JSON.stringify({ dryRun, model: MODEL, ...stats, covers, coverPurge, posters, results }), {
     headers: { "Content-Type": "application/json" },
   });
 });

@@ -105,7 +105,9 @@ function parseList(html: string): ListItem[] {
 async function fetchDetail(idx: string) {
   const html = await fetchHtml(viewUrl(idx));
   const $ = load(html);
-  const cont = $(".fr-view").first();
+  // 본문은 .board_txt_area 안에 있다. (.fr-view 는 상단 메뉴에도 쓰여서 첫 번째를 잡으면 메뉴 글자가 나온다.)
+  let cont = $(".board_txt_area > div:not(.file_area)").first();
+  if (!cont.length) cont = $(".board_txt_area").first();
 
   const bodyText = cont.text().replace(/ /g, " ").replace(/[ \t]+/g, " ").replace(/\n{3,}/g, "\n\n").trim();
 

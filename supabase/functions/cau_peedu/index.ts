@@ -118,6 +118,16 @@ async function fetchDetail(id: string) {
     else if (!/^https?:\/\//.test(src)) src = abs(src);
     images.push(src);
   });
+  // 첨부로 올린 이미지는 본문 칸 밖(#bo_v_img, .view-img)에 썸네일로 나온다. 행사 포스터가 대개 여기에 있다.
+  $("#bo_v_img img, .view-img img").each((_, el) => {
+    let src = $(el).attr("src");
+    if (!src || src.startsWith("data:")) return;
+    if (src.startsWith("//")) src = "https:" + src;
+    else if (!/^https?:\/\//.test(src)) src = abs(src);
+    // 썸네일(thumb-이름_600x849.png) → 원본(이름.png)
+    src = src.replace(/\/thumb-([^/]+?)_\d+x\d+(\.\w+)$/, "/$1$2");
+    if (!images.includes(src)) images.push(src);
+  });
 
   const attachments: string[] = [];
   $("a[href*='download.php']").each((_, el) => {

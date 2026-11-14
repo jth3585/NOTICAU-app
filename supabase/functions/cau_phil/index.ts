@@ -1,8 +1,10 @@
 // cau_phil — 철학과(philosophy.cau.ac.kr) 공지 크롤러 (Next.js App Router + Supabase 백엔드)
 //
 // 목록: GET /notices → SSR 카드 a[href="/notices/{uuid}"] 안에 <h3>제목</h3> + 날짜(YYYY.MM.DD)
-// 상세: GET /notices/{uuid} (헤더 RSC:1) → flight 페이로드의 최장 'T{hex},' 텍스트 청크에 본문 HTML.
-//        첨부는 flight 내 supabase storage(post-attachments) URL.
+// 상세: GET /notices/{uuid} → SSR HTML 의 div.rich-content 가 본문(글 + 이미지).
+//        첨부는 페이지 안의 supabase storage(post-attachments) URL.
+//        (예전에는 flight 페이로드의 'T{hex},' 텍스트 청크에서 본문을 찾았는데, 짧은 글은 T 청크가 아니라
+//         인라인 문자열로 실려 본문이 통째로 비었다. 지금은 .rich-content 가 없을 때만 그 방식으로 본다.)
 //
 // 소속: 철학과(philosophy 단독). 인증: Bearer <CRON_SECRET>.
 
@@ -115,10 +117,33 @@ function htmlToText(html: string): string {
     .replace(/[ \t]+/g, " ").replace(/\n{3,}/g, "\n\n").trim();
 }
 
+const ATTACH_RE = /https:\/\/[a-z0-9]+\.supabase\.co\/storage\/v1\/object\/public\/post-attachments\/[^\s"'\\)<]+/gi;
+
 async function fetchDetail(uuid: string) {
-  const flight = await fetchText(`${BASE}/notices/${uuid}`, { "RSC": "1" });
-  const { html, attachments } = extractFlightBody(flight);
-  return { bodyText: htmlToText(html), attachments };
+  const html = await fetchText(`${BASE}/notices/${uuid}`);
+  const $ = load(html);
+  const cont = $(".rich-content").first();
+  if (!cont.length) {
+    const flight = await fetchText(`${BASE}/notices/${uuid}`, { "RSC": "1" });
+    const f = extractFlightBody(flight);
+    return { bodyText: htmlToText(f.html), images: [] as string[], attachments: f.attachments };
+  }
+
+  // 줄바꿈을 살린 뒤 cheerio 로 글자만 뽑는다(엔티티 디코딩 포함).
+  const marked = (cont.html() ?? "").replace(/<br\s*\/?>/gi, "\n").replace(/<\/(p|div|tr|li|h\d|table)>/gi, "$&\n");
+  const bodyText = load(marked).text().replace(/\u00a0/g, " ").replace(/[ \t]+/g, " ").replace(/ *\n */g, "\n").replace(/\n{3,}/g, "\n\n").trim();
+
+  const images: string[] = [];
+  cont.find("img").each((_, el) => {
+    let src = $(el).attr("src");
+    if (!src || src.startsWith("data:")) return;
+    if (src.startsWith("//")) src = "https:" + src;
+    else if (!/^https?:\/\//.test(src)) src = BASE + (src.startsWith("/") ? src : "/" + src);
+    if (!images.includes(src)) images.push(src);
+  });
+
+  const attachments = [...new Set([...html.matchAll(ATTACH_RE)].map((x) => x[0]))];
+  return { bodyText, images, attachments };
 }
 
 Deno.serve(async (req) => {
@@ -166,7 +191,7 @@ Deno.serve(async (req) => {
           source_category: SOURCE_CATEGORY,
           title: it.title,
           body_text: detail.bodyText,
-          body_image_urls: [],
+          body_image_urls: detail.images,
           attachment_urls: detail.attachments,
           source_url: url,
           author: "철학과",
