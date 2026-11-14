@@ -31,6 +31,12 @@ export function isEventForMe(n: EventNotice, profile: Profile): boolean {
   return !isMismatch(n, metaNoDept, { ...profile, show_cross_dept: true }, NONE, NONE);
 }
 
+// 우리 학과·단과대가 주최했거나 우리를 대상으로 한 행사인가('우리 학과' 칩).
+export function isMyUnitEvent(n: EventNotice, profile: Profile): boolean {
+  const mine = [profile.dept, profile.dept_secondary, profile.college].filter(Boolean) as string[];
+  return n.event.member_units.some((u) => mine.includes(u));
+}
+
 // ---- KST 날짜 유틸 (행사 일시는 자정이면 '시간 미상'으로 취급) -----------------------
 
 const KST_MS = 9 * 60 * 60 * 1000;
@@ -135,16 +141,45 @@ const byStart = (a: EventNotice, b: EventNotice) =>
 
 const SOON_MS = 3 * 86_400_000;
 
-// 참석 행사: 오늘 → 이번 주 → 그 이후 → 진행 중 → 일정 미정.
-//  이미 시작한 여러 날짜리 행사 중 곧(3일 안에) 끝나는 것(축제 둘째 날, 공연 기간 등)은 '오늘'에 두고,
+// 참여 이벤트 정렬: 마감 가까운 순, 마감 없는 것은 뒤로(최신 게시순).
+function sortGiveaways(rows: EventNotice[]): { dated: EventNotice[]; open: EventNotice[] } {
+  const dated = rows.filter((n) => giveawayDeadline(n)).sort((a, b) =>
+    (giveawayDeadline(a) ?? '').localeCompare(giveawayDeadline(b) ?? ''));
+  const open = rows.filter((n) => !giveawayDeadline(n)).sort((a, b) =>
+    (b.posted_at ?? '').localeCompare(a.posted_at ?? ''));
+  return { dated, open };
+}
+
+// 행사 탭 화면 구성.
+//  hero: 맨 위 큰 포스터 캐러셀(오늘 + 7일 안에 열리는 참석 행사). 2건 이상일 때만 쓰고,
+//        1건뿐이면 캐러셀 대신 아래 그리드의 '이번 주' 섹션으로 내린다(카드 한 장짜리 캐러셀은 어색하다).
+//  sections: 2열 포스터 그리드. 다가오는 행사 → 참여 이벤트 → 진행 중 → 일정 미정.
+export type EventsLayout = { hero: EventNotice[]; sections: EventSection[] };
+
+const HERO_MIN = 2;
+
+// rows: 이미 '나에게 해당되는 것'으로 추린 목록. giveawaysOnly = '참여 이벤트' 칩.
+//  이미 시작한 여러 날짜리 행사 중 곧(3일 안에) 끝나는 것(축제 둘째 날, 공연 기간 등)은 이번 주에 두고,
 //  몇 주씩 이어지는 연속 특강·교육은 '진행 중'으로 내려 다가오는 행사가 묻히지 않게 한다.
-export function buildEventSections(rows: EventNotice[]): EventSection[] {
+export function buildEventsLayout(rows: EventNotice[], giveawaysOnly = false): EventsLayout {
+  const give = sortGiveaways(rows.filter((n) => n.event.kind === 'giveaway'));
+  if (giveawaysOnly) {
+    return {
+      hero: [],
+      sections: [
+        { title: '마감이 가까운 순', data: give.dated },
+        { title: '상시 참여', data: give.open },
+      ].filter((s) => s.data.length > 0),
+    };
+  }
+
   const today: EventNotice[] = [];
   const week: EventNotice[] = [];
   const later: EventNotice[] = [];
   const ongoing: EventNotice[] = [];
   const undated: EventNotice[] = [];
   for (const n of rows) {
+    if (n.event.kind !== 'event') continue;
     const st = n.event.start_at;
     if (!valid(st)) { undated.push(n); continue; }
     const d = daysFromToday(st);
@@ -158,23 +193,17 @@ export function buildEventSections(rows: EventNotice[]): EventSection[] {
   }
   ongoing.sort((a, b) => (a.event.ends_at ?? '').localeCompare(b.event.ends_at ?? ''));
   undated.sort((a, b) => (b.posted_at ?? '').localeCompare(a.posted_at ?? ''));
-  return [
-    { title: '오늘', data: today.sort(byStart) },
-    { title: '이번 주', data: week.sort(byStart) },
-    { title: '다가오는 행사', data: later.sort(byStart) },
-    { title: '진행 중', data: ongoing },
-    { title: '일정은 원문에서 확인해요', data: undated },
-  ].filter((s) => s.data.length > 0);
-}
+  const soon = [...today.sort(byStart), ...week.sort(byStart)];
+  const useHero = soon.length >= HERO_MIN;
 
-// 참여 이벤트: 마감 가까운 순, 마감 없는 것은 뒤로(최신 게시순).
-export function buildGiveawaySections(rows: EventNotice[]): EventSection[] {
-  const dated = rows.filter((n) => giveawayDeadline(n)).sort((a, b) =>
-    (giveawayDeadline(a) ?? '').localeCompare(giveawayDeadline(b) ?? ''));
-  const open = rows.filter((n) => !giveawayDeadline(n)).sort((a, b) =>
-    (b.posted_at ?? '').localeCompare(a.posted_at ?? ''));
-  return [
-    { title: '마감이 가까운 순', data: dated },
-    { title: '상시 참여', data: open },
-  ].filter((s) => s.data.length > 0);
+  return {
+    hero: useHero ? soon : [],
+    sections: [
+      { title: '이번 주', data: useHero ? [] : soon },
+      { title: '다가오는 행사', data: later.sort(byStart) },
+      { title: '참여 이벤트', data: [...give.dated, ...give.open] },
+      { title: '진행 중', data: ongoing },
+      { title: '일정은 원문에서 확인해요', data: undated },
+    ].filter((s) => s.data.length > 0),
+  };
 }

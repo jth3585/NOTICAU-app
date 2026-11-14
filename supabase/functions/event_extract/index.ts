@@ -13,6 +13,13 @@
 // 검증(dryRun): 응답으로만 돌려주고 DB 기록 없음.
 //   body: { "dryRun": true, "ids": ["<notice uuid>", ...최대 40] }
 //
+// 커버(행사 탭의 포스터 썸네일): 추출이 끝난 뒤 같은 실행에서 events_needing_covers RPC 가 고른 행사 글의
+//   첫 이미지를 가로 720px WebP 로 줄여 Storage 'crawled-images/ev/<notice_id>.webp' 에 올리고
+//   notice_events.cover_url·cover_ratio 를 채운다. 원본은 장당 수 MB 라 앱 목록에서 그대로 쓸 수 없다.
+//   줄이는 일은 공개 리사이즈 프록시(wsrv.nl)에 맡긴다 — 엣지 함수 CPU 한도로는 큰 포스터 디코딩이 어렵다.
+//   앱은 우리 Storage 만 보므로 프록시가 죽어도 이미 만든 커버는 그대로 나온다(새 커버만 밀린다).
+//   body {"covers": N} → 추출 없이 커버만 N건(최대 60) 만든다(백필용).
+//
 // 인증: verify_jwt=false + Authorization: Bearer <CRON_SECRET>.
 
 import Anthropic from "npm:@anthropic-ai/sdk";
@@ -194,14 +201,130 @@ function errorLabel(e: unknown): string {
   return String((e as Error)?.message ?? e).slice(0, 200);
 }
 
+// ---- 행사 커버 ---------------------------------------------------------------------
+
+const COVER_BUCKET = "crawled-images"; // cau_dorm·cau_instagram 과 같은 공개 버킷
+const COVER_WIDTH = 720;       // 2열 카드(@3x ≈ 520px)와 캐러셀 카드(@3x ≈ 780px)를 함께 덮는 폭
+const COVER_BATCH = 8;         // cron 1회당
+const COVER_MAX_BATCH = 60;    // 백필 1회당
+const COVER_CONCURRENCY = 4;
+const COVER_TRY_IMAGES = 3;    // 첫 이미지가 로고·띠배너면 다음 이미지로
+const COVER_TIMEOUT_MS = 20_000;
+const COVER_MAX_BYTES = 600_000;
+const COVER_MAX_ATTEMPTS = 3;  // events_needing_covers 의 cover_attempts < 3 과 맞춘다
+
+// WebP 헤더에서 크기를 읽는다(VP8 손실 / VP8L 무손실 / VP8X 확장).
+function webpSize(b: Uint8Array): { w: number; h: number } | null {
+  if (b.length < 30) return null;
+  const tag = (i: number) => String.fromCharCode(b[i], b[i + 1], b[i + 2], b[i + 3]);
+  if (tag(0) !== "RIFF" || tag(8) !== "WEBP") return null;
+  const fmt = tag(12);
+  if (fmt === "VP8 ") return { w: (b[26] | (b[27] << 8)) & 0x3fff, h: (b[28] | (b[29] << 8)) & 0x3fff };
+  if (fmt === "VP8L") {
+    const n = b[21] | (b[22] << 8) | (b[23] << 16) | (b[24] << 24);
+    return { w: (n & 0x3fff) + 1, h: ((n >> 14) & 0x3fff) + 1 };
+  }
+  if (fmt === "VP8X") return { w: 1 + (b[24] | (b[25] << 8) | (b[26] << 16)), h: 1 + (b[27] | (b[28] << 8) | (b[29] << 16)) };
+  return null;
+}
+
+// 이미지 1장을 줄여서 받아 온다. 포스터로 쓸 수 없으면(작은 로고, 띠배너) 'unfit', 받지 못하면 'error'.
+async function fetchCover(src: string): Promise<{ bytes: Uint8Array; ratio: number } | "unfit" | "error"> {
+  try {
+    // we = 원본보다 키우지 않음 → 돌아온 폭이 작으면 원본이 작은 것(아이콘·로고)
+    const url = `https://wsrv.nl/?url=${encodeURIComponent(src)}&w=${COVER_WIDTH}&we&output=webp&q=78`;
+    const res = await fetch(url, { signal: AbortSignal.timeout(COVER_TIMEOUT_MS) });
+    if (!res.ok) { await res.body?.cancel(); return "error"; }
+    const bytes = new Uint8Array(await res.arrayBuffer());
+    const size = webpSize(bytes);
+    if (!size || size.w === 0 || size.h === 0 || bytes.length > COVER_MAX_BYTES) return "error";
+    const ratio = size.w / size.h;
+    if (size.w < 240 || ratio > 2.2 || ratio < 0.3) return "unfit";
+    return { bytes, ratio: Math.round(ratio * 1000) / 1000 };
+  } catch {
+    return "error";
+  }
+}
+
+async function makeCovers(limit: number) {
+  const res = { pending: 0, made: 0, unfit: 0, failed: 0 };
+  const { data, error } = await supabase.rpc("events_needing_covers", { lim: limit });
+  if (error) return { ...res, error: error.message };
+  const rows = (data ?? []) as { notice_id: string; body_image_urls: string[] | null; cover_attempts: number }[];
+  res.pending = rows.length;
+  let next = 0;
+  async function worker() {
+    while (next < rows.length) {
+      const r = rows[next++];
+      let cover: { bytes: Uint8Array; ratio: number } | null = null;
+      let sawError = false;
+      for (const src of (r.body_image_urls ?? []).slice(0, COVER_TRY_IMAGES)) {
+        const c = await fetchCover(src);
+        if (c === "error") { sawError = true; continue; }
+        if (c === "unfit") continue;
+        cover = c;
+        break;
+      }
+      if (cover) {
+        const path = `ev/${r.notice_id}.webp`;
+        const { error: upErr } = await supabase.storage.from(COVER_BUCKET)
+          .upload(path, cover.bytes, { contentType: "image/webp", upsert: true, cacheControl: "31536000" });
+        if (!upErr) {
+          const publicUrl = supabase.storage.from(COVER_BUCKET).getPublicUrl(path).data.publicUrl;
+          const { error: dbErr } = await supabase.from("notice_events")
+            .update({ cover_url: publicUrl, cover_ratio: cover.ratio }).eq("notice_id", r.notice_id);
+          if (!dbErr) { res.made++; continue; }
+          console.error(`cover db ${r.notice_id}: ${dbErr.message}`);
+        } else {
+          console.error(`cover upload ${path}: ${upErr.message}`);
+        }
+        sawError = true;
+      }
+      // 받지 못한 이미지가 있으면 다음 실행에서 다시(3회까지). 전부 포스터감이 아니면 바로 닫는다.
+      const attempts = sawError ? r.cover_attempts + 1 : COVER_MAX_ATTEMPTS;
+      await supabase.from("notice_events").update({ cover_attempts: attempts }).eq("notice_id", r.notice_id);
+      if (sawError) res.failed++; else res.unfit++;
+    }
+  }
+  await Promise.all(Array.from({ length: Math.min(COVER_CONCURRENCY, rows.length) }, worker));
+  return res;
+}
+
+// 행사 탭에서 빠진 지 오래된(게시 75일 경과) 글의 커버를 Storage 에서 지운다.
+async function purgeCovers() {
+  const { data, error } = await supabase.rpc("event_covers_expired", { lim: 20 });
+  if (error) return { error: error.message };
+  const rows = (data ?? []) as { notice_id: string; cover_url: string }[];
+  if (rows.length === 0) return { removed: 0 };
+  const mark = `/object/public/${COVER_BUCKET}/`;
+  const paths = rows.filter((r) => r.cover_url.includes(mark))
+    .map((r) => decodeURIComponent(r.cover_url.split(mark)[1].split("?")[0]));
+  if (paths.length > 0) {
+    const { error: rmErr } = await supabase.storage.from(COVER_BUCKET).remove(paths);
+    if (rmErr) return { error: rmErr.message };
+  }
+  const { error: upErr } = await supabase.from("notice_events")
+    .update({ cover_url: null, cover_ratio: null, cover_attempts: COVER_MAX_ATTEMPTS })
+    .in("notice_id", rows.map((r) => r.notice_id));
+  if (upErr) return { error: upErr.message };
+  return { removed: paths.length };
+}
+
 Deno.serve(async (req) => {
   const cronSecret = Deno.env.get("CRON_SECRET");
   if (!cronSecret || req.headers.get("Authorization") !== `Bearer ${cronSecret}`) {
     return new Response(JSON.stringify({ error: "Unauthorized" }), { status: 401 });
   }
 
-  let body: { dryRun?: boolean; ids?: unknown; batch?: unknown } = {};
+  let body: { dryRun?: boolean; ids?: unknown; batch?: unknown; covers?: unknown } = {};
   try { body = await req.json(); } catch { /* cron 빈 body */ }
+
+  // 커버 전용 모드(백필): LLM 호출 없음
+  if (Number.isInteger(body.covers) && (body.covers as number) > 0) {
+    const covers = await makeCovers(Math.min(body.covers as number, COVER_MAX_BATCH));
+    return new Response(JSON.stringify({ mode: "covers", covers }), { headers: { "Content-Type": "application/json" } });
+  }
+
   const dryRun = body.dryRun === true;
   if (dryRun && !Array.isArray(body.ids)) {
     return new Response(JSON.stringify({ error: "dryRun 에는 ids 배열이 필요합니다" }), { status: 400 });
@@ -220,7 +343,10 @@ Deno.serve(async (req) => {
     for (const r of (todo ?? []) as { id: string; attempts: number }[]) prevAttempts.set(r.id, r.attempts ?? 0);
     ids = [...prevAttempts.keys()];
     if (ids.length === 0) {
-      return new Response(JSON.stringify({ fetched: 0, extracted: 0, failed: 0 }), { headers: { "Content-Type": "application/json" } });
+      // 새로 추출할 글이 없어도 밀린 커버는 이어서 만든다.
+      const covers = await makeCovers(COVER_BATCH);
+      const coverPurge = await purgeCovers();
+      return new Response(JSON.stringify({ fetched: 0, extracted: 0, failed: 0, covers, coverPurge }), { headers: { "Content-Type": "application/json" } });
     }
   }
 
@@ -276,7 +402,11 @@ Deno.serve(async (req) => {
   }
   await Promise.all(Array.from({ length: Math.min(CONCURRENCY, rows.length) }, worker));
 
-  return new Response(JSON.stringify({ dryRun, model: MODEL, ...stats, results }), {
+  // 방금 추출된 행사까지 포함해 커버를 만든다(드라이런은 기록을 남기지 않으므로 건너뛴다).
+  const covers = dryRun ? undefined : await makeCovers(COVER_BATCH);
+  const coverPurge = dryRun ? undefined : await purgeCovers();
+
+  return new Response(JSON.stringify({ dryRun, model: MODEL, ...stats, covers, coverPurge, results }), {
     headers: { "Content-Type": "application/json" },
   });
 });

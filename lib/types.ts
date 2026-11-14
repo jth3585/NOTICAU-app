@@ -67,7 +67,9 @@ export type EventInfo = {
   place: string | null;
   ends_at: string | null;       // 이 시각이 지나면 목록에서 빠진다(서버 계산). null = 일정 미정
   open: boolean;                // true = 타 학과도 참석 가능
-  member_units: string[];       // open=false 일 때 참석 가능한 소속 코드(학과·단과대)
+  member_units: string[];       // 주최·대상 소속 코드(학과·단과대). open=false 면 이 소속만 참석 가능
+  cover_url?: string | null;    // 포스터 썸네일(가로 720px WebP). 이미지 없는 글은 null
+  cover_ratio?: number | null;  // 썸네일의 가로/세로 비
 };
 
 // 다이제스트/매칭용 공유 타입

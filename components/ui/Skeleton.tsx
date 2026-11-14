@@ -62,7 +62,40 @@ export function NoticeListSkeleton({ count = 6 }: { count?: number }) {
   );
 }
 
+// 행사 탭(2열 포스터 그리드) 로딩 placeholder: 포스터 칸 + 제목 두 줄.
+export function EventGridSkeleton({ rows = 2 }: { rows?: number }) {
+  const cardW = Math.floor((SCREEN_W - SPACING.lg * 2 - SPACING.md) / 2);
+  const posterH = Math.round(cardW / 0.75);
+  const innerW = cardW - SPACING.md * 2;
+  return (
+    <View style={styles.grid}>
+      {Array.from({ length: rows * 2 }).map((_, i) => (
+        <View key={i} style={[styles.gridCard, { width: cardW }]}>
+          <View style={[styles.gridPoster, { height: posterH }]} />
+          <View style={styles.gridBody}>
+            <ContentLoader
+              speed={1.1}
+              width={innerW}
+              height={48}
+              backgroundColor={COLORS.surface2}
+              foregroundColor={COLORS.border}
+            >
+              <Rect x="0" y="0" rx="5" ry="5" width="40" height="12" />
+              <Rect x="0" y="20" rx="5" ry="5" width={String(innerW)} height="12" />
+              <Rect x="0" y="38" rx="5" ry="5" width={String(Math.round(innerW * 0.6))} height="10" />
+            </ContentLoader>
+          </View>
+        </View>
+      ))}
+    </View>
+  );
+}
+
 const styles = StyleSheet.create({
+  grid: { flexDirection: 'row', flexWrap: 'wrap', gap: SPACING.md, paddingHorizontal: SPACING.lg, paddingTop: SPACING.md },
+  gridCard: { backgroundColor: COLORS.surface, borderRadius: RADIUS.card, ...SHADOW.card },
+  gridPoster: { borderTopLeftRadius: RADIUS.card, borderTopRightRadius: RADIUS.card, backgroundColor: COLORS.surface2 },
+  gridBody: { padding: SPACING.md },
   body: { marginTop: SPACING.md },
   list: { paddingTop: SPACING.sm },
   card: {
