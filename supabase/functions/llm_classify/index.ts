@@ -24,13 +24,29 @@ import Anthropic from "npm:@anthropic-ai/sdk";
 import { createClient } from "jsr:@supabase/supabase-js@2";
 import { encodeBase64 } from "jsr:@std/encoding/base64";
 
-const MODEL = "claude-haiku-4-5-20251001";
-const MAX_TOKENS = 16000; // 8000→16000: 긴 본문 body_markdown 잘림 방지 (출력 토큰은 실제 생성분만 과금)
+// 2026-11-15 Haiku 4.5 → 5.5. 최근 100건을 드라이런으로 비교: 오류 0, ~해요체 위반 30→0건,
+// 여러 마감 중 첫 마감을 고르는 등 프롬프트 규칙 준수가 더 좋고, 건당 실측 $0.0016(4.5 는 토큰 단가가 10배).
+// 5.5 는 기본으로 생각(thinking)을 하므로 건당 평균 12초 — 그래서 아래 PROD_CONCURRENCY 로 2건씩 처리한다.
+const MODEL = "claude-haiku-5-5";
+const EFFORT = "medium"; // 비교에 쓴 값. 생각하는 양(=출력 토큰·지연)을 정한다.
+const PREV_MODEL = "claude-haiku-4-5-20251001"; // 드라이런 비교용으로만 남긴다
+const PROD_CONCURRENCY = 2;
+const MAX_TOKENS = 16000; // 8000→16000: 긴 본문 body_markdown 잘림 방지 (출력 토큰은 실제 생성분만 과금, 생각 토큰 포함)
 const MAX_ATTEMPTS = 2;
 const DEFAULT_BATCH = 8;
 
+// 드라이런({"dryRun":true,"ids":[…],"model":…,"effort":…})에서만 고를 수 있는 모델. 운영 경로는 항상 MODEL.
+const DRY_MODELS = new Set([MODEL, PREV_MODEL]);
+const EFFORTS = new Set(["low", "medium", "high"]);
+const DRY_MAX_IDS = 20;
+const DRY_CONCURRENCY = 4;
+type ClassifyOpts = { model: string; effort?: string };
+type ClassifyDiag = { ms?: number; usage?: unknown; ocr_chars?: number; used_image?: boolean };
+
 // 출력이 max_tokens로 잘린 경우 — 같은 설정으로 재시도해도 또 잘리므로 재시도하지 않는다.
 class TruncationError extends Error {}
+// 안전 분류기가 요청을 거절한 경우(Haiku 5.5부터, HTTP 200 + stop_reason "refusal") — 재시도해도 같다.
+class RefusalError extends Error {}
 
 // ⚠️ 앱의 카테고리 칩(lib/constants.ts CHIP_TOPICS, '전체' 제외 8개)과 반드시 일치해야 한다.
 //    한쪽만 바꾸면 해당 카테고리 공지가 칩에 안 잡히거나 분류가 깨짐 → 둘을 함께 수정할 것.
@@ -479,8 +495,16 @@ async function ocrImages(urls: string[]): Promise<string> {
   return chunks.join("\n\n").trim();
 }
 
+// CLOVA 는 계정당 1 TPS 라, 공지 여러 건을 동시에 처리해도(드라이런) OCR 만은 한 줄로 세운다.
+let ocrQueue: Promise<unknown> = Promise.resolve();
+function ocrImagesSerial(urls: string[]): Promise<string> {
+  const p = ocrQueue.then(() => ocrImages(urls));
+  ocrQueue = p.catch(() => "");
+  return p;
+}
+
 // deno-lint-ignore no-explicit-any
-async function classifyNotice(notice: any) {
+async function classifyNotice(notice: any, opts: ClassifyOpts = { model: MODEL, effort: EFFORT }, diag: ClassifyDiag = {}) {
   // 대상은 실제 http(s) 이미지만 (data: 인라인/오염 URL 제외)
   const httpImgs: string[] = (notice.body_image_urls || [])
     .filter((u: string) => /^https?:\/\//.test(u) && !u.includes("data:image"));
@@ -489,8 +513,9 @@ async function classifyNotice(notice: any) {
   // 1차: OCR. 여러 장·대용량·저해상도 문제가 여기서 모두 해소된다.
   let ocrText = "";
   if (hasImageOnly) {
-    ocrText = await ocrImages(httpImgs);
+    ocrText = await ocrImagesSerial(httpImgs);
   }
+  diag.ocr_chars = ocrText.length;
 
   // 2차: OCR이 실패했거나 건진 텍스트가 너무 적으면 기존 비전 경로로 폴백.
   // (디자인 위주 포스터처럼 OCR이 약한 케이스를 위한 안전망)
@@ -499,6 +524,7 @@ async function classifyNotice(notice: any) {
     imgData = await fetchImageAsBase64(httpImgs[0]);
   }
   const useImage = !!imgData;
+  diag.used_image = useImage;
 
   // deno-lint-ignore no-explicit-any
   const content: any[] = [{ type: "text", text: buildUserPrompt(notice, useImage, ocrText) }];
@@ -506,21 +532,31 @@ async function classifyNotice(notice: any) {
     content.push({ type: "image", source: { type: "base64", media_type: imgData.mediaType, data: imgData.base64 } });
   }
 
+  // deno-lint-ignore no-explicit-any
+  const params: any = {
+    model: opts.model,
+    max_tokens: MAX_TOKENS,
+    // prompt caching: 거대한 시스템 프롬프트를 캐시 → 배치 내 2번째 호출부터 입력 토큰 대폭 절감
+    system: [{ type: "text", text: SYSTEM_PROMPT, cache_control: { type: "ephemeral" } }],
+    messages: [{ role: "user", content }],
+  };
+  // effort 는 Haiku 5.5부터 받는다(4.5에 보내면 오류). 생각하는 양을 정하는 유일한 손잡이.
+  if (opts.effort && opts.model.startsWith("claude-haiku-5")) params.output_config = { effort: opts.effort };
+
   let lastErr: unknown;
   for (let attempt = 1; attempt <= MAX_ATTEMPTS; attempt++) {
     try {
-      const response = await anthropic.messages.create({
-        model: MODEL,
-        max_tokens: MAX_TOKENS,
-        // prompt caching: 거대한 시스템 프롬프트를 캐시 → 배치 내 2번째 호출부터 입력 토큰 대폭 절감
-        system: [{ type: "text", text: SYSTEM_PROMPT, cache_control: { type: "ephemeral" } }],
-        messages: [{ role: "user", content }],
-      });
+      const t0 = Date.now();
+      const response = await anthropic.messages.create(params);
+      diag.ms = Date.now() - t0;
+      diag.usage = response.usage;
+      if (response.stop_reason === "refusal") throw new RefusalError("refusal");
       // 출력이 잘렸으면 JSON이 불완전 → 재시도해도 또 잘림. 재시도 없이 즉시 실패 처리.
       if (response.stop_reason === "max_tokens") {
         throw new TruncationError(`output truncated at max_tokens=${MAX_TOKENS}`);
       }
-      const text = response.content.filter((b) => b.type === "text").map((b) => (b as { text: string }).text).join("\n");
+      // deno-lint-ignore no-explicit-any
+      const text = response.content.filter((b: any) => b.type === "text").map((b: any) => b.text as string).join("\n");
       const parsed = extractJson(text);
       if (!parsed) throw new Error(`LLM did not return valid JSON: ${text.slice(0, 200)}`);
       validateAndFix(parsed);
@@ -530,10 +566,10 @@ async function classifyNotice(notice: any) {
         const posted = new Date(notice.posted_at);
         if (!isNaN(dl.getTime()) && !isNaN(posted.getTime()) && dl < posted) parsed.deadline_at = null;
       }
-      return { ...parsed, has_image_content: hasImageOnly, llm_model: MODEL };
+      return { ...parsed, has_image_content: hasImageOnly, llm_model: opts.model };
     } catch (err) {
       lastErr = err;
-      if (err instanceof TruncationError) break; // 재시도 무의미 → 낭비 차단
+      if (err instanceof TruncationError || err instanceof RefusalError) break; // 재시도 무의미 → 낭비 차단
       if (attempt < MAX_ATTEMPTS) await new Promise((r) => setTimeout(r, 500));
     }
   }
@@ -548,16 +584,28 @@ Deno.serve(async (req) => {
   }
 
   let batch = DEFAULT_BATCH;
+  // 드라이런: 지정한 공지를 지정한 모델로 분류만 해 보고 아무것도 기록하지 않는다(모델 교체 전 비교용).
+  let dry: { ids: string[]; opts: ClassifyOpts } | null = null;
   try {
     const body = await req.json();
     if (body && Number.isInteger(body.batch) && body.batch > 0) batch = Math.min(body.batch, 30);
+    if (body?.dryRun === true) {
+      const ids = Array.isArray(body.ids) ? body.ids.filter((x: unknown) => typeof x === "string").slice(0, DRY_MAX_IDS) : [];
+      const model = typeof body.model === "string" ? body.model : MODEL;
+      if (ids.length === 0 || !DRY_MODELS.has(model)) {
+        return new Response(JSON.stringify({ error: "dryRun needs ids[] and a known model" }), { status: 400 });
+      }
+      dry = { ids, opts: { model, effort: EFFORTS.has(body.effort) ? body.effort : EFFORT } };
+    }
   } catch { /* cron 빈 body */ }
 
   // 교차출처 중복 표시(dedup_notices)는 별도 cron(10분)에서 수행한다. 여기서 매 실행마다
   // 호출하면 notices 전체 재계산으로 Disk IO가 급증(→ IO 예산 소진)하므로 분리했다.
   // notices_unclassified는 duplicate_of is null만 반환 → 이미 표시된 중복본은 분류 제외.
   // (dedup 직전 크롤된 중복본이 한두 틱 먼저 분류될 수 있으나 낭비는 미미.)
-  const { data: notices, error: qErr } = await supabase.rpc("notices_unclassified", { lim: batch });
+  const { data: notices, error: qErr } = dry
+    ? await supabase.from("notices").select("*").in("id", dry.ids)
+    : await supabase.rpc("notices_unclassified", { lim: batch });
   if (qErr) {
     return new Response(JSON.stringify({ error: qErr.message }), { status: 500 });
   }
@@ -678,14 +726,19 @@ Deno.serve(async (req) => {
   }
 
   const stats = { fetched: (notices ?? []).length, classified: 0, failed: 0 };
-  const results: { id: string; topic?: string; error?: string }[] = [];
+  // deno-lint-ignore no-explicit-any
+  const results: { id: string; topic?: string; error?: string; meta?: any; diag?: ClassifyDiag }[] = [];
 
-  for (const n of notices ?? []) {
+  // deno-lint-ignore no-explicit-any
+  const processOne = async (n: any) => {
     // 처리 시작 시 시도 횟수 +1. 타임아웃/크래시로 catch에 못 들어가도 카운트되어
     // RPC의 classify_attempts<3 가드가 작동 → 무한 재시도(비용 폭탄) 원천 차단.
-    await supabase.from("notices")
-      .update({ classify_attempts: (n.classify_attempts ?? 0) + 1 })
-      .eq("id", n.id);
+    if (!dry) {
+      await supabase.from("notices")
+        .update({ classify_attempts: (n.classify_attempts ?? 0) + 1 })
+        .eq("id", n.id);
+    }
+    const diag: ClassifyDiag = {};
     try {
       const meta = await classifyNotice({
         title: n.title,
@@ -697,7 +750,7 @@ Deno.serve(async (req) => {
         posted_at: n.posted_at,
         file_count: (n.attachment_urls?.length ?? 0),
         owner: ownerBySourceId.get(n.source_id) ?? null,
-      });
+      }, dry?.opts, diag);
       // target_depts 이름 → 코드 정규화(매칭 안 되는 이름은 드롭, 전부 드롭이면 null=전체노출)
       if (Array.isArray(meta.target_depts)) {
         const codes = meta.target_depts.map((nm: string) => nameToCode.get(nm)).filter(Boolean) as string[];
@@ -720,6 +773,11 @@ Deno.serve(async (req) => {
       if (grp && Array.isArray(meta.target_depts) && meta.target_depts.length > 0) {
         meta.target_depts = grp;
       }
+      if (dry) {
+        stats.classified++;
+        results.push({ id: n.id, topic: meta.topic, meta, diag });
+        return;
+      }
       const { error: upErr } = await supabase.from("notice_meta").upsert({ notice_id: n.id, ...meta });
       if (upErr) throw upErr;
       await supabase.from("notices").update({ classify_last_error: null }).eq("id", n.id);
@@ -727,11 +785,22 @@ Deno.serve(async (req) => {
       results.push({ id: n.id, topic: meta.topic });
     } catch (e) {
       const msg = String((e as Error).message).slice(0, 500);
-      await supabase.from("notices").update({ classify_last_error: msg }).eq("id", n.id);
       stats.failed++;
+      if (dry) { results.push({ id: n.id, error: msg.slice(0, 200), diag }); return; }
+      await supabase.from("notices").update({ classify_last_error: msg }).eq("id", n.id);
       results.push({ id: n.id, error: msg.slice(0, 200) });
       console.error(`classify ${n.id} failed: ${msg}`);
     }
+  };
+
+  // 공지마다 서로 다른 행만 쓰므로 동시에 돌려도 된다(OCR 은 ocrImagesSerial 이 한 줄로 세운다).
+  const queue = [...(notices ?? [])];
+  await Promise.all(Array.from({ length: dry ? DRY_CONCURRENCY : PROD_CONCURRENCY }, async () => {
+    for (let n = queue.shift(); n; n = queue.shift()) await processOne(n);
+  }));
+
+  if (dry) {
+    return new Response(JSON.stringify({ dryRun: true, ...dry.opts, ...stats, results }), { headers: { "Content-Type": "application/json" } });
   }
 
   return new Response(JSON.stringify({ ...stats, results }), { headers: { "Content-Type": "application/json" } });
