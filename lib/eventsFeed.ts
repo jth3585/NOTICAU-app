@@ -146,66 +146,59 @@ function hasStarted(n: EventNotice): boolean {
 
 export type EventSection = { title: string; data: EventNotice[] };
 
-const byStart = (a: EventNotice, b: EventNotice) =>
-  (a.event.start_at ?? '').localeCompare(b.event.start_at ?? '') || (b.posted_at ?? '').localeCompare(a.posted_at ?? '');
+// 목록에서 이 글의 자리를 정하는 날짜: 참석 행사는 시작일, 참여 이벤트(경품·혜택)는 마감일.
+// 날짜를 알 수 없으면 null — 그런 글은 행사 탭에 싣지 않는다.
+export function eventListDate(n: EventNotice): string | null {
+  if (n.event.kind === 'giveaway') return giveawayDeadline(n);
+  return valid(n.event.start_at) ? n.event.start_at : null;
+}
+
+const byDate = (a: EventNotice, b: EventNotice) =>
+  (eventListDate(a) ?? '').localeCompare(eventListDate(b) ?? '') || (b.posted_at ?? '').localeCompare(a.posted_at ?? '');
 
 const SOON_MS = 3 * 86_400_000;
 
-// 참여 이벤트 정렬: 마감 가까운 순, 마감 없는 것은 뒤로(최신 게시순).
-function sortGiveaways(rows: EventNotice[]): { dated: EventNotice[]; open: EventNotice[] } {
-  const dated = rows.filter((n) => giveawayDeadline(n)).sort((a, b) =>
-    (giveawayDeadline(a) ?? '').localeCompare(giveawayDeadline(b) ?? ''));
-  const open = rows.filter((n) => !giveawayDeadline(n)).sort((a, b) =>
-    (b.posted_at ?? '').localeCompare(a.posted_at ?? ''));
-  return { dated, open };
-}
-
 // 행사 탭 화면 구성.
-//  hero: 맨 위 큰 포스터 캐러셀(오늘 + 7일 안에 열리는 참석 행사). 2건 이상일 때만 쓰고,
+//  hero: 맨 위 큰 포스터 캐러셀(오늘 + 7일 안에 열리는 행사). 2건 이상일 때만 쓰고,
 //        1건뿐이면 캐러셀 대신 아래 그리드의 '이번 주' 섹션으로 내린다(카드 한 장짜리 캐러셀은 어색하다).
-//  sections: 2열 포스터 그리드. 다가오는 행사 → 참여 이벤트 → 진행 중 → 더 둘러보기(일시를 못 찾은 글).
+//  sections: 2열 포스터 그리드. 다가오는 행사 → 진행 중.
 export type EventsLayout = { hero: EventNotice[]; sections: EventSection[] };
 
 const HERO_MIN = 2;
 
 // rows: 이미 '나에게 해당되는 것'으로 추린 목록.
-//  이미 시작한 여러 날짜리 행사 중 곧(3일 안에) 끝나는 것(축제 둘째 날, 공연 기간 등)은 이번 주에 두고,
-//  몇 주씩 이어지는 연속 특강·교육은 '진행 중'으로 내려 다가오는 행사가 묻히지 않게 한다.
+//  - 날짜를 알 수 없는 글은 뺀다(사용자 결정: 일정이 정해지면 일정이 적힌 글이 다시 올라온다).
+//  - 참여 이벤트는 60일에 네댓 건뿐이라 따로 묶지 않고 마감일 자리에 함께 둔다(도장에 '마감'이 찍힌다).
+//  - 이미 시작한 여러 날짜리 행사 중 곧(3일 안에) 끝나는 것(축제 둘째 날, 공연 기간 등)은 이번 주에 두고,
+//    몇 주씩 이어지는 연속 특강·교육은 '진행 중'으로 내려 다가오는 행사가 묻히지 않게 한다.
 export function buildEventsLayout(rows: EventNotice[]): EventsLayout {
-  const give = sortGiveaways(rows.filter((n) => n.event.kind === 'giveaway'));
-
   const today: EventNotice[] = [];
   const week: EventNotice[] = [];
   const later: EventNotice[] = [];
   const ongoing: EventNotice[] = [];
-  const undated: EventNotice[] = [];
   for (const n of rows) {
-    if (n.event.kind !== 'event') continue;
-    const st = n.event.start_at;
-    if (!valid(st)) { undated.push(n); continue; }
-    const d = daysFromToday(st);
+    const date = eventListDate(n);
+    if (!date) continue;
+    const d = daysFromToday(date);
     if (d === 0) today.push(n);
     else if (d < 0) {
+      // 마감이 지난 참여 이벤트는 서버가 이미 걸러 주지만, 혹시 남아 있으면 오늘로 본다.
       const ends = n.event.ends_at;
-      const endsSoon = !valid(ends) || Date.parse(ends) - Date.now() <= SOON_MS;
+      const endsSoon = n.event.kind === 'giveaway' || !valid(ends) || Date.parse(ends) - Date.now() <= SOON_MS;
       (endsSoon ? today : ongoing).push(n);
     } else if (d <= 7) week.push(n);
     else later.push(n);
   }
   ongoing.sort((a, b) => (a.event.ends_at ?? '').localeCompare(b.event.ends_at ?? ''));
-  undated.sort((a, b) => (b.posted_at ?? '').localeCompare(a.posted_at ?? ''));
-  const soon = [...today.sort(byStart), ...week.sort(byStart)];
+  const soon = [...today.sort(byDate), ...week.sort(byDate)];
   const useHero = soon.length >= HERO_MIN;
 
   return {
     hero: useHero ? soon : [],
     sections: [
       { title: '이번 주', data: useHero ? [] : soon },
-      { title: '다가오는 행사', data: later.sort(byStart) },
-      { title: '참여 이벤트', data: [...give.dated, ...give.open] },
+      { title: '다가오는 행사', data: later.sort(byDate) },
       { title: '진행 중', data: ongoing },
-      // 일시를 끝내 못 찾은 글(릴스 등). "일정은 원문에서 확인해요" 같은 변명조 제목 대신 담백하게 둔다.
-      { title: '더 둘러보기', data: undated },
     ].filter((s) => s.data.length > 0),
   };
 }
