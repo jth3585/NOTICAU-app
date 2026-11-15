@@ -132,8 +132,12 @@ async function fetchDetail(b: Board, uid: string) {
       if (!upErr) {
         const { data } = supabase.storage.from(BUCKET).getPublicUrl(path);
         if (data?.publicUrl) images.push(data.publicUrl);
+      } else {
+        console.error(`[${b.parserKey}] uid ${uid}: inline image upload failed: ${upErr.message}`);
       }
-    } catch (_) { /* 업로드 실패 무시 */ }
+    } catch (e) {
+      console.error(`[${b.parserKey}] uid ${uid}: inline image failed: ${(e as Error).message}`);
+    }
   }
 
   const attachments: string[] = [];
@@ -146,8 +150,8 @@ async function fetchDetail(b: Board, uid: string) {
   return { bodyText, images, attachments };
 }
 
-async function crawlBoard(b: Board, pages: number, reprocess: boolean) {
-  const stat = { board: b.parserKey, pages: 0, listed: 0, skippedDup: 0, insertedNotices: 0, updated: 0, fetchFailed: 0, error: null as string | null };
+async function crawlBoard(b: Board, pages: number, reprocess: boolean, uids: string[] | null) {
+  const stat = { board: b.parserKey, pages: 0, listed: 0, skippedDup: 0, insertedNotices: 0, updated: 0, fetchFailed: 0, changedIds: [] as string[], error: null as string | null };
 
   const { data: source } = await supabase.from("sources").select("id").eq("parser_key", b.parserKey).maybeSingle();
   if (!source) { stat.error = `source not found: ${b.parserKey}`; return stat; }
@@ -161,11 +165,12 @@ async function crawlBoard(b: Board, pages: number, reprocess: boolean) {
       if (rawItems.length === 0) break;
 
       for (const it of rawItems) {
+        if (uids && !uids.includes(it.uid)) continue; // 지정한 글만 다시 읽는 경우
         const postedAt = `${it.publishedAt}T00:00:00+09:00`;
         const url = viewUrl(b, it.uid);
         try {
           const contentHash = await sha256Hex(`${it.title}|${url}|${postedAt}`);
-          const { data: existing } = await supabase.from("notices").select("id").eq("content_hash", contentHash).maybeSingle();
+          const { data: existing } = await supabase.from("notices").select("id,body_text,body_image_urls").eq("content_hash", contentHash).maybeSingle();
           if (existing && !reprocess) { stat.skippedDup++; continue; }
 
           const detail = await fetchDetail(b, it.uid);
@@ -178,6 +183,8 @@ async function crawlBoard(b: Board, pages: number, reprocess: boolean) {
               attachment_urls: detail.attachments,
             }).eq("id", existing.id);
             stat.updated++;
+            if ((existing.body_text ?? "") !== detail.bodyText ||
+                JSON.stringify(existing.body_image_urls ?? []) !== JSON.stringify(detail.images)) stat.changedIds.push(existing.id);
             await sleep(1500);
             continue;
           }
@@ -237,15 +244,18 @@ Deno.serve(async (req) => {
 
   let pages = 1;
   let reprocess = false;
+  // {"reprocess":true,"uids":["48374"]}: 지정한 글만 다시 읽는다(나중에 본문·포스터가 붙은 글 복구용).
+  let uids: string[] | null = null;
   try {
     const body = await req.json();
     if (body && Number.isInteger(body.pages) && body.pages > 0) pages = Math.min(body.pages, 30);
     if (body && body.reprocess === true) reprocess = true;
+    if (body && Array.isArray(body.uids) && body.uids.length > 0) uids = body.uids.map((u: unknown) => String(u));
   } catch { /* cron 빈 body */ }
 
   const results = [];
   for (const b of BOARDS) {
-    results.push(await crawlBoard(b, pages, reprocess));
+    results.push(await crawlBoard(b, pages, reprocess, uids));
   }
 
   return new Response(JSON.stringify({ results }), { headers: { "Content-Type": "application/json" } });

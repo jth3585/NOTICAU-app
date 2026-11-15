@@ -8,6 +8,7 @@
 
 import { load } from "npm:cheerio";
 import { createClient } from "jsr:@supabase/supabase-js@2";
+import { rehostInlineImages } from "../_shared/inline_image.ts";
 
 const SOURCE_PARSER_KEY = "cau_advmat";
 const BASE = "http://ame.cau.ac.kr";
@@ -108,13 +109,18 @@ async function fetchDetail(num: string) {
   const bodyText = cont.text().replace(/ /g, " ").replace(/[ \t]+/g, " ").replace(/\n{3,}/g, "\n\n").trim();
 
   const images: string[] = [];
+  const inline: string[] = [];
   cont.find("img").each((_, el) => {
     let src = $(el).attr("src");
-    if (!src || src.startsWith("data:")) return;
+    if (!src) return;
+    if (src.startsWith("data:")) { inline.push(src); return; }
+    if (src.startsWith("file:")) return; // 작성자 PC 경로가 그대로 붙은 깨진 이미지
     if (src.startsWith("//")) src = "http:" + src;
     else if (!/^https?:\/\//.test(src)) src = abs(src);
     images.push(src);
   });
+  // 이 게시판은 포스터를 주소 없이 글에 직접 붙여 넣는다(최근 글의 2/3) → Storage 에 올려 URL 로 만든다.
+  if (inline.length > 0) images.push(...await rehostInlineImages(supabase, SOURCE_PARSER_KEY, inline));
 
   const attachments: string[] = [];
   $("a[href*='download'], a[href*='bbs_download'], a[href*='/data/'], a[href*='filedown']").each((_, el) => {
@@ -136,10 +142,13 @@ Deno.serve(async (req) => {
 
   let pages = 1;
   let backfillFrom = DEFAULT_BACKFILL;
+  // {"reprocess":true}: 이미 수집한 글을 다시 읽어 본문·이미지·첨부만 제자리에서 고친다(크롤러 규칙을 고친 뒤 백필용).
+  let reprocess = false;
   try {
     const body = await req.json();
     if (body && Number.isInteger(body.pages) && body.pages > 0) pages = Math.min(body.pages, 30);
     if (body && typeof body.backfillFrom === "string" && /^\d{4}-\d{2}-\d{2}$/.test(body.backfillFrom)) backfillFrom = body.backfillFrom;
+    if (body && body.reprocess === true) reprocess = true;
   } catch { /* cron 빈 body */ }
 
   const { data: source, error: sErr } = await supabase
@@ -149,7 +158,7 @@ Deno.serve(async (req) => {
   }
   const sourceId = source.id;
 
-  const stats = { listed: 0, skippedOld: 0, skippedDup: 0, insertedNotices: 0, fetchFailed: 0 };
+  const stats = { listed: 0, skippedOld: 0, skippedDup: 0, insertedNotices: 0, fetchFailed: 0, changedIds: [] as string[] };
 
   try {
     for (let page = 1; page <= pages; page++) {
@@ -166,10 +175,24 @@ Deno.serve(async (req) => {
         try {
           const contentHash = await sha256Hex(`${it.title}|${SOURCE_PARSER_KEY}/${it.num}|${postedAt}`);
           const { data: existing } = await supabase
-            .from("notices").select("id").eq("content_hash", contentHash).maybeSingle();
-          if (existing) { stats.skippedDup++; continue; }
+            .from("notices").select("id,body_text,body_image_urls").eq("content_hash", contentHash).maybeSingle();
+          if (existing && !reprocess) { stats.skippedDup++; continue; }
 
           const detail = await fetchDetail(it.num);
+
+          if (existing) {
+            const same = (existing.body_text ?? "") === detail.bodyText &&
+              JSON.stringify(existing.body_image_urls ?? []) === JSON.stringify(detail.images);
+            if (!same) {
+              const { error: upErr } = await supabase.from("notices").update({
+                body_text: detail.bodyText, body_image_urls: detail.images, attachment_urls: detail.attachments,
+              }).eq("id", existing.id);
+              if (upErr) throw upErr;
+              stats.changedIds.push(existing.id);
+            }
+            await sleep(400);
+            continue;
+          }
 
           const { error: insErr } = await supabase.from("notices").insert({
             source_id: sourceId,

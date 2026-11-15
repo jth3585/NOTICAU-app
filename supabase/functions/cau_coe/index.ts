@@ -106,19 +106,29 @@ function parseList(html: string): ListItem[] {
 async function fetchDetail(idx: string) {
   const html = await fetchHtml(viewUrl(idx));
   const $ = load(html);
-  let cont = $(".real-cont").first();
+  // 본문은 .board-view > .body. 예전에는 바깥 .real-cont 를 통째로 읽어 스크립트 코드·첨부 아이콘·
+  // 이전글/다음글 제목까지 본문과 이미지로 들어왔다.
+  // 지워진 글은 alert 스크립트만 내려온다 → 빈 본문으로 덮어쓰지 않게 실패로 처리.
+  if (!$(".board-view").length) throw new Error("board-view not found (deleted post?)");
+  let cont = $(".board-view .body").first();
   if (!cont.length) cont = $(".board-view").first();
+  cont.find("script, style").remove();
 
-  const bodyText = cont.text().replace(/ /g, " ").replace(/[ \t]+/g, " ").replace(/\n{3,}/g, "\n\n").trim();
+  const marked = (cont.html() ?? "").replace(/<br\s*\/?>/gi, "\n").replace(/<\/(p|div|tr|li|h\d|table)>/gi, "$&\n");
+  const bodyText = load(marked).text().replace(/ /g, " ").replace(/[ \t]+/g, " ").replace(/ *\n */g, "\n").replace(/\n{3,}/g, "\n\n").trim();
+
+  // 목록의 제목은 길면 "..." 로 잘린다. 상세의 제목이 온전하다.
+  const fullTitle = $(".board-view .head .tit").first().text().replace(/\s+/g, " ").trim();
 
   const images: string[] = [];
   cont.find("img").each((_, el) => {
     let src = $(el).attr("src");
-    if (!src || src.startsWith("data:")) return;
+    if (!src || src.startsWith("data:") || src.startsWith("file:")) return;
     if (src.startsWith("//")) src = "https:" + src;
     else if (src.startsWith("/")) src = BASE + src;
     else if (!/^https?:\/\//.test(src)) src = `${BASE}/${src}`;
-    images.push(src);
+    if (/\/images\/bbs\//.test(src)) return; // 게시판 UI 아이콘
+    if (!images.includes(src)) images.push(src);
   });
 
   // 첨부: onclick="download('notice','b_idx','idx')"
@@ -140,7 +150,7 @@ async function fetchDetail(idx: string) {
     if (dd) date = `${dd[1]}-${dd[2]}-${dd[3]}`;
   }
 
-  return { bodyText, images, attachments, date };
+  return { bodyText, images, attachments, date, fullTitle };
 }
 
 Deno.serve(async (req) => {
@@ -152,10 +162,13 @@ Deno.serve(async (req) => {
 
   let pages = 1;
   let backfillFrom = DEFAULT_BACKFILL;
+  // {"reprocess":true}: 이미 수집한 글을 다시 읽어 제목·본문·이미지·첨부만 제자리에서 고친다(크롤러 규칙을 고친 뒤 백필용).
+  let reprocess = false;
   try {
     const body = await req.json();
     if (body && Number.isInteger(body.pages) && body.pages > 0) pages = Math.min(body.pages, 30);
     if (body && typeof body.backfillFrom === "string" && /^\d{4}-\d{2}-\d{2}$/.test(body.backfillFrom)) backfillFrom = body.backfillFrom;
+    if (body && body.reprocess === true) reprocess = true;
   } catch { /* cron 빈 body */ }
 
   const { data: source, error: sErr } = await supabase
@@ -165,7 +178,7 @@ Deno.serve(async (req) => {
   }
   const sourceId = source.id;
 
-  const stats = { listed: 0, skippedOld: 0, skippedDup: 0, insertedNotices: 0, fetchFailed: 0 };
+  const stats = { listed: 0, skippedOld: 0, skippedDup: 0, insertedNotices: 0, fetchFailed: 0, changedIds: [] as string[] };
 
   try {
     for (let page = 1; page <= pages; page++) {
@@ -183,7 +196,7 @@ Deno.serve(async (req) => {
           if (it.listDate) {
             const preHash = await sha256Hex(`${it.title}|${SOURCE_PARSER_KEY}/${it.idx}|${it.listDate}T00:00:00+09:00`);
             const { data: ex } = await supabase.from("notices").select("id").eq("content_hash", preHash).maybeSingle();
-            if (ex) { stats.skippedDup++; continue; }
+            if (ex && !reprocess) { stats.skippedDup++; continue; }
           }
 
           const detail = await fetchDetail(it.idx);
@@ -191,16 +204,32 @@ Deno.serve(async (req) => {
           if (!date) { stats.fetchFailed++; continue; }
           if (date < backfillFrom) { stats.skippedOld++; continue; }
 
+          // 해시는 예전과 같이 목록 제목으로 만든다(잘린 제목이어도 — 바꾸면 기존 글이 새 글로 다시 들어온다).
           const postedAt = `${date}T00:00:00+09:00`;
           const contentHash = await sha256Hex(`${it.title}|${SOURCE_PARSER_KEY}/${it.idx}|${postedAt}`);
+          const title = detail.fullTitle || it.title;
           const { data: existing } = await supabase
-            .from("notices").select("id").eq("content_hash", contentHash).maybeSingle();
-          if (existing) { stats.skippedDup++; continue; }
+            .from("notices").select("id,title,body_text,body_image_urls").eq("content_hash", contentHash).maybeSingle();
+          if (existing && !reprocess) { stats.skippedDup++; continue; }
+
+          if (existing) {
+            const same = existing.title === title && (existing.body_text ?? "") === detail.bodyText &&
+              JSON.stringify(existing.body_image_urls ?? []) === JSON.stringify(detail.images);
+            if (!same) {
+              const { error: upErr } = await supabase.from("notices").update({
+                title, body_text: detail.bodyText, body_image_urls: detail.images, attachment_urls: detail.attachments,
+              }).eq("id", existing.id);
+              if (upErr) throw upErr;
+              stats.changedIds.push(existing.id);
+            }
+            await sleep(400);
+            continue;
+          }
 
           const { error: insErr } = await supabase.from("notices").insert({
             source_id: sourceId,
             source_category: null,
-            title: it.title,
+            title,
             body_text: detail.bodyText,
             body_image_urls: detail.images,
             attachment_urls: detail.attachments,
