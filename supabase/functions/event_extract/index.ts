@@ -407,14 +407,209 @@ async function readPosters(limit: number, dryRun = false) {
   return res;
 }
 
+// ---- 행사 알림 ---------------------------------------------------------------------
+// 내 학과·단과대 행사가 새로 올라오면 알림함(notifications)에 기록하고 푸시를 보낸다.
+//  - 대상 글: RPC events_needing_alert (아직 안 알린 글, 수집 24시간·게시 3일 이내, 포스터 재확인이 끝난 것)
+//  - 받는 사람: profiles.event_alerts_enabled = true (새 앱이 켠다. 구버전 앱은 인스타 공지를 못 열어 제외)
+//              이면서 글의 소속 단위(units)가 내 학과·복수전공·단과대와 겹치는 사람
+//  - 같은 행사가 게시판·인스타에 따로 올라와도 한 사람에게는 한 번만(similar_ids 로 판단)
+//  - 푸시는 notifications_enabled 가 꺼져 있으면 보내지 않고 알림함에만 남긴다(다른 알림과 같은 규칙)
+
+const EXPO_PUSH_URL = "https://exp.host/--/api/v2/push/send";
+const ALERT_BATCH = 10;
+const ALERT_TITLE = "내 학과 새 행사";
+
+type AlertRow = {
+  notice_id: string;
+  kind: "event" | "giveaway";
+  event_name: string | null;
+  title: string;
+  event_start_at: string | null;
+  event_end_at: string | null;
+  event_place: string | null;
+  source_campus: string | null;
+  target_grades: number[] | null;
+  target_campuses: string[] | null;
+  excludes_undergrad: boolean | null;
+  units: string[];
+  similar_ids: string[];
+};
+type AlertProfile = {
+  user_id: string;
+  grade: number | null;
+  campus: string | null;
+  dept: string | null;
+  dept_secondary: string | null;
+  college: string | null;
+  notifications_enabled: boolean | null;
+};
+
+const WEEKDAYS = ["일", "월", "화", "수", "목", "금", "토"];
+
+// "11/18(수) 19:00" — 자정은 시간 미상으로 보고 날짜만. 참여 이벤트는 마감을 "…까지"로.
+function alertWhen(r: AlertRow): string | null {
+  const iso = r.kind === "giveaway" ? (r.event_end_at ?? r.event_start_at) : r.event_start_at;
+  if (!iso || isNaN(Date.parse(iso))) return null;
+  const k = new Date(Date.parse(iso) + 9 * 3600 * 1000);
+  const md = (d: Date) => `${d.getUTCMonth() + 1}/${d.getUTCDate()}(${WEEKDAYS[d.getUTCDay()]})`;
+  const date = md(k);
+  // 여러 날 행사는 "12/3(목) ~ 12/4(금)"
+  if (r.kind === "event" && r.event_end_at && Date.parse(r.event_end_at) - Date.parse(iso) >= 86_400_000) {
+    return `${date} ~ ${md(new Date(Date.parse(r.event_end_at) + 9 * 3600 * 1000))}`;
+  }
+  const hasTime = !(k.getUTCHours() === 0 && k.getUTCMinutes() === 0);
+  const time = hasTime ? ` ${String(k.getUTCHours()).padStart(2, "0")}:${String(k.getUTCMinutes()).padStart(2, "0")}` : "";
+  return r.kind === "giveaway" ? `${date}${time}까지` : `${date}${time}`;
+}
+
+function alertBody(list: AlertRow[]): string {
+  const first = list[0];
+  const name = first.event_name || first.title;
+  if (list.length > 1) return `${name} 외 ${list.length - 1}건`;
+  return [name, alertWhen(first), first.event_place].filter(Boolean).join(" · ");
+}
+
+// 캠퍼스 일치(다빈치 = 안성). lib/matching.ts 와 같은 규칙.
+function campusOk(campus: string | null, targets: string[]): boolean {
+  if (!campus) return true;
+  return targets.includes(campus) || (campus === "davinci" && targets.includes("anseong"));
+}
+
+function alertFits(r: AlertRow, p: AlertProfile): boolean {
+  const mine = [p.dept, p.dept_secondary, p.college].filter(Boolean) as string[];
+  if (!r.units.some((u) => mine.includes(u))) return false;
+  if (r.excludes_undergrad) return false;
+  if (r.source_campus && r.source_campus !== "both" && !campusOk(p.campus, [r.source_campus])) return false;
+  if (r.target_campuses && r.target_campuses.length > 0 && !campusOk(p.campus, r.target_campuses)) return false;
+  if (r.target_grades && r.target_grades.length > 0 && p.grade != null && !r.target_grades.includes(p.grade)) return false;
+  return true;
+}
+
+function chunk<T>(arr: T[], size: number): T[][] {
+  const out: T[][] = [];
+  for (let i = 0; i < arr.length; i += size) out.push(arr.slice(i, i + size));
+  return out;
+}
+
+// ids 는 드라이런 전용(조건 없이 그 글들로 '누가 받는가'만 계산). 드라이런은 수신 설정과 무관하게 센다.
+async function sendEventAlerts(dryRun = false, ids: string[] | null = null) {
+  const res = { pending: 0, users: 0, pushes: 0, results: [] as Record<string, unknown>[] };
+  const { data, error } = await supabase.rpc("events_needing_alert", ids ? { lim: ids.length, p_ids: ids } : { lim: ALERT_BATCH });
+  if (error) return { ...res, error: error.message };
+  const rows = (data ?? []) as AlertRow[];
+  res.pending = rows.length;
+  if (rows.length === 0) return res;
+
+  const profiles: AlertProfile[] = [];
+  for (let from = 0; ; from += 1000) {
+    let q = supabase.from("profiles")
+      .select("user_id,grade,campus,dept,dept_secondary,college,notifications_enabled")
+      .order("user_id").range(from, from + 999);
+    if (!dryRun) q = q.eq("event_alerts_enabled", true);
+    const { data: page, error: pErr } = await q;
+    if (pErr) return { ...res, error: pErr.message };
+    profiles.push(...((page ?? []) as AlertProfile[]));
+    if ((page ?? []).length < 1000) break;
+  }
+
+  // 같은 행사(또는 이 글 자체)로 이미 알림을 받은 사람은 건너뛴다. 중간에 실패해 다시 돌아도 중복이 없다.
+  const covered = new Map<string, Set<string>>();
+  const known = [...new Set(rows.flatMap((r) => [r.notice_id, ...r.similar_ids]))];
+  for (const part of chunk(known, 100)) {
+    const { data: prev } = await supabase.from("notifications").select("user_id,notice_ids").eq("type", "event").overlaps("notice_ids", part);
+    for (const n of (prev ?? []) as { user_id: string; notice_ids: string[] }[]) {
+      let set = covered.get(n.user_id);
+      if (!set) covered.set(n.user_id, set = new Set());
+      for (const id of n.notice_ids ?? []) set.add(id);
+    }
+  }
+
+  const perUser = new Map<string, AlertRow[]>();
+  for (const r of rows) {
+    let recipients = 0;
+    for (const p of profiles) {
+      if (!alertFits(r, p)) continue;
+      let set = covered.get(p.user_id);
+      if (!set) covered.set(p.user_id, set = new Set());
+      if (set.has(r.notice_id) || r.similar_ids.some((id) => set!.has(id))) continue;
+      set.add(r.notice_id);
+      const list = perUser.get(p.user_id);
+      if (list) list.push(r); else perUser.set(p.user_id, [r]);
+      recipients++;
+    }
+    res.results.push({ id: r.notice_id, body: alertBody([r]), units: r.units, similar: r.similar_ids.length, recipients });
+  }
+  res.users = perUser.size;
+  if (dryRun) return res;
+
+  if (perUser.size > 0) {
+    const userIds = [...perUser.keys()];
+    const pushOff = new Set(profiles.filter((p) => p.notifications_enabled === false).map((p) => p.user_id));
+    const tokens = new Map<string, string[]>();
+    for (const part of chunk(userIds.filter((u) => !pushOff.has(u)), 200)) {
+      const { data: toks } = await supabase.from("push_tokens").select("user_id,token").in("user_id", part).eq("is_active", true);
+      for (const t of (toks ?? []) as { user_id: string; token: string }[]) {
+        const list = tokens.get(t.user_id);
+        if (list) list.push(t.token); else tokens.set(t.user_id, [t.token]);
+      }
+    }
+
+    const pending = userIds.map((uid) => {
+      const list = perUser.get(uid)!;
+      return {
+        user_id: uid, type: "event", title: ALERT_TITLE, body: alertBody(list),
+        notice_ids: list.map((r) => r.notice_id), data: {}, pushed: (tokens.get(uid)?.length ?? 0) > 0,
+      };
+    });
+    const { data: inserted, error: insErr } = await supabase.from("notifications").insert(pending).select("id,user_id");
+    // 기록에 실패하면 알렸다고 표시하지 않고 다음 실행에서 다시 한다(보낸 것이 없으니 중복도 없다).
+    if (insErr) return { ...res, error: `notifications insert: ${insErr.message}` };
+    const idByUser = new Map(((inserted ?? []) as { id: string; user_id: string }[]).map((r) => [r.user_id, r.id]));
+
+    const messages: Record<string, unknown>[] = [];
+    for (const p of pending) {
+      for (const token of tokens.get(p.user_id) ?? []) {
+        messages.push({
+          to: token, sound: "default", title: p.title, body: p.body,
+          data: { type: "event", noticeIds: p.notice_ids, notificationId: idByUser.get(p.user_id) ?? null },
+        });
+      }
+    }
+    for (const part of chunk(messages, 100)) {
+      try {
+        const r = await fetch(EXPO_PUSH_URL, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(part) });
+        await r.body?.cancel();
+        if (r.ok) res.pushes += part.length; else console.error(`event alert push failed: HTTP ${r.status}`);
+      } catch (e) {
+        console.error(`event alert push failed: ${(e as Error).message}`);
+      }
+    }
+  }
+
+  const { error: markErr } = await supabase.from("notice_events")
+    .update({ alerted_at: new Date().toISOString() }).in("notice_id", rows.map((r) => r.notice_id));
+  if (markErr) console.error(`event alert mark failed: ${markErr.message}`);
+  return res;
+}
+
 Deno.serve(async (req) => {
   const cronSecret = Deno.env.get("CRON_SECRET");
   if (!cronSecret || req.headers.get("Authorization") !== `Bearer ${cronSecret}`) {
     return new Response(JSON.stringify({ error: "Unauthorized" }), { status: 401 });
   }
 
-  let body: { dryRun?: boolean; ids?: unknown; batch?: unknown; covers?: unknown; posters?: unknown } = {};
+  let body: { dryRun?: boolean; ids?: unknown; batch?: unknown; covers?: unknown; posters?: unknown; alerts?: unknown } = {};
   try { body = await req.json(); } catch { /* cron 빈 body */ }
+
+  // 행사 알림 전용 모드. {"alerts":true,"dryRun":true,"ids":[…]} 는 그 글들이 새로 올라왔다면 누가 받는지 세기만 한다.
+  if (body.alerts === true) {
+    const ids = Array.isArray(body.ids) ? (body.ids as unknown[]).filter((x): x is string => typeof x === "string").slice(0, 20) : null;
+    if (ids && body.dryRun !== true) {
+      return new Response(JSON.stringify({ error: "ids 는 dryRun 에서만 쓸 수 있습니다" }), { status: 400 });
+    }
+    const alerts = await sendEventAlerts(body.dryRun === true, ids && ids.length ? ids : null);
+    return new Response(JSON.stringify({ mode: "alerts", dryRun: body.dryRun === true, alerts }), { headers: { "Content-Type": "application/json" } });
+  }
 
   // 커버 전용 모드(백필): LLM 호출 없음
   if (Number.isInteger(body.covers) && (body.covers as number) > 0) {
@@ -450,7 +645,8 @@ Deno.serve(async (req) => {
       const covers = await makeCovers(COVER_BATCH);
       const coverPurge = await purgeCovers();
       const { results: _r, ...posters } = await readPosters(POSTER_BATCH);
-      return new Response(JSON.stringify({ fetched: 0, extracted: 0, failed: 0, covers, coverPurge, posters }), { headers: { "Content-Type": "application/json" } });
+      const { results: _a, ...alerts } = await sendEventAlerts();
+      return new Response(JSON.stringify({ fetched: 0, extracted: 0, failed: 0, covers, coverPurge, posters, alerts }), { headers: { "Content-Type": "application/json" } });
     }
   }
 
@@ -506,8 +702,11 @@ Deno.serve(async (req) => {
   // 방금 추출에서 일시를 못 찾은 행사 글의 포스터를 읽어 본다.
   let posters: Record<string, unknown> | undefined;
   if (!dryRun) { const { results: _r, ...p } = await readPosters(POSTER_BATCH); posters = p; }
+  // 일시까지 정해진 새 행사를 내 학과 사람들에게 알린다.
+  let alerts: Record<string, unknown> | undefined;
+  if (!dryRun) { const { results: _a, ...a } = await sendEventAlerts(); alerts = a; }
 
-  return new Response(JSON.stringify({ dryRun, model: MODEL, ...stats, covers, coverPurge, posters, results }), {
+  return new Response(JSON.stringify({ dryRun, model: MODEL, ...stats, covers, coverPurge, posters, alerts, results }), {
     headers: { "Content-Type": "application/json" },
   });
 });

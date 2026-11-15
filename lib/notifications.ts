@@ -3,11 +3,22 @@ import { supabase } from './supabase';
 import { NOTICE_CARD_SELECT } from './notices';
 import type { Notice } from './types';
 
-// 알림함(홈 우상단 🔔). 서버 푸시 함수(keyword_alert_push / daily_digest_push)가
+// 알림함(홈 우상단 🔔). 서버(keyword_alert_push / daily_digest_push / event_extract 의 행사 알림)가
 // notifications 테이블에 기록 → 앱은 조회 + 읽음 처리만 한다(RLS: 본인 것만, read_at만 수정 가능).
 // 보관 14일(서버 cron 정리).
 
-export type NotificationType = 'keyword' | 'digest' | string;
+export type NotificationType = 'keyword' | 'digest' | 'event' | string;
+
+// 행사 알림('내 학과 새 행사') 수신 여부. 서버는 profiles.event_alerts_enabled 가 true 인 사람에게만 보낸다.
+// 값이 없으면(null) 이 기능이 생기기 전 버전을 쓰던 사람이므로, 새 앱의 첫 실행에서 한 번 켜 준다.
+// 사용자가 직접 끈 값(false)은 건드리지 않는다.
+export async function enableEventAlertsByDefault(userId: string): Promise<void> {
+  await supabase
+    .from('profiles')
+    .update({ event_alerts_enabled: true })
+    .eq('user_id', userId)
+    .is('event_alerts_enabled', null);
+}
 
 export type AppNotification = {
   id: string;
@@ -61,10 +72,18 @@ export async function hasUnreadNotifications(): Promise<boolean> {
 }
 
 // 알림에 묶인 공지들을 카드용으로 조회. 알림에 담긴 순서를 유지하고, 그사이 삭제·숨김된 공지는 빠진다.
+// 인스타 공지는 notices 직접 조회가 막혀 있어(RLS: 게시판 글만) 빠진 id 만 notice_by_id RPC 로 보충한다.
 export async function fetchNoticesByIds(ids: string[]): Promise<Notice[]> {
   if (ids.length === 0) return [];
   const { data } = await supabase.from('notices').select(NOTICE_CARD_SELECT).in('id', ids);
   const byId = new Map(((data ?? []) as unknown as Notice[]).map((n) => [n.id, n]));
+  const missing = ids.filter((id) => !byId.has(id));
+  if (missing.length > 0) {
+    const extra = await Promise.all(
+      missing.slice(0, 30).map(async (id) => (await supabase.rpc('notice_by_id', { p_id: id })).data as Notice | null),
+    );
+    for (const n of extra) if (n?.id) byId.set(n.id, n);
+  }
   return ids.map((id) => byId.get(id)).filter((n): n is Notice => !!n);
 }
 

@@ -163,7 +163,7 @@ function sortGiveaways(rows: EventNotice[]): { dated: EventNotice[]; open: Event
 // 행사 탭 화면 구성.
 //  hero: 맨 위 큰 포스터 캐러셀(오늘 + 7일 안에 열리는 참석 행사). 2건 이상일 때만 쓰고,
 //        1건뿐이면 캐러셀 대신 아래 그리드의 '이번 주' 섹션으로 내린다(카드 한 장짜리 캐러셀은 어색하다).
-//  sections: 2열 포스터 그리드. 다가오는 행사 → 참여 이벤트 → 진행 중 → 일정 미정.
+//  sections: 2열 포스터 그리드. 다가오는 행사 → 참여 이벤트 → 진행 중 → 더 둘러보기(일시를 못 찾은 글).
 export type EventsLayout = { hero: EventNotice[]; sections: EventSection[] };
 
 const HERO_MIN = 2;
@@ -204,7 +204,8 @@ export function buildEventsLayout(rows: EventNotice[]): EventsLayout {
       { title: '다가오는 행사', data: later.sort(byStart) },
       { title: '참여 이벤트', data: [...give.dated, ...give.open] },
       { title: '진행 중', data: ongoing },
-      { title: '일정은 원문에서 확인해요', data: undated },
+      // 일시를 끝내 못 찾은 글(릴스 등). "일정은 원문에서 확인해요" 같은 변명조 제목 대신 담백하게 둔다.
+      { title: '더 둘러보기', data: undated },
     ].filter((s) => s.data.length > 0),
   };
 }

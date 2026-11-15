@@ -38,6 +38,7 @@ export default function Screen7Nickname({ navigation }: Props) {
       is_dormitory: is_dormitory ?? false,
       nickname: nick,
       onboarded_at: new Date().toISOString(),
+      event_alerts_enabled: true, // 내 학과 행사 알림: 새 가입자는 처음부터 켠다
     });
 
     if (insertErr) { setError('저장하지 못했어요. 잠시 후 다시 시도해 주세요.'); setSaving(false); return; }

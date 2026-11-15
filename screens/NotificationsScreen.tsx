@@ -13,14 +13,15 @@ import { COLORS, FONT, RADIUS, SPACING, TEXT, WEIGHT } from '../lib/theme';
 import { BackButton } from '../components/ui/BackButton';
 import { EmptyState } from '../components/ui/EmptyState';
 import { NoticeListSkeleton } from '../components/ui/Skeleton';
-import { BellIcon, ClipboardListIcon, HashIcon } from '../components/ui/icons';
+import { BellIcon, CalendarIcon, ClipboardListIcon, HashIcon } from '../components/ui/icons';
 
 type Nav = NativeStackNavigationProp<RootStackParamList>;
 
-// 알림 종류별 아이콘. 추후 '내 학과' 등 타입이 늘면 여기에 추가.
+// 알림 종류별 아이콘. 타입이 늘면 여기에 추가.
 function TypeIcon({ type }: { type: string }) {
   if (type === 'keyword') return <HashIcon size={18} color={COLORS.accent} />;
   if (type === 'digest') return <ClipboardListIcon size={18} color={COLORS.accent} />;
+  if (type === 'event') return <CalendarIcon size={18} color={COLORS.accent} />;
   return <BellIcon size={18} color={COLORS.accent} />;
 }
 
@@ -97,7 +98,7 @@ export default function NotificationsScreen() {
         <EmptyState
           icon={<BellIcon size={30} color={COLORS.accent} />}
           title="아직 받은 알림이 없어요"
-          subtitle="키워드 알림과 매일 저녁 공지 브리핑이 여기에 모여요"
+          subtitle="키워드 알림, 내 학과 새 행사, 매일 저녁 공지 브리핑이 여기에 모여요"
           actionLabel="키워드 설정하러 가기"
           onAction={() => navigation.navigate('KeywordManage')}
         />

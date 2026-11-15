@@ -14,6 +14,8 @@ export default function NotificationSettingsScreen() {
   const insets = useSafeAreaInsets();
   const [userId, setUserId] = useState<string | null>(null);
   const [enabled, setEnabled] = useState(true);
+  // 내 학과 새 행사 알림. 서버는 true 인 사람에게만 보낸다(값이 없으면 앱 첫 실행 때 켜진다).
+  const [eventAlerts, setEventAlerts] = useState(true);
   const [keywords, setKeywords] = useState<Kw[]>([]);
   const [loaded, setLoaded] = useState(false);
 
@@ -23,10 +25,13 @@ export default function NotificationSettingsScreen() {
       if (!session) return;
       setUserId(session.user.id);
       const [profRes, kwRes] = await Promise.all([
-        supabase.from('profiles').select('notifications_enabled').eq('user_id', session.user.id).maybeSingle(),
+        supabase.from('profiles').select('notifications_enabled, event_alerts_enabled').eq('user_id', session.user.id).maybeSingle(),
         supabase.from('user_keywords').select('id,keyword,notify').eq('user_id', session.user.id).order('created_at', { ascending: false }),
       ]);
-      if (profRes.data) setEnabled((profRes.data as any).notifications_enabled !== false);
+      if (profRes.data) {
+        setEnabled((profRes.data as any).notifications_enabled !== false);
+        setEventAlerts((profRes.data as any).event_alerts_enabled !== false);
+      }
       setKeywords((kwRes.data as Kw[]) ?? []);
       setLoaded(true);
     })();
@@ -38,6 +43,15 @@ export default function NotificationSettingsScreen() {
     setEnabled(next);
     await supabase.from('profiles')
       .update({ notifications_enabled: next, updated_at: new Date().toISOString() })
+      .eq('user_id', userId);
+  };
+
+  const toggleEventAlerts = async () => {
+    if (!userId) return;
+    const next = !eventAlerts;
+    setEventAlerts(next);
+    await supabase.from('profiles')
+      .update({ event_alerts_enabled: next, updated_at: new Date().toISOString() })
       .eq('user_id', userId);
   };
 
@@ -69,6 +83,26 @@ export default function NotificationSettingsScreen() {
           </View>
         </View>
         <Text style={styles.note}>· 켜 두면 매일 저녁 6시에 그날 올라온 새 공지 건수를 알려드려요.</Text>
+
+        {/* 내 학과 새 행사 */}
+        <Text style={styles.groupLabel}>행사 알림</Text>
+        <View style={styles.card}>
+          <View style={styles.row}>
+            <Text style={styles.rowLabel}>내 학과 새 행사</Text>
+            <Switch
+              value={eventAlerts}
+              onValueChange={toggleEventAlerts}
+              disabled={!loaded}
+              trackColor={{ true: COLORS.accent }}
+              thumbColor="#fff"
+              style={{ transform: [{ scale: 0.75 }] }}
+            />
+          </View>
+        </View>
+        <Text style={styles.note}>· 내 학과·단과대 행사가 새로 올라오면 알려드려요.</Text>
+        {!enabled && eventAlerts ? (
+          <Text style={styles.note}>· ‘알림 받기’가 꺼져 있으면 푸시 없이 알림함에만 쌓여요.</Text>
+        ) : null}
 
         {/* 키워드별 즉시 알림 */}
         <Text style={styles.groupLabel}>키워드 알림</Text>

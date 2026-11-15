@@ -16,7 +16,7 @@ import { ensureAnonSession } from './lib/auth';
 import { migrateLocalToDB } from './lib/migrate';
 import { setupPushNotifications } from './lib/push';
 import { fetchNoticeById } from './lib/notices';
-import { fetchNotification, markNotificationRead } from './lib/notifications';
+import { enableEventAlertsByDefault, fetchNotification, markNotificationRead } from './lib/notifications';
 import { loadSourceLabels } from './lib/sources';
 import { loadOrgNames } from './lib/org';
 import { ToastHost } from './components/ui/ToastHost';
@@ -161,6 +161,8 @@ export default function App() {
             .eq('user_id', session.user.id)
             .maybeSingle();
           setHasProfile(!!data);
+          // 행사 알림은 이 버전부터 생긴 기능 → 값이 없는 사람만 한 번 켠다(끈 사람은 그대로).
+          if (data) enableEventAlertsByDefault(session.user.id).catch(() => {});
         }
       } catch (e) {
         console.error('[App] init failed', e);
