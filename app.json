@@ -17,6 +17,7 @@
     },
     "android": {
       "package": "com.noticau.app",
+      "googleServicesFile": "./google-services.json",
       "versionCode": 6,
       "adaptiveIcon": {
         "backgroundColor": "#2D57AC",
