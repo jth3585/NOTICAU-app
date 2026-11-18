@@ -4,7 +4,8 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { COLORS, FONT, RADIUS, SPACING, WEIGHT } from '../../lib/theme';
 import { ProgressBar } from './ProgressBar';
 
-const TOTAL_STEPS = 7;
+// 8번째(알림) 단계는 알림 권한을 아직 묻지 않은 기기에서만 나온다. 나머지 기기는 7단계에서 끝나지만 표시는 8로 통일.
+const TOTAL_STEPS = 8;
 
 type Props = {
   step: number;
@@ -32,7 +33,7 @@ export function OnboardingLayout({
           </TouchableOpacity>
         ) : <View style={styles.backBtn} />}
         <View style={styles.progress}>
-          <ProgressBar step={step} />
+          <ProgressBar step={step} total={TOTAL_STEPS} />
         </View>
         <Text style={styles.stepText}>{step} / {TOTAL_STEPS}</Text>
       </View>

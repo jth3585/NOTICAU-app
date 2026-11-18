@@ -30,6 +30,7 @@
 import Anthropic from "npm:@anthropic-ai/sdk";
 import { createClient } from "jsr:@supabase/supabase-js@2";
 import { ocrConfigured, ocrImages } from "../_shared/clova_ocr.ts";
+import { type PushMessage, sendPush } from "../_shared/push.ts";
 
 const MODEL = "claude-haiku-5-5";
 // Haiku 5.5 는 적응형 사고가 기본으로 켜져 있고 사고 토큰도 max_tokens 에 포함된다 → 짧은 JSON 이어도 넉넉히.
@@ -415,7 +416,6 @@ async function readPosters(limit: number, dryRun = false) {
 //  - 같은 행사가 게시판·인스타에 따로 올라와도 한 사람에게는 한 번만(similar_ids 로 판단)
 //  - 푸시는 notifications_enabled 가 꺼져 있으면 보내지 않고 알림함에만 남긴다(다른 알림과 같은 규칙)
 
-const EXPO_PUSH_URL = "https://exp.host/--/api/v2/push/send";
 const ALERT_BATCH = 10;
 const ALERT_TITLE = "내 학과 새 행사";
 
@@ -566,24 +566,19 @@ async function sendEventAlerts(dryRun = false, ids: string[] | null = null) {
     if (insErr) return { ...res, error: `notifications insert: ${insErr.message}` };
     const idByUser = new Map(((inserted ?? []) as { id: string; user_id: string }[]).map((r) => [r.user_id, r.id]));
 
-    const messages: Record<string, unknown>[] = [];
+    const messages: PushMessage[] = [];
     for (const p of pending) {
       for (const token of tokens.get(p.user_id) ?? []) {
         messages.push({
-          to: token, sound: "default", title: p.title, body: p.body,
+          to: token, sound: "default", channelId: "event", priority: "high", title: p.title, body: p.body,
           data: { type: "event", noticeIds: p.notice_ids, notificationId: idByUser.get(p.user_id) ?? null },
         });
       }
     }
-    for (const part of chunk(messages, 100)) {
-      try {
-        const r = await fetch(EXPO_PUSH_URL, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(part) });
-        await r.body?.cancel();
-        if (r.ok) res.pushes += part.length; else console.error(`event alert push failed: HTTP ${r.status}`);
-      } catch (e) {
-        console.error(`event alert push failed: ${(e as Error).message}`);
-      }
-    }
+    // 발송·티켓 확인·앱 지운 기기 토큰 정리는 공통 모듈이 한다(_shared/push.ts).
+    const sent = await sendPush(supabase, messages);
+    res.pushes = sent.ok;
+    if (Object.keys(sent.errors).length > 0) console.error(`event alert push errors: ${JSON.stringify(sent.errors)}`);
   }
 
   const { error: markErr } = await supabase.from("notice_events")

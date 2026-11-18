@@ -1,4 +1,4 @@
-import { Platform } from 'react-native';
+import { Linking, Platform } from 'react-native';
 import * as Notifications from 'expo-notifications';
 import * as Device from 'expo-device';
 import Constants from 'expo-constants';
@@ -14,34 +14,49 @@ Notifications.setNotificationHandler({
   }),
 });
 
-// 권한 요청 + Expo Push token 발급.
-// 실기기가 아니거나 projectId 미설정(eas init 전)이면 null 반환 — 앱 안 죽음.
-export async function registerForPushNotificationsAsync(): Promise<string | null> {
-  if (!Device.isDevice) {
-    console.warn('[push] 실기기가 아니라 푸시 토큰 발급 생략');
-    return null;
-  }
+// Android 알림 채널. 서버(supabase/functions/_shared/push.ts)가 보내는 channelId 와 같아야 한다 —
+// 기기에 없는 채널 id 로 오면 Android 는 알림을 표시하지 않는다.
+// 사용자는 기기 설정에서 채널(종류)별로 알림을 끌 수 있다. 한 번 만든 채널은 이름·설명만 바뀐다.
+const ANDROID_CHANNELS: { id: string; name: string; description: string; importance: Notifications.AndroidImportance }[] = [
+  { id: 'keyword', name: '키워드 알림', description: '등록한 키워드가 담긴 새 공지', importance: Notifications.AndroidImportance.HIGH },
+  { id: 'event', name: '행사 알림', description: '내 학과·단과대의 새 행사', importance: Notifications.AndroidImportance.HIGH },
+  { id: 'digest', name: '오늘의 공지 브리핑', description: '매일 저녁 6시, 그날 올라온 내 공지', importance: Notifications.AndroidImportance.DEFAULT },
+  { id: 'default', name: '기타 알림', description: '그 밖의 알림', importance: Notifications.AndroidImportance.DEFAULT },
+];
 
-  if (Platform.OS === 'android') {
-    await Notifications.setNotificationChannelAsync('default', {
-      name: 'default',
-      importance: Notifications.AndroidImportance.MAX,
-      vibrationPattern: [0, 250, 250, 250],
-      lightColor: '#FF231F7C',
-    });
-  }
+// Android 13+ 는 채널이 하나라도 있어야 권한 창이 뜨고, 토큰 발급 전에도 채널이 있어야 한다 → 가장 먼저 부른다.
+export async function ensureAndroidChannels(): Promise<void> {
+  if (Platform.OS !== 'android') return;
+  await Promise.all(ANDROID_CHANNELS.map(({ id, ...ch }) =>
+    Notifications.setNotificationChannelAsync(id, { ...ch, vibrationPattern: [0, 250, 250, 250], lightColor: '#4A90E2' }),
+  ));
+}
 
-  const { status: existingStatus } = await Notifications.getPermissionsAsync();
-  let finalStatus = existingStatus;
-  if (existingStatus !== 'granted') {
-    const { status } = await Notifications.requestPermissionsAsync();
-    finalStatus = status;
-  }
-  if (finalStatus !== 'granted') {
-    console.warn('[push] 알림 권한 거부됨');
-    return null;
-  }
+export type PushPermission = {
+  granted: boolean;
+  undetermined: boolean; // 아직 한 번도 묻지 않음
+  canAskAgain: boolean; // false 면 기기 설정에서만 켤 수 있다
+};
 
+export async function getPushPermission(): Promise<PushPermission> {
+  const p = await Notifications.getPermissionsAsync();
+  const provisional = p.ios?.status === Notifications.IosAuthorizationStatus.PROVISIONAL;
+  return { granted: p.granted || provisional, undetermined: p.status === 'undetermined', canAskAgain: p.canAskAgain };
+}
+
+// 시스템 권한 창을 띄운다. 이미 거절해 다시 물을 수 없으면 창 없이 현재 상태만 돌려준다.
+export async function requestPushPermission(): Promise<PushPermission> {
+  await ensureAndroidChannels();
+  await Notifications.requestPermissionsAsync();
+  return getPushPermission();
+}
+
+export function openDeviceNotificationSettings(): void {
+  Linking.openSettings().catch(() => {});
+}
+
+// Expo Push token 발급. 오프라인 등으로 실패할 수 있어 한 번 더 시도한다.
+async function fetchExpoPushToken(): Promise<string | null> {
   const projectId =
     Constants?.expoConfig?.extra?.eas?.projectId ??
     (Constants as any)?.easConfig?.projectId;
@@ -49,14 +64,15 @@ export async function registerForPushNotificationsAsync(): Promise<string | null
     console.warn('[push] EAS projectId 없음 (eas init 필요) — 토큰 발급 생략');
     return null;
   }
-
-  try {
-    const token = (await Notifications.getExpoPushTokenAsync({ projectId })).data;
-    return token;
-  } catch (e) {
-    console.warn('[push] 토큰 발급 실패', e);
-    return null;
+  for (let attempt = 0; attempt < 2; attempt++) {
+    try {
+      return (await Notifications.getExpoPushTokenAsync({ projectId })).data;
+    } catch (e) {
+      if (attempt === 1) console.warn('[push] 토큰 발급 실패', e);
+      else await new Promise((r) => setTimeout(r, 2000));
+    }
   }
+  return null;
 }
 
 // push_tokens 테이블에 upsert (PK: token).
@@ -78,12 +94,23 @@ export async function savePushToken(token: string): Promise<void> {
   if (error) console.warn('[push] 토큰 저장 실패', error.message);
 }
 
-// 편의: 등록 + 저장 한 번에. 실패해도 throw 안 함.
-export async function setupPushNotifications(): Promise<void> {
+// 채널을 만들고, 알림 권한이 있으면 토큰을 발급해 저장한다. 실패해도 throw 하지 않는다.
+// ask=true 면 아직 한 번도 묻지 않은 사람에게 권한 창을 띄운다(온보딩을 이미 마친 사람용).
+// 새 사용자는 온보딩 마지막 화면(Screen8Notify)에서 이유를 먼저 보여 주고 묻는다.
+// 반환: 토큰을 저장했는지.
+export async function setupPushNotifications({ ask = false }: { ask?: boolean } = {}): Promise<boolean> {
   try {
-    const token = await registerForPushNotificationsAsync();
-    if (token) await savePushToken(token);
+    if (!Device.isDevice) return false; // 시뮬레이터는 토큰 발급 불가
+    await ensureAndroidChannels();
+    let perm = await getPushPermission();
+    if (!perm.granted && ask && perm.undetermined) perm = await requestPushPermission();
+    if (!perm.granted) return false;
+    const token = await fetchExpoPushToken();
+    if (!token) return false;
+    await savePushToken(token);
+    return true;
   } catch (e) {
     console.warn('[push] setup 실패', e);
+    return false;
   }
 }

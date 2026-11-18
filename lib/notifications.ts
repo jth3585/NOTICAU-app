@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
+import * as Notifications from 'expo-notifications';
 import { supabase } from './supabase';
 import { NOTICE_CARD_SELECT } from './notices';
 import type { Notice } from './types';
@@ -87,7 +88,7 @@ export async function fetchNoticesByIds(ids: string[]): Promise<Notice[]> {
   return ids.map((id) => byId.get(id)).filter((n): n is Notice => !!n);
 }
 
-// 홈 🔔 빨간 점용. 화면 포커스마다 refresh() 호출.
+// 홈 🔔 빨간 점용. 화면 포커스마다 refresh() 호출 + 앱을 보고 있는 중에 푸시가 오면 바로 갱신.
 export function useUnreadNotifications() {
   const [hasUnread, setHasUnread] = useState(false);
   const mounted = useRef(true);
@@ -98,7 +99,8 @@ export function useUnreadNotifications() {
   useEffect(() => {
     mounted.current = true;
     refresh();
-    return () => { mounted.current = false; };
+    const sub = Notifications.addNotificationReceivedListener(() => { refresh(); });
+    return () => { mounted.current = false; sub.remove(); };
   }, [refresh]);
   return { hasUnread, refresh };
 }

@@ -3,8 +3,9 @@ import { StyleSheet, Text, TextInput, TouchableOpacity } from 'react-native';
 import type { NativeStackScreenProps } from '@react-navigation/native-stack';
 import { OnboardingLayout } from '../../components/onboarding/OnboardingLayout';
 import { UserIcon } from '../../components/ui/icons';
-import { useOnboarding } from '../../contexts/OnboardingContext';
-import { supabase } from '../../lib/supabase';
+import * as Device from 'expo-device';
+import { useOnboarding, useSaveOnboardingProfile } from '../../contexts/OnboardingContext';
+import { getPushPermission, setupPushNotifications } from '../../lib/push';
 import type { OnboardingStackParamList } from '../../lib/types';
 import { COLORS, FONT, RADIUS, SPACING, WEIGHT } from '../../lib/theme';
 
@@ -13,36 +14,30 @@ type Props = NativeStackScreenProps<OnboardingStackParamList, 'Nickname'>;
 const MAX_LEN = 10;
 
 export default function Screen7Nickname({ navigation }: Props) {
-  const { grade, campus, college, dept, dept_secondary, enrollment_status, is_dormitory } = useOnboarding();
+  const { set } = useOnboarding();
+  const saveProfile = useSaveOnboardingProfile();
   const [nickname, setNickname] = useState('');
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  // 호칭(있으면)을 포함해 프로필 1회 INSERT 후 온보딩 종료.
+  // 알림 권한을 아직 묻지 않은 기기면 알림 단계로 넘어가 이유를 먼저 보여 준다(프로필 저장은 그 단계에서).
+  // 이미 정해진 기기(시뮬레이터 포함)는 여기서 프로필을 저장하고 온보딩을 끝낸다.
   const finish = async (nick: string | null) => {
     if (saving) return;
     setSaving(true);
     setError(null);
+    set({ nickname: nick });
 
-    const { data: { session } } = await supabase.auth.getSession();
-    if (!session) { setError('문제가 생겼어요. 앱을 다시 시작해 주세요.'); setSaving(false); return; }
+    const perm = Device.isDevice ? await getPushPermission().catch(() => null) : null;
+    if (perm?.undetermined) {
+      setSaving(false);
+      navigation.navigate('Notify');
+      return;
+    }
 
-    const { error: insertErr } = await supabase.from('profiles').insert({
-      user_id: session.user.id,
-      grade,
-      campus,
-      college,
-      dept,
-      dept_secondary,
-      enrollment_status,
-      is_dormitory: is_dormitory ?? false,
-      nickname: nick,
-      onboarded_at: new Date().toISOString(),
-      event_alerts_enabled: true, // 내 학과 행사 알림: 새 가입자는 처음부터 켠다
-    });
-
-    if (insertErr) { setError('저장하지 못했어요. 잠시 후 다시 시도해 주세요.'); setSaving(false); return; }
-
+    const err = await saveProfile(nick);
+    if (err) { setError(err); setSaving(false); return; }
+    if (perm?.granted) setupPushNotifications();
     navigation.getParent()?.reset({ index: 0, routes: [{ name: 'Tabs' }] });
   };
 

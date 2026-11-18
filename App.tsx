@@ -149,8 +149,6 @@ export default function App() {
         const session = await ensureAnonSession();
         if (session) {
           await migrateLocalToDB();
-          // 푸시 등록은 UI 블록하지 않도록 fire-and-forget.
-          setupPushNotifications();
           // 출처 표시 이름 캐시 예열(parser_key→name). 첫 피드 렌더 전에 채워 cau_ 깜빡임 방지.
           loadSourceLabels();
           // 단과대/학과 이름 캐시 예열(마이페이지 표시용).
@@ -161,6 +159,9 @@ export default function App() {
             .eq('user_id', session.user.id)
             .maybeSingle();
           setHasProfile(!!data);
+          // 푸시 등록은 UI 블록하지 않도록 fire-and-forget. 채널 생성 + 권한이 있으면 토큰 저장.
+          // 권한을 묻는 건 온보딩을 마친 사람만(아직 안 물은 경우). 새 사용자는 온보딩 마지막 단계에서 이유와 함께 묻는다.
+          setupPushNotifications({ ask: !!data });
           // 행사 알림은 이 버전부터 생긴 기능 → 값이 없는 사람만 한 번 켠다(끈 사람은 그대로).
           if (data) enableEventAlertsByDefault(session.user.id).catch(() => {});
         }
@@ -186,10 +187,11 @@ export default function App() {
       routeFromNotificationData(resp.notification.request.content.data);
     });
     // 콜드 스타트: 앱을 띄운 마지막 알림 응답이 있으면 라우팅
-    Notifications.getLastNotificationResponseAsync().then((resp) => {
-      if (resp) routeFromNotificationData(resp.notification.request.content.data);
-    });
-    return () => sub.remove();
+    const last = Notifications.getLastNotificationResponse();
+    if (last) routeFromNotificationData(last.notification.request.content.data);
+    // 기기 푸시 토큰이 바뀌면(드물게 OS 가 교체) Expo 토큰을 다시 받아 저장한다.
+    const tokenSub = Notifications.addPushTokenListener(() => { setupPushNotifications(); });
+    return () => { sub.remove(); tokenSub.remove(); };
   }, []);
 
   if (!ready || !fontsLoaded) {

@@ -1,255 +1,216 @@
-// daily_digest_push — 매일 KST 18:00 데일리 다이제스트 푸시. (cron: '0 9 * * *' UTC = 18:00 KST)
-// 모든 유저의 알림함(notifications)에 "오늘 새 공지 N건"(+해당 공지 id) 기록, notifications_enabled=true 면 푸시도 발송.
+// daily_digest_push — 매일 KST 18:00 공지 브리핑. (cron: '0 9 * * *' UTC = 18:00 KST)
+// 모든 사용자의 알림함(notifications)에 하루 동안 새로 들어온 내 공지를 기록하고, notifications_enabled 가
+// false 가 아니면 푸시도 보낸다. 제목 "오늘의 공지 브리핑" / 본문 "D-2 국가장학금 2차 신청 안내 외 11건".
 //
 // 인증: verify_jwt=false 로 배포 + Authorization: Bearer <CRON_SECRET> 자체 검증.
-// 매칭 로직(isMismatch / 키워드 매칭)은 앱 lib/matching.ts 를 그대로 포팅 (Deno에서 app import 불가).
 //
-// TODO: 1만+ users 규모가 되면 유저별 루프 대신 RPC(서버사이드 SQL 집계)로 일괄 처리하여 최적화.
+// 어떤 글을 세나(2026-11-18 개편)
+//   - 수집 시각(crawled_at)이 [실행 24시간 10분 전, 실행 10분 전) + 게시일 48시간 이내.
+//     예전엔 게시일 기준 '지난 24시간'만 셌는데, 날짜만 있는 글은 00시로 저장되므로 18시 이후에 수집된
+//     오늘 글은 오늘 브리핑엔 늦고 내일 브리핑 창엔 이미 지나서 어느 브리핑에도 안 들어갔다(게시판 글의 13%).
+//     수집 시각으로 하루씩 이어 붙이면 빠지는 글이 없다. 10분은 막 들어와 아직 분류 전인 글을 다음 날로 넘기는 여유.
+//   - 대상 판정은 _shared/audience.ts(앱 lib/matching.ts 포팅). 마감이 지난 신청형 공지는 뺀다.
+//   - 본문 첫 글: 3일 안에 마감되는 신청형 공지 → 내 학과·단과대 글 → 최신 글 순으로 고른다.
+//
+// 하루 1회 가드: profiles.last_daily_push_at 이 오늘(KST)이면 건너뛴다(cron 재시도·수동 실행 대비).
+// 시험: body {"dryRun": true} → 기록·발송 없이 누가 어떤 문구를 받을지만 돌려준다.
 
+// deno-lint-ignore-file no-explicit-any
 import { createClient } from "jsr:@supabase/supabase-js@2";
+import {
+  chunk, EMPTY, isMismatch, loadUserContext, META_COLS, type Meta, myUnits, one, PROFILE_COLS, type Profile,
+  selectAll, shortTitle, type Src,
+} from "../_shared/audience.ts";
+import { type PushMessage, sendPush } from "../_shared/push.ts";
 
 const supabase = createClient(
   Deno.env.get("SUPABASE_URL")!,
   Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!,
 );
 
-const EXPO_PUSH_URL = "https://exp.host/--/api/v2/push/send";
-const DAY_MS = 24 * 60 * 60 * 1000;
+const MIN_MS = 60 * 1000;
+const DAY_MS = 24 * 60 * MIN_MS;
+const LAG_MS = 10 * MIN_MS; // 막 수집돼 아직 분류 전인 글은 다음 브리핑으로
+const POST_GATE_MS = 2 * DAY_MS; // 백필(과거 글 일괄 수집) 제외
+const SOON_DAYS = 3; // 본문 첫 글로 올릴 마감 임박 기준
 
-// ---- 타입 (느슨하게) ----
-type Meta = {
-  topic: string | null;
-  action: string | null;
-  deadline_at: string | null;
-  target_grades: number[] | null;
-  target_depts: string[] | null;
-  target_campuses: string[] | null;
-  target_enrollment_status: string[] | null;
-  targets_freshmen: boolean | null;
-  excludes_undergrad: boolean | null;
-};
-type Profile = {
-  user_id: string;
-  grade: number;
-  campus: string;
-  dept: string | null;
-  dept_secondary: string | null;
-  college: string | null;
-  enrollment_status: string[];
-  is_dormitory: boolean;
-  show_cross_dept: boolean | null;
-  last_daily_push_at: string | null;
-  notifications_enabled: boolean | null;
+const TITLE = "오늘의 공지 브리핑";
+
+type NoticeRow = {
+  id: string;
+  title: string | null;
+  posted_at: string | null;
+  notice_meta: Meta | Meta[] | null;
+  sources: Src | Src[] | null;
 };
 
-// PostgREST 임베드는 객체/배열 둘 다 가능 → 단일 객체로 정규화.
-function one<T>(v: T | T[] | null): T | null {
-  if (Array.isArray(v)) return v[0] ?? null;
-  return v ?? null;
-}
-
-// actionable인데 마감일이 지난 공지는 디지스트에서 제외 (이미 신청 종료 → 무의미).
-function isExpiredActionable(meta: Meta | null): boolean {
-  return !!meta && meta.action === "actionable" && !!meta.deadline_at
-    && new Date(meta.deadline_at).getTime() < Date.now();
-}
-
-// ---- lib/matching.ts 포팅 ----
-function campusMatch(profile: Profile, targetCampuses: string[]): boolean {
-  if (targetCampuses.includes(profile.campus)) return true;
-  if (profile.campus === "davinci" && targetCampuses.includes("anseong")) return true;
-  return false;
-}
-
-// 출처(게시판) 자체의 캠퍼스 귀속. 'both'(본교)·null은 모든 캠퍼스 통과.
-function sourceCampusMatch(profile: Profile, sourceCampus: string): boolean {
-  if (sourceCampus === profile.campus) return true;
-  if (sourceCampus === "anseong" && profile.campus === "davinci") return true;
-  return false;
-}
-
-function isMismatch(
-  notice: any,
-  meta: Meta | null,
-  profile: Profile,
-  disabledTopics: Set<string>,
-  readIds: Set<string>,
-  disabledSources: Set<string>,
-): boolean {
-  if (readIds.has(notice.id)) return true;
-  // 출처 캠퍼스 귀속: 특정 캠퍼스 게시판인데 내 캠퍼스가 아니면 제외 (meta 없어도 적용).
-  const src = one<{ campus: string | null; owner_unit: string | null; parser_key: string | null }>(notice.sources);
-  if (src?.campus && src.campus !== "both" && !sourceCampusMatch(profile, src.campus)) return true;
-
-  // 타 학과 게시판의 전체대상 공지(target_depts 없음): 마스터 토글 off거나 학과별로 끈 게시판이면 제외.
-  // (앱 피드의 lib/matching.ts isMismatch와 동일 규칙 → 다이제스트 푸시를 피드와 일치시킴.)
-  if (src?.owner_unit) {
-    const mine = [profile.dept, profile.dept_secondary, profile.college].filter(Boolean) as string[];
-    const isOther = !mine.includes(src.owner_unit);
-    const noDeptTarget = !meta?.target_depts || meta.target_depts.length === 0;
-    if (isOther && noDeptTarget) {
-      if (profile.show_cross_dept === false) return true;
-      if (src.parser_key && disabledSources.has(src.parser_key)) return true;
-    }
-  }
-
-  if (!meta) return false;
-  if (meta.topic && disabledTopics.has(meta.topic)) return true;
-  if (meta.target_grades && meta.target_grades.length > 0 && !meta.target_grades.includes(profile.grade)) return true;
-  if (meta.target_campuses && meta.target_campuses.length > 0 && !campusMatch(profile, meta.target_campuses)) return true;
-  if (meta.target_depts && meta.target_depts.length > 0) {
-    const mine = [profile.dept, profile.dept_secondary, profile.college].filter(Boolean) as string[];
-    if (!meta.target_depts.some((d) => mine.includes(d))) return true;
-  }
-  if (meta.target_enrollment_status && meta.target_enrollment_status.length > 0) {
-    const userStatuses = new Set(profile.enrollment_status);
-    if (!meta.target_enrollment_status.some((s) => userStatuses.has(s))) return true;
-  }
-  if (meta.targets_freshmen && profile.grade !== 1) return true;
-  if (meta.excludes_undergrad) return true;
-  if (meta.topic === "기숙사" && !profile.is_dormitory) return true;
-  return false;
-}
-
+type DigestProfile = Profile & { last_daily_push_at: string | null };
 
 // KST 기준 YYYY-MM-DD
-function kstDate(d: Date): string {
-  return d.toLocaleDateString("en-CA", { timeZone: "Asia/Seoul" });
+function kstDate(d: Date | number): string {
+  return new Date(d).toLocaleDateString("en-CA", { timeZone: "Asia/Seoul" });
+}
+
+// 마감까지 남은 날(KST 날짜 기준). 오늘 마감이면 0.
+function daysLeft(deadline: string, now: number): number {
+  const a = Date.parse(`${kstDate(now)}T00:00:00Z`);
+  const b = Date.parse(`${kstDate(Date.parse(deadline))}T00:00:00Z`);
+  return Math.round((b - a) / DAY_MS);
+}
+
+// actionable인데 마감일이 지난 공지는 브리핑에서 제외 (이미 신청 종료 → 무의미).
+function isExpiredActionable(meta: Meta | null, now: number): boolean {
+  return !!meta && meta.action === "actionable" && !!meta.deadline_at && Date.parse(meta.deadline_at) < now;
+}
+
+function soonDeadline(meta: Meta | null, now: number): number | null {
+  if (!meta || meta.action !== "actionable" || !meta.deadline_at) return null;
+  const d = daysLeft(meta.deadline_at, now);
+  return d >= 0 && d <= SOON_DAYS ? d : null;
+}
+
+function isMine(n: NoticeRow, meta: Meta | null, profile: Profile): boolean {
+  const mine = myUnits(profile);
+  const src = one<Src>(n.sources);
+  if (src?.owner_unit && mine.includes(src.owner_unit)) return true;
+  return !!meta?.target_depts?.some((d) => mine.includes(d));
+}
+
+// 첫 글(본문에 제목이 나갈 글)을 앞으로: 마감 임박(가까운 순) → 내 소속 → 나머지(최신순, 입력 순서 유지)
+function orderForDigest(list: NoticeRow[], profile: Profile, now: number): { ordered: NoticeRow[]; dday: number | null } {
+  const rank = (n: NoticeRow) => {
+    const meta = one<Meta>(n.notice_meta);
+    const d = soonDeadline(meta, now);
+    if (d !== null) return d; // 0~3
+    return isMine(n, meta, profile) ? 10 : 20;
+  };
+  const ordered = list.map((n, i) => ({ n, i, r: rank(n) }))
+    .sort((a, b) => a.r - b.r || a.i - b.i)
+    .map((x) => x.n);
+  const dday = soonDeadline(one<Meta>(ordered[0].notice_meta), now);
+  return { ordered, dday };
+}
+
+function digestBody(ordered: NoticeRow[], dday: number | null): string {
+  const prefix = dday === null ? "" : dday === 0 ? "D-day " : `D-${dday} `;
+  const first = `${prefix}${shortTitle(ordered[0].title, 50)}`;
+  return ordered.length === 1 ? first : `${first} 외 ${ordered.length - 1}건`;
+}
+
+function json(body: unknown, status = 200) {
+  return new Response(JSON.stringify(body), { status, headers: { "Content-Type": "application/json" } });
 }
 
 Deno.serve(async (req) => {
-  // ---- 인증 ----
   const cronSecret = Deno.env.get("CRON_SECRET");
-  const auth = req.headers.get("Authorization");
-  if (!cronSecret || auth !== `Bearer ${cronSecret}`) {
-    return new Response(JSON.stringify({ error: "Unauthorized" }), { status: 401 });
+  if (!cronSecret || req.headers.get("Authorization") !== `Bearer ${cronSecret}`) {
+    return json({ error: "Unauthorized" }, 401);
   }
+  let reqBody: { dryRun?: boolean } = {};
+  try { reqBody = await req.json(); } catch { /* cron 빈 body */ }
+  const dryRun = reqBody.dryRun === true;
 
-  const now = new Date();
-  const todayKst = kstDate(now);
-  const windowStart = new Date(now.getTime() - DAY_MS).toISOString();
+  try {
+    const now = Date.now();
+    const todayKst = kstDate(now);
+    const windowEnd = now - LAG_MS;
+    const windowStart = windowEnd - DAY_MS;
 
-  // ---- 최근 공지 1회 fetch (유저 루프 밖) ----
-  const { data: notices, error: noticesErr } = await supabase
-    .from("notices")
-    .select("id, title, body_text, posted_at, notice_meta(topic,action,deadline_at,target_grades,target_depts,target_campuses,target_enrollment_status,targets_freshmen,excludes_undergrad), sources(campus,owner_unit,parser_key)")
-    .is("duplicate_of", null) // 교차출처 중복은 대표 1건만 (중복 푸시 방지 + 중복본은 미분류)
-    .eq("channel", "board") // 인스타 공지는 공지탭/푸시 미노출(추후 '내 학과' 탭 전용)
-    .order("posted_at", { ascending: false })
-    .limit(300);
-  if (noticesErr) {
-    return new Response(JSON.stringify({ error: noticesErr.message }), { status: 500 });
-  }
+    const { data: noticeData, error: noticesErr } = await supabase
+      .from("notices")
+      .select(`id, title, posted_at, notice_meta(${META_COLS}), sources(campus,owner_unit,parser_key)`)
+      .is("duplicate_of", null) // 교차출처 중복은 대표 1건만
+      .eq("channel", "board") // 인스타 공지는 브리핑 대상 아님
+      .gte("crawled_at", new Date(windowStart).toISOString())
+      .lt("crawled_at", new Date(windowEnd).toISOString())
+      .gte("posted_at", new Date(now - POST_GATE_MS).toISOString())
+      .order("posted_at", { ascending: false })
+      .limit(1000);
+    if (noticesErr) return json({ error: noticesErr.message }, 500);
+    const recent = (noticeData ?? []) as unknown as NoticeRow[];
+    if (recent.length === 0) return json({ sent_users: 0, message: "no new notices" });
 
-  // 최근 24h 내 공지만 추림
-  const recent = (notices ?? []).filter((n: any) => n.posted_at && n.posted_at >= windowStart);
+    // 푸시를 꺼 둔 사람도 알림함 기록 대상이라 notifications_enabled 로 거르지 않는다(발송 단계에서 판단).
+    const profiles = await selectAll<DigestProfile>(() =>
+      supabase.from("profiles").select(`${PROFILE_COLS}, last_daily_push_at`).order("user_id"));
+    const sentToday = (p: DigestProfile) => !!p.last_daily_push_at && kstDate(Date.parse(p.last_daily_push_at)) === todayKst;
+    // dryRun 은 오늘 이미 받은 사람도 포함해 미리 본다(가드 건수는 따로 알려 줌).
+    const todo = dryRun ? profiles : profiles.filter((p) => !sentToday(p));
+    const ctx = await loadUserContext(supabase, todo.map((p) => p.user_id), recent.map((n) => n.id));
 
-  // ---- 알림 ON 유저 ----
-  const { data: profiles, error: profErr } = await supabase
-    .from("profiles")
-    // 푸시 OFF 유저도 알림함 기록 대상(발송 단계에서 notifications_enabled 판단).
-    .select("user_id, grade, campus, dept, dept_secondary, college, enrollment_status, is_dormitory, show_cross_dept, last_daily_push_at, notifications_enabled");
-  if (profErr) {
-    return new Response(JSON.stringify({ error: profErr.message }), { status: 500 });
-  }
+    const pending: { user_id: string; body: string; notice_ids: string[]; pushed: boolean; tokens: string[] }[] = [];
+    for (const profile of todo) {
+      const uid = profile.user_id;
+      const matched = recent.filter((n) => {
+        const meta = one<Meta>(n.notice_meta);
+        return !isExpiredActionable(meta, now) && !isMismatch(n, meta, profile,
+          ctx.disabledTopics.get(uid) ?? EMPTY, ctx.readIds.get(uid) ?? EMPTY, ctx.disabledSources.get(uid) ?? EMPTY);
+      });
+      if (matched.length === 0) continue; // 보낼 게 없으면 생략 (last_daily_push_at 미갱신)
 
-  const messages: any[] = [];
-  const sentUserIds: string[] = []; // 알림함 기록한 유저(푸시 여부 무관) → 하루 1회 가드 갱신 대상
-  const pending: { user_id: string; title: string; body: string; notice_ids: string[]; pushed: boolean; tokens: string[] }[] = [];
-  let skippedAlreadySent = 0;
-
-  for (const profile of (profiles ?? []) as Profile[]) {
-    // 중복 발송 방지: 오늘(KST) 이미 발송했으면 skip
-    if (profile.last_daily_push_at && kstDate(new Date(profile.last_daily_push_at)) === todayKst) {
-      skippedAlreadySent++;
-      continue;
+      const { ordered, dday } = orderForDigest(matched, profile, now);
+      const tokens = ctx.tokens.get(uid) ?? [];
+      const canPush = profile.notifications_enabled !== false && tokens.length > 0;
+      pending.push({
+        user_id: uid,
+        body: digestBody(ordered, dday),
+        notice_ids: ordered.slice(0, 100).map((n) => n.id),
+        pushed: canPush,
+        tokens: canPush ? tokens : [],
+      });
     }
 
-    const uid = profile.user_id;
-    const [prefRes, srcPrefRes, readRes, tokRes] = await Promise.all([
-      supabase.from("user_category_prefs").select("topic,is_enabled").eq("user_id", uid),
-      supabase.from("user_source_prefs").select("parser_key").eq("user_id", uid).eq("is_enabled", false),
-      supabase.from("user_feed_state").select("notice_id").eq("user_id", uid).not("read_at", "is", null),
-      supabase.from("push_tokens").select("token").eq("user_id", uid).eq("is_active", true),
-    ]);
+    if (dryRun) {
+      const counts = pending.map((p) => p.notice_ids.length).sort((a, b) => a - b);
+      return json({
+        dryRun: true, recent_notices: recent.length, profiles: profiles.length,
+        already_sent_today: profiles.filter(sentToday).length, would_notify: pending.length,
+        would_push_messages: pending.reduce((s, p) => s + p.tokens.length, 0),
+        median_notices: counts[Math.floor(counts.length / 2)] ?? 0,
+        samples: pending.slice(0, 20).map((p) => ({ body: p.body, notices: p.notice_ids.length, push: p.pushed })),
+      });
+    }
 
-    const disabledTopics = new Set<string>(
-      ((prefRes.data ?? []) as any[]).filter((p) => !p.is_enabled).map((p) => p.topic),
-    );
-    const disabledSources = new Set<string>(((srcPrefRes.data ?? []) as any[]).map((r) => r.parser_key));
-    const readIds = new Set<string>(((readRes.data ?? []) as any[]).map((r) => r.notice_id));
-    const tokens = ((tokRes.data ?? []) as any[]).map((t) => t.token);
-    const canPush = profile.notifications_enabled !== false && tokens.length > 0;
+    // 알림함 기록 → id 를 푸시 data 에 실어 앱이 그 알림의 공지 모음으로 이동.
+    // 기록에 실패한 사람에게는 푸시를 보내지 않고 하루 1회 가드도 갱신하지 않는다.
+    const idByUser = new Map<string, string>();
+    let insertErrors = 0;
+    for (const part of chunk(pending, 500)) {
+      const { data: inserted, error } = await supabase.from("notifications")
+        .insert(part.map(({ tokens: _t, ...row }) => ({ ...row, type: "digest", title: TITLE })))
+        .select("id, user_id");
+      if (error) { insertErrors += part.length; console.error(`notifications insert failed: ${error.message}`); continue; }
+      for (const r of (inserted ?? []) as { id: string; user_id: string }[]) idByUser.set(r.user_id, r.id);
+    }
 
-    // N = 미스매치 아닌(미만료) 최근 공지 수
-    const matched = recent.filter((n: any) => {
-      const meta = one<Meta>(n.notice_meta);
-      return !isMismatch(n, meta, profile, disabledTopics, readIds, disabledSources) && !isExpiredActionable(meta);
-    });
-    const N = matched.length;
-    if (N === 0) continue; // 보낼 게 없으면 생략 (last_daily_push_at 미갱신)
-
-    const body = `오늘 새 공지 ${N}건`;
-
-    // 알림함에 해당 공지 id를 남겨, 알림을 누르면 '오늘 새 공지 N건'이 무엇인지 바로 보이게.
-    pending.push({
-      user_id: uid,
-      title: "오늘의 공지 브리핑",
-      body,
-      notice_ids: matched.slice(0, 100).map((n: any) => n.id),
-      pushed: canPush,
-      tokens: canPush ? tokens : [],
-    });
-    sentUserIds.push(uid);
-  }
-
-  // ---- 알림함 기록 → id를 푸시 data에 실어 앱이 그 알림의 공지 모음으로 이동 ----
-  if (pending.length > 0) {
-    const { data: inserted, error: insErr } = await supabase
-      .from("notifications")
-      .insert(pending.map(({ tokens: _t, ...row }) => ({ ...row, type: "digest" })))
-      .select("id, user_id");
-    if (insErr) console.error(`notifications insert failed: ${insErr.message}`);
-    const idByUser = new Map<string, string>(((inserted ?? []) as any[]).map((r) => [r.user_id, r.id]));
+    const messages: PushMessage[] = [];
     for (const p of pending) {
+      const notificationId = idByUser.get(p.user_id);
+      if (!notificationId) continue;
       for (const token of p.tokens) {
-        // 공지 id 목록은 data 4KB 한도 때문에 싣지 않고 notificationId로 앱이 조회
+        // 공지 id 목록은 data 4KB 한도 때문에 싣지 않고 notificationId 로 앱이 조회
         messages.push({
-          to: token, sound: "default", title: p.title, body: p.body,
-          data: { type: "digest", notificationId: idByUser.get(p.user_id) ?? null },
+          to: token, sound: "default", channelId: "digest", title: TITLE, body: p.body,
+          data: { type: "digest", notificationId },
         });
       }
     }
-  }
+    const push = await sendPush(supabase, messages);
 
-  // ---- Expo Push 발송 (100개씩 배치) ----
-  const pushResults: any[] = [];
-  for (let i = 0; i < messages.length; i += 100) {
-    const chunk = messages.slice(i, i + 100);
-    const res = await fetch(EXPO_PUSH_URL, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(chunk),
-    });
-    pushResults.push(await res.json());
-  }
+    const notified = [...idByUser.keys()];
+    for (const part of chunk(notified, 100)) {
+      await supabase.from("profiles").update({ last_daily_push_at: new Date(now).toISOString() }).in("user_id", part);
+    }
 
-  // ---- last_daily_push_at 갱신 (발송 유저만) ----
-  if (sentUserIds.length > 0) {
-    await supabase
-      .from("profiles")
-      .update({ last_daily_push_at: now.toISOString() })
-      .in("user_id", sentUserIds);
-  }
-
-  return new Response(
-    JSON.stringify({
-      sent_users: sentUserIds.length,
-      sent_messages: messages.length,
-      skipped_already_sent: skippedAlreadySent,
+    return json({
+      sent_users: notified.length,
+      insert_errors: insertErrors,
+      skipped_already_sent: profiles.length - todo.length,
       recent_notices: recent.length,
-      push_results: pushResults,
-    }),
-    { headers: { "Content-Type": "application/json" } },
-  );
+      push,
+    });
+  } catch (e) {
+    console.error(`daily_digest_push failed: ${(e as Error).message}`);
+    return json({ error: (e as Error).message }, 500);
+  }
 });

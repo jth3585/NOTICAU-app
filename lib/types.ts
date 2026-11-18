@@ -133,4 +133,5 @@ export type OnboardingStackParamList = {
   SecondaryDept: undefined;
   Enrollment: undefined;
   Nickname: undefined;
+  Notify: undefined;
 };

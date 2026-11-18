@@ -1,8 +1,12 @@
-import { useEffect, useState } from 'react';
-import { ScrollView, StyleSheet, Switch, Text, View } from 'react-native';
+import { useCallback, useEffect, useRef, useState } from 'react';
+import { AppState, ScrollView, StyleSheet, Switch, Text, TouchableOpacity, View } from 'react-native';
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
-import { useNavigation } from '@react-navigation/native';
+import { useFocusEffect, useNavigation } from '@react-navigation/native';
+import * as Device from 'expo-device';
 import { supabase } from '../lib/supabase';
+import {
+  getPushPermission, openDeviceNotificationSettings, requestPushPermission, setupPushNotifications, type PushPermission,
+} from '../lib/push';
 import { COLORS, FONT, RADIUS, SPACING, WEIGHT } from '../lib/theme';
 import { BackButton } from '../components/ui/BackButton';
 
@@ -18,6 +22,36 @@ export default function NotificationSettingsScreen() {
   const [eventAlerts, setEventAlerts] = useState(true);
   const [keywords, setKeywords] = useState<Kw[]>([]);
   const [loaded, setLoaded] = useState(false);
+  // 기기(OS) 알림 권한. 꺼져 있으면 아래 스위치와 상관없이 푸시가 오지 않으니 위에 따로 알려 준다.
+  const [perm, setPerm] = useState<PushPermission | null>(null);
+  const wasGranted = useRef<boolean | null>(null);
+
+  const refreshPerm = useCallback(async () => {
+    if (!Device.isDevice) return;
+    const p = await getPushPermission().catch(() => null);
+    if (!p) return;
+    // 기기 설정에서 방금 켜고 돌아온 경우 토큰을 바로 저장한다(다음 실행까지 기다리지 않게).
+    if (p.granted && wasGranted.current === false) setupPushNotifications();
+    wasGranted.current = p.granted;
+    setPerm(p);
+  }, []);
+
+  useFocusEffect(useCallback(() => { refreshPerm(); }, [refreshPerm]));
+  useEffect(() => {
+    const sub = AppState.addEventListener('change', (s) => { if (s === 'active') refreshPerm(); });
+    return () => sub.remove();
+  }, [refreshPerm]);
+
+  // 아직 물을 수 있으면 시스템 권한 창, 이미 거절해서 못 물으면 기기 설정 화면으로.
+  const turnOnDeviceNotifications = async () => {
+    if (!perm?.canAskAgain) { openDeviceNotificationSettings(); return; }
+    const next = await requestPushPermission().catch(() => null);
+    if (!next) return;
+    if (next.granted) setupPushNotifications();
+    wasGranted.current = next.granted;
+    setPerm(next);
+  };
+  const deviceOff = !!perm && !perm.granted;
 
   useEffect(() => {
     (async () => {
@@ -69,6 +103,16 @@ export default function NotificationSettingsScreen() {
       </View>
 
       <ScrollView contentContainerStyle={[styles.scroll, { paddingBottom: SPACING.xxl + insets.bottom }]}>
+        {deviceOff ? (
+          <View style={styles.deviceCard}>
+            <Text style={styles.deviceTitle}>기기 알림이 꺼져 있어요</Text>
+            <Text style={styles.deviceDesc}>지금은 알림이 알림함에만 쌓이고 푸시로는 오지 않아요.</Text>
+            <TouchableOpacity style={styles.deviceBtn} onPress={turnOnDeviceNotifications} activeOpacity={0.75} accessibilityRole="button">
+              <Text style={styles.deviceBtnText}>{perm?.canAskAgain ? '알림 허용하기' : '기기 설정에서 켜기'}</Text>
+            </TouchableOpacity>
+          </View>
+        ) : null}
+
         <View style={styles.card}>
           <View style={styles.row}>
             <Text style={styles.rowLabel}>알림 받기</Text>
@@ -82,7 +126,7 @@ export default function NotificationSettingsScreen() {
             />
           </View>
         </View>
-        <Text style={styles.note}>· 켜 두면 매일 저녁 6시에 그날 올라온 새 공지 건수를 알려드려요.</Text>
+        <Text style={styles.note}>· 켜 두면 매일 저녁 6시에 그날 올라온 내 공지를 모아 알려드려요.</Text>
 
         {/* 내 학과 새 행사 */}
         <Text style={styles.groupLabel}>행사 알림</Text>
@@ -148,4 +192,9 @@ const styles = StyleSheet.create({
   groupLabel: { fontSize: FONT.caption, color: COLORS.textSecondary, fontWeight: WEIGHT.semibold, marginTop: SPACING.lg, marginBottom: SPACING.sm, marginLeft: SPACING.xs },
   note: { fontSize: FONT.caption, color: COLORS.textSecondary, marginBottom: SPACING.xs, lineHeight: 18 },
   empty: { fontSize: FONT.caption, color: COLORS.textSecondary, padding: SPACING.lg },
+  deviceCard: { backgroundColor: COLORS.accentSoft, borderRadius: RADIUS.card, padding: SPACING.lg, marginBottom: SPACING.lg },
+  deviceTitle: { fontSize: FONT.body, fontWeight: WEIGHT.bold, color: COLORS.text, marginBottom: SPACING.xs },
+  deviceDesc: { fontSize: FONT.caption, color: COLORS.textSecondary, lineHeight: 18, marginBottom: SPACING.md },
+  deviceBtn: { alignSelf: 'flex-start', backgroundColor: COLORS.accent, borderRadius: RADIUS.pill, paddingHorizontal: SPACING.lg, paddingVertical: SPACING.sm },
+  deviceBtnText: { fontSize: FONT.caption, fontWeight: WEIGHT.bold, color: '#fff' },
 });
