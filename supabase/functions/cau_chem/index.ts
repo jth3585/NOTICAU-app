@@ -1,6 +1,8 @@
-// cau_chem — 화학과(chem.cau.ac.kr) News & Events 크롤러 (JSON API)
+// cau_chem — 화학과(chem.cau.ac.kr) 공지 크롤러 (JSON API). 사이트 전체가 /eng/ 아래에 있다(한글 공지도 여기).
 //
-// 목록+본문: POST /eng/api/board-list.php?board=news-event&pageNo=1&pageSize=N&announce=3&keyword=
+// 게시판 2개: notice(공지 — 학사·장학 등 실제 공지), news-event(학과 소식)
+//   처음엔 news-event 만 봐서(4월 이후 글 없음) 등록 뒤 한 번도 수집되지 않았다(2026-11-18 발견·수정).
+// 목록+본문: POST /eng/api/board-list.php?board={board}&pageNo=1&pageSize=N&announce=3&keyword=
 //   → 이중 인코딩된 JSON 문자열. JSON.parse 2회 → { response: [ {seq, title(b64), content(b64 HTML),
 //     writeAt("YYYY-MM-DD HH:MM:SS"), outLink, articleType} ] }. title/content는 base64(UTF-8).
 //   본문이 목록에 함께 오므로 상세 조회 불필요.
@@ -8,11 +10,12 @@
 // 소속: 화학과(chemistry 단독). 인증: Bearer <CRON_SECRET>.
 
 import { load } from "npm:cheerio";
-import { createClient } from "jsr:@supabase/supabase-js@2";
+// 2.119.1 이 npm 의존성(storage-js) 배포 전에 JSR 에 올라와 번들이 실패해서 고정(2026-11-18).
+import { createClient } from "jsr:@supabase/supabase-js@2.119.0";
 
 const SOURCE_PARSER_KEY = "cau_chem";
 const BASE = "https://chem.cau.ac.kr";
-const BOARD = "news-event";
+const BOARDS = ["notice", "news-event"];
 const AUTHOR = "화학과";
 const DEFAULT_BACKFILL = "2026-05-01";
 
@@ -25,7 +28,7 @@ const REQUEST_HEADERS = {
   "Accept": "application/json, text/javascript, */*; q=0.01",
   "Accept-Language": "ko-KR,ko;q=0.9,en-US;q=0.8,en;q=0.7",
   "X-Requested-With": "XMLHttpRequest",
-  "Referer": `${BASE}/eng/board.php?selected=${BOARD}`,
+  "Referer": `${BASE}/eng/board.php?selected=notice`,
 };
 
 const supabase = createClient(
@@ -50,12 +53,20 @@ function b64ToUtf8(b64: string): string {
   }
 }
 
-async function fetchList(pageSize: number): Promise<any[]> {
-  const url = `${BASE}/eng/api/board-list.php?board=${BOARD}&pageNo=1&pageSize=${pageSize}&announce=3&keyword=`;
+// 본문 HTML 에 이미지가 base64 로 박혀 있어 10건이 5MB 안팎이다. 한 번에 많이 받으면
+// 이중 JSON 파싱에서 메모리 한도(WORKER_RESOURCE_LIMIT 546)에 걸리므로 조금씩 페이지로 받는다.
+const PAGE_SIZE = 5;
+
+async function fetchList(board: string, pageNo: number): Promise<any[]> {
+  const url = `${BASE}/eng/api/board-list.php?board=${board}&pageNo=${pageNo}&pageSize=${PAGE_SIZE}&announce=3&keyword=`;
   let lastErr: unknown;
   for (let attempt = 0; attempt <= MAX_RETRIES; attempt++) {
     try {
-      const res = await fetch(url, { method: "POST", headers: REQUEST_HEADERS, signal: AbortSignal.timeout(FETCH_TIMEOUT_MS) });
+      const res = await fetch(url, {
+        method: "POST",
+        headers: { ...REQUEST_HEADERS, Referer: `${BASE}/eng/board.php?selected=${board}` },
+        signal: AbortSignal.timeout(FETCH_TIMEOUT_MS),
+      });
       if (!res.ok) throw new Error(`HTTP ${res.status}`);
       let j: any = await res.json();
       if (typeof j === "string") j = JSON.parse(j); // 이중 인코딩 대응
@@ -97,11 +108,11 @@ Deno.serve(async (req) => {
     return new Response(JSON.stringify({ error: "Unauthorized" }), { status: 401 });
   }
 
-  let pageSize = 50;
+  let pages = 1; // cron 은 게시판별 최근 5건만. 백필은 {"pages":N}
   let backfillFrom = DEFAULT_BACKFILL;
   try {
     const body = await req.json();
-    if (body && Number.isInteger(body.pageSize) && body.pageSize > 0) pageSize = Math.min(body.pageSize, 300);
+    if (body && Number.isInteger(body.pages) && body.pages > 0) pages = Math.min(body.pages, 20);
     if (body && typeof body.backfillFrom === "string" && /^\d{4}-\d{2}-\d{2}$/.test(body.backfillFrom)) backfillFrom = body.backfillFrom;
   } catch { /* cron 빈 body */ }
 
@@ -112,11 +123,16 @@ Deno.serve(async (req) => {
   }
   const sourceId = source.id;
 
-  const stats = { listed: 0, skippedOld: 0, skippedDup: 0, insertedNotices: 0, fetchFailed: 0 };
+  const stats = { boards: 0, listed: 0, skippedOld: 0, skippedDup: 0, insertedNotices: 0, fetchFailed: 0 };
 
   try {
-    const items = await fetchList(pageSize);
-    stats.listed = items.length;
+   for (const board of BOARDS) {
+    stats.boards++;
+    for (let pageNo = 1; pageNo <= pages; pageNo++) {
+    const items = await fetchList(board, pageNo);
+    stats.listed += items.length;
+    if (items.length === 0) break;
+    let fresh = 0; // 이 페이지에서 백필 기준보다 새 글 수 — 0 이면 더 넘길 필요 없음
 
     for (const it of items) {
       const seq = String(it.seq ?? "");
@@ -124,11 +140,12 @@ Deno.serve(async (req) => {
       const date = String(it.writeAt ?? "").slice(0, 10);
       if (!seq || !title || !/^\d{4}-\d{2}-\d{2}$/.test(date)) { stats.fetchFailed++; continue; }
       if (date < backfillFrom) { stats.skippedOld++; continue; }
+      fresh++;
 
       const postedAt = `${date}T00:00:00+09:00`;
-      const url = `${BASE}/eng/board.php?selected=${BOARD}&seq=${seq}`;
+      const url = `${BASE}/eng/board.php?selected=${board}&seq=${seq}`;
       try {
-        const contentHash = await sha256Hex(`${title}|${SOURCE_PARSER_KEY}/${seq}|${postedAt}`);
+        const contentHash = await sha256Hex(`${title}|${SOURCE_PARSER_KEY}/${board}/${seq}|${postedAt}`);
         const { data: existing } = await supabase
           .from("notices").select("id").eq("content_hash", contentHash).maybeSingle();
         if (existing) { stats.skippedDup++; continue; }
@@ -160,6 +177,9 @@ Deno.serve(async (req) => {
       }
       await sleep(200);
     }
+    if (fresh === 0) break;
+    }
+   }
 
     await supabase.from("crawler_health").upsert({
       source_id: sourceId,
