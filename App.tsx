@@ -1,4 +1,4 @@
-import { useEffect, useState, cloneElement } from 'react';
+import { useEffect, useRef, useState, cloneElement } from 'react';
 import * as SplashScreen from 'expo-splash-screen';
 import { useFonts } from 'expo-font';
 import { NavigationContainer, createNavigationContainerRef } from '@react-navigation/native';
@@ -44,8 +44,9 @@ import NoticeDetailScreen from './screens/NoticeDetailScreen';
 import NotificationsScreen from './screens/NotificationsScreen';
 import NotificationNoticesScreen from './screens/NotificationNoticesScreen';
 
-// 콜드 스타트 시 네이티브 스플래시를 수동 제어 (첫 화면을 정할 수 있게 되면 바로 hide).
+// 콜드 스타트 시 네이티브 스플래시를 수동 제어 (init 완료 + 최소 표시시간 후 hide).
 SplashScreen.preventAutoHideAsync().catch(() => {});
+const MIN_SPLASH_MS = 1500; // 콜드 스타트 스플래시 최소 표시 시간
 
 // 전역 기본 글꼴: Pretendard. 컴포넌트가 지정한 style(fontWeight·색 등)은 그대로 우선한다.
 // variable 폰트라 기존 fontWeight 값이 그대로 굵기를 선택. Text.render를 한 번만 패치해
@@ -140,6 +141,13 @@ export default function App() {
   const [ready, setReady] = useState(false);
   const [fontsLoaded] = useFonts({ Pretendard: require('./assets/fonts/PretendardVariable.ttf') });
   const [hasProfile, setHasProfile] = useState(false);
+  const initStartTime = useRef(Date.now()).current;
+  // 스플래시 최소 표시 보장(min). 준비가 더 빨랐으면 남은 시간만 기다렸다가 ready.
+  const readyAfterMinSplash = () => {
+    const remaining = MIN_SPLASH_MS - (Date.now() - initStartTime);
+    if (remaining > 0) setTimeout(() => setReady(true), remaining);
+    else setReady(true);
+  };
 
   useEffect(() => {
     (async () => {
@@ -148,7 +156,7 @@ export default function App() {
       const knownProfile = await hasKnownProfile();
       if (knownProfile) {
         setHasProfile(true);
-        setReady(true);
+        readyAfterMinSplash();
       }
       // 어떤 init이 실패해도 흰 화면에 갇히지 않도록 finally에서 ready 보장.
       try {
@@ -181,7 +189,7 @@ export default function App() {
       } catch (e) {
         console.error('[App] init failed', e);
       } finally {
-        setReady(true);
+        readyAfterMinSplash();
       }
     })();
   }, []);
