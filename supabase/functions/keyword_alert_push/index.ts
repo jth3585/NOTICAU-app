@@ -4,7 +4,9 @@
 // 인증: verify_jwt=false 로 배포 + Authorization: Bearer <CRON_SECRET> 자체 검증.
 //
 // 어떤 글을 보나(2026-11-18 개편)
-//   - 수집 시각(crawled_at) 기준 지난 2시간 + 게시일 24시간 이내 + 분류(notice_meta)가 끝난 글.
+//   - 수집 시각(crawled_at) 기준 지난 2시간 + 게시일이 어제(KST) 이후 + 분류(notice_meta)가 끝난 글.
+//     게시일은 대부분 날짜만 있어 그날 00:00(KST)로 저장된다. 예전 '게시 24시간 이내' 게이트는 자정 실행부터
+//     전날 글을 전부 떨궈, 밤늦게 수집·분류된 글은 키워드 알림이 영영 안 갔다(2026-11-21 수정).
 //     매시 실행인데 2시간을 보는 건 일부러다: 정각 직전에 들어와 아직 분류되지 않은 글, cron 이 늦거나
 //     실패한 시간의 글을 다음 실행이 줍는다. 예전엔 '1시간 창 + 1시간 쿨다운'이라 실행 시작이 몇 초만
 //     앞당겨져도 그 사람을 건너뛰었고, 그 시간 글은 영영 알림이 안 갔다.
@@ -32,7 +34,13 @@ const supabase = createClient(
 
 const HOUR_MS = 60 * 60 * 1000;
 const WINDOW_MS = 2 * HOUR_MS; // 수집 시각 창
-const POST_WINDOW_MS = 24 * HOUR_MS; // 게시일 게이트: 백필(과거 글 일괄 수집)로 알림이 울리지 않게. 홈 키워드 탭과 같은 24시간.
+const DAY_MS = 24 * HOUR_MS;
+const KST_OFFSET_MS = 9 * HOUR_MS;
+// 게시일 게이트: 백필(과거 글 일괄 수집)로 알림이 울리지 않게, 어제 00:00(KST) 이후 게시된 글만.
+function postedGateIso(now: number): string {
+  const todayKstMidnight = Math.floor((now + KST_OFFSET_MS) / DAY_MS) * DAY_MS - KST_OFFSET_MS;
+  return new Date(todayKstMidnight - DAY_MS).toISOString();
+}
 const SENT_LOOKBACK_MS = 3 * HOUR_MS; // 이미 보낸 공지 확인 범위(창보다 길게)
 
 type NoticeRow = {
@@ -90,7 +98,7 @@ Deno.serve(async (req) => {
       .is("duplicate_of", null) // 교차출처 중복은 대표 1건만
       .eq("channel", "board") // 인스타 공지는 키워드 알림 대상 아님
       .gte("crawled_at", new Date(now - windowMs).toISOString())
-      .gte("posted_at", new Date(now - POST_WINDOW_MS).toISOString())
+      .gte("posted_at", postedGateIso(now))
       .order("crawled_at", { ascending: false })
       .limit(1000);
     if (noticesErr) return json({ error: noticesErr.message }, 500);

@@ -68,13 +68,16 @@ Deno.serve(async (req) => {
       return !a.last_notified_at || now - Date.parse(a.last_notified_at) >= REMIND_MS;
     });
     const resolved = open.filter((a) => !issueKeys.has(key(a.source_id, a.kind)));
+    // 복구 알림은 '문제를 알린 적 있는' 것만 보낸다. 알린 적 없는 문제(그때 관리자 토큰이 없었던 등)는 조용히 닫는다.
+    const resolvedReported = resolved.filter((a) => !!a.last_notified_at);
+    const resolvedSilent = resolved.filter((a) => !a.last_notified_at);
 
     // 복구 알림에 쓸 이름
     const resolvedNamed: { name: string; kind: string }[] = [];
-    if (resolved.length > 0) {
-      const { data: srcs } = await supabase.from("sources").select("id, name").in("id", resolved.map((a) => a.source_id));
+    if (resolvedReported.length > 0) {
+      const { data: srcs } = await supabase.from("sources").select("id, name").in("id", resolvedReported.map((a) => a.source_id));
       const nameById = new Map(((srcs ?? []) as { id: string; name: string }[]).map((s) => [s.id, s.name]));
-      for (const a of resolved) resolvedNamed.push({ name: nameById.get(a.source_id) ?? "?", kind: a.kind });
+      for (const a of resolvedReported) resolvedNamed.push({ name: nameById.get(a.source_id) ?? "?", kind: a.kind });
     }
 
     const toNotify = [...fresh, ...remind];
@@ -120,9 +123,12 @@ Deno.serve(async (req) => {
       if (notifiedAt && remind.includes(i)) patch.last_notified_at = notifiedAt;
       await supabase.from("crawler_alerts").update(patch).eq("id", a.id);
     }
-    if (resolved.length > 0) {
-      await supabase.from("crawler_alerts").update({ closed_at: new Date(now).toISOString() })
-        .in("id", resolved.map((a) => a.id));
+    // 복구 알림이 실제로 나간 경우에만 닫는다. 못 보냈으면(관리자 토큰 없음·발송 실패) 열어 두고 다음 실행에서 다시 알린다.
+    const toClose = [...resolvedSilent, ...(notifiedAt ? resolvedReported : [])];
+    if (toClose.length > 0) {
+      const { error } = await supabase.from("crawler_alerts").update({ closed_at: new Date(now).toISOString() })
+        .in("id", toClose.map((a) => a.id));
+      if (error) console.error(`crawler_alerts close failed: ${error.message}`);
     }
 
     return json({ ...report, admins: adminIds.length, notified: !!notifiedAt, push });

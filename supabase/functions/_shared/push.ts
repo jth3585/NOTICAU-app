@@ -6,6 +6,10 @@
 //   - 429·5xx 는 잠깐 쉬었다가 두 번까지 다시 보낸다(400 류는 다시 보내도 같으므로 재시도 안 함).
 // checkReceipts: 15분~24시간 지난 티켓의 영수증을 받아 DeviceNotRegistered 토큰을 비활성화하고,
 //   결과를 확인했거나 24시간이 지난 티켓 행을 지운다. keyword_alert_push 가 매시간 부른다.
+//   비활성화는 '그 티켓을 보낸 뒤로 토큰이 다시 저장되지 않은' 행만 한다. 앱을 지웠다 다시 깔아 같은 토큰이
+//   (새 계정으로) 다시 등록됐는데, 그 전에 보낸 푸시의 옛 영수증이 새 등록을 꺼 버리던 문제 방지.
+//
+// .in() 필터는 URL 에 실리므로(약 4KB 안쪽으로) 토큰 60개·티켓 id 80개씩 나눈다(_shared/audience.ts 와 같은 이유).
 //
 // Android 는 channelId 가 기기에 없으면 알림이 표시되지 않는다. 앱(lib/push.ts)이 만드는 채널 id 와 맞출 것:
 //   keyword / digest / event / default
@@ -58,12 +62,16 @@ async function postJson(url: string, body: unknown): Promise<{ status: number; j
   return last;
 }
 
-export async function deactivateTokens(supabase: SupabaseClient, tokens: string[]): Promise<number> {
+const TOKEN_CHUNK = 60; // Expo 토큰 ~45자 × 60 ≈ 2.7KB
+const TICKET_CHUNK = 80; // uuid 36자 × 80 ≈ 3KB
+
+// sentBefore: 이 시각 전에 마지막으로 저장된 토큰 행만 끈다(그 뒤 다시 등록된 기기는 살린다).
+export async function deactivateTokens(supabase: SupabaseClient, tokens: string[], sentBefore = new Date().toISOString()): Promise<number> {
   const uniq = [...new Set(tokens)];
   let n = 0;
-  for (const part of chunk(uniq, 200)) {
+  for (const part of chunk(uniq, TOKEN_CHUNK)) {
     const { data, error } = await supabase.from("push_tokens").update({ is_active: false })
-      .in("token", part).eq("is_active", true).select("token");
+      .in("token", part).eq("is_active", true).lt("updated_at", sentBefore).select("token");
     if (error) console.error(`push token deactivate failed: ${error.message}`);
     n += (data ?? []).length;
   }
@@ -99,7 +107,7 @@ export async function sendPush(supabase: SupabaseClient, messages: PushMessage[]
   }
 
   if (tickets.length > 0) {
-    for (const part of chunk(tickets, 500)) {
+    for (const part of chunk(tickets, 500)) { // insert 는 본문(body)에 실리므로 URL 한도와 무관
       const { error } = await supabase.from("push_tickets").insert(part);
       if (error) console.error(`push_tickets insert failed: ${error.message}`);
     }
@@ -120,9 +128,10 @@ export async function checkReceipts(supabase: SupabaseClient, maxBatches = 3): P
   const { count: purged } = await supabase.from("push_tickets").delete({ count: "exact" }).lt("created_at", expiredBefore);
   result.purged = purged ?? 0;
 
-  const dead: string[] = [];
+  // 영수증이 DeviceNotRegistered 인 토큰 → 그 토큰으로 보낸 티켓 중 가장 늦은 발송 시각
+  const dead = new Map<string, string>();
   for (let b = 0; b < maxBatches; b++) {
-    const { data: rows, error } = await supabase.from("push_tickets").select("id, token")
+    const { data: rows, error } = await supabase.from("push_tickets").select("id, token, created_at")
       .lt("created_at", readyBefore).order("created_at").limit(1000);
     if (error) { console.error(`push_tickets select failed: ${error.message}`); break; }
     if (!rows || rows.length === 0) break;
@@ -134,7 +143,7 @@ export async function checkReceipts(supabase: SupabaseClient, maxBatches = 3): P
       break;
     }
     const done: string[] = [];
-    for (const r of rows as { id: string; token: string }[]) {
+    for (const r of rows as { id: string; token: string; created_at: string }[]) {
       const rec = receipts[r.id];
       if (!rec) continue; // 아직 영수증이 없다 → 다음 시간에 다시 본다(24시간 지나면 위에서 정리)
       done.push(r.id);
@@ -142,11 +151,22 @@ export async function checkReceipts(supabase: SupabaseClient, maxBatches = 3): P
       if (rec.status === "ok") { result.ok++; continue; }
       const code = rec.details?.error ?? "UNKNOWN";
       result.errors[code] = (result.errors[code] ?? 0) + 1;
-      if (code === "DeviceNotRegistered") dead.push(r.token);
+      if (code === "DeviceNotRegistered") {
+        const prev = dead.get(r.token);
+        if (!prev || r.created_at > prev) dead.set(r.token, r.created_at);
+      }
     }
-    for (const part of chunk(done, 500)) await supabase.from("push_tickets").delete().in("id", part);
-    if (rows.length < 1000 || done.length === 0) break;
+    let deleteFailed = false;
+    for (const part of chunk(done, TICKET_CHUNK)) {
+      const { error: delErr } = await supabase.from("push_tickets").delete().in("id", part);
+      if (delErr) { console.error(`push_tickets delete failed: ${delErr.message}`); deleteFailed = true; }
+    }
+    // 지우지 못했으면 다음 배치가 같은 행을 다시 읽으니 멈춘다(다음 실행에서 이어서).
+    if (deleteFailed || rows.length < 1000 || done.length === 0) break;
   }
-  if (dead.length > 0) result.deactivated = await deactivateTokens(supabase, dead);
+  // 발송 시각이 같은 토큰끼리 묶어 끈다(보통 몇 개 안 됨).
+  const bySentAt = new Map<string, string[]>();
+  for (const [token, sentAt] of dead) bySentAt.set(sentAt, [...(bySentAt.get(sentAt) ?? []), token]);
+  for (const [sentAt, tokens] of bySentAt) result.deactivated += await deactivateTokens(supabase, tokens, sentAt);
   return result;
 }

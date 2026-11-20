@@ -175,8 +175,11 @@ async function fetchAccount(
     const batch = bd.media?.data ?? [];
     all.push(...batch);
 
-    // 백필 하한 넘어서면 중단
-    if (backfillFrom && batch.some((m) => (m.timestamp ?? "").slice(0, 10) < backfillFrom)) break;
+    // 백필 하한 넘어서면 중단. 페이지의 '마지막' 글로 판단한다 — 맨 앞에 고정된 옛 게시물(소개 글 등)이
+    // 있는 계정은 1페이지에 항상 하한보다 오래된 글이 끼어 있어, '하나라도 오래되면 중단'이면 1페이지만 읽고
+    // 그 뒤의 새 글을 놓쳤다(중단 뒤 복구 등으로 새 글이 한 페이지를 넘을 때).
+    const last = batch[batch.length - 1];
+    if (backfillFrom && last && (last.timestamp ?? "").slice(0, 10) < backfillFrom) break;
     after = bd.media?.paging?.cursors?.after;
     if (!after || batch.length === 0) break;
     await sleep(300);
@@ -401,14 +404,23 @@ async function rehostOne(url: string, basePath: string): Promise<string | null> 
   }
 }
 
+// Storage 파일 이름에 쓸, 이미지마다 변하지 않는 짧은 키. CDN URL 의 경로(파일명) 해시 — 서명 쿼리(oe=, oh=)는
+// 바뀌어도 경로는 같다. 예전엔 목록 안의 위치(_0, _1…)를 썼는데, 만료된 URL 이 목록에서 빠지면 뒤 이미지의
+// 위치가 당겨져 재시도 때 같은 글의 다른 이미지 파일을 덮어썼다.
+async function imageKey(url: string): Promise<string> {
+  let path = url;
+  try { path = new URL(url).pathname; } catch { /* 그대로 */ }
+  return (await sha256Hex(path)).slice(0, 16);
+}
+
 // 이미지 목록을 Storage 로 옮긴다. 옮긴 건 Storage URL, 실패한 건 원래 URL(만료됐으면 제외).
 async function rehostImages(parserKey: string, key: string, urls: string[]): Promise<{ urls: string[]; failed: number; dropped: number }> {
   let failed = 0;
   let dropped = 0;
-  const out = await Promise.all(urls.map(async (u, i) => {
+  const out = await Promise.all(urls.map(async (u) => {
     if (isRehosted(u)) return u;
     if (cdnExpired(u)) { dropped++; return null; } // 서명 만료 → 다시 받을 수 없음
-    const r = await rehostOne(u, `ig/${parserKey}/${key}_${i}`);
+    const r = await rehostOne(u, `ig/${parserKey}/${key}_${await imageKey(u)}`);
     if (!r) failed++;
     return r ?? u;
   }));
@@ -444,33 +456,53 @@ async function rehostPending(limit: number) {
 }
 
 // 보관 기간이 지난 글의 이미지를 Storage 에서 지운다(북마크된 글은 유지).
+//  - 오래된 순으로 (posted_at, id) 커서를 넘기며 훑는다. 예전엔 '가장 오래된 200건'만 봤는데, 북마크된 글은
+//    이미지를 남기므로 계속 맨 앞에 남아, 그런 글이 200건 넘게 쌓이면 정리가 영영 멈췄다.
+//  - 북마크 조회가 실패하면 그 묶음은 지우지 않고 멈춘다(실패를 '북마크 없음'으로 보면 북마크한 글 이미지까지 지운다).
+//  - 북마크 조회의 in() 은 URL 에 실리므로 uuid 80개씩.
+const PURGE_MAX_NOTICES = 200; // 한 번에 정리할 글 수
+const PURGE_MAX_SCAN = 2000; // 한 번에 훑을 글 수(북마크로 건너뛴 것 포함)
 async function purgeOldImages() {
   const cutoff = new Date(Date.now() - IMG_KEEP_DAYS * 86_400_000).toISOString();
-  const { data, error } = await supabase.from("notices")
-    .select("id, body_image_urls")
-    .eq("channel", "instagram")
-    .lt("posted_at", cutoff)
-    .not("body_image_urls", "eq", "{}")
-    .order("posted_at", { ascending: true })
-    .limit(200);
-  if (error) return { error: error.message };
-  const rows = (data ?? []).filter((n: any) => (n.body_image_urls ?? []).length > 0) as { id: string; body_image_urls: string[] }[];
-  if (rows.length === 0) return { notices: 0, removed: 0, keptBookmarked: 0 };
-  const { data: bm } = await supabase.from("user_feed_state").select("notice_id")
-    .in("notice_id", rows.map((r) => r.id)).not("bookmarked_at", "is", null);
-  const keep = new Set((bm ?? []).map((r: { notice_id: string }) => r.notice_id));
-  const res = { notices: 0, removed: 0, keptBookmarked: 0, failed: 0 };
-  for (const n of rows) {
-    if (keep.has(n.id)) { res.keptBookmarked++; continue; }
-    const paths = n.body_image_urls.filter(isRehosted).map((u) => decodeURIComponent(u.split(IMG_PUBLIC_MARK)[1].split("?")[0]));
-    if (paths.length > 0) {
-      const { error: rmErr } = await supabase.storage.from(IMG_BUCKET).remove(paths);
-      if (rmErr) { res.failed++; continue; }
-      res.removed += paths.length;
+  const res = { notices: 0, removed: 0, keptBookmarked: 0, failed: 0, scanned: 0 };
+  let cursor: { postedAt: string; id: string } | null = null;
+  while (res.notices < PURGE_MAX_NOTICES && res.scanned < PURGE_MAX_SCAN) {
+    let q = supabase.from("notices")
+      .select("id, posted_at, body_image_urls")
+      .eq("channel", "instagram")
+      .lt("posted_at", cutoff)
+      .not("body_image_urls", "eq", "{}")
+      .order("posted_at", { ascending: true })
+      .order("id", { ascending: true })
+      .limit(80);
+    if (cursor) q = q.or(`posted_at.gt."${cursor.postedAt}",and(posted_at.eq."${cursor.postedAt}",id.gt.${cursor.id})`);
+    const { data, error } = await q;
+    if (error) return { ...res, error: error.message };
+    const page = (data ?? []) as { id: string; posted_at: string; body_image_urls: string[] | null }[];
+    if (page.length === 0) break;
+    res.scanned += page.length;
+    const lastRow = page[page.length - 1];
+    cursor = { postedAt: lastRow.posted_at, id: lastRow.id };
+
+    const rows = page.filter((n) => (n.body_image_urls ?? []).length > 0);
+    const { data: bm, error: bmErr } = await supabase.from("user_feed_state").select("notice_id")
+      .in("notice_id", rows.map((r) => r.id)).not("bookmarked_at", "is", null);
+    if (bmErr) return { ...res, error: `bookmark lookup: ${bmErr.message}` };
+    const keep = new Set((bm ?? []).map((r: { notice_id: string }) => r.notice_id));
+    for (const n of rows) {
+      if (res.notices >= PURGE_MAX_NOTICES) break;
+      if (keep.has(n.id)) { res.keptBookmarked++; continue; }
+      const paths = (n.body_image_urls ?? []).filter(isRehosted).map((u) => decodeURIComponent(u.split(IMG_PUBLIC_MARK)[1].split("?")[0]));
+      if (paths.length > 0) {
+        const { error: rmErr } = await supabase.storage.from(IMG_BUCKET).remove(paths);
+        if (rmErr) { res.failed++; continue; }
+        res.removed += paths.length;
+      }
+      const { error: upErr } = await supabase.from("notices").update({ body_image_urls: [] }).eq("id", n.id);
+      if (upErr) { res.failed++; continue; }
+      res.notices++;
     }
-    const { error: upErr } = await supabase.from("notices").update({ body_image_urls: [] }).eq("id", n.id);
-    if (upErr) { res.failed++; continue; }
-    res.notices++;
+    if (page.length < 80) break;
   }
   return res;
 }

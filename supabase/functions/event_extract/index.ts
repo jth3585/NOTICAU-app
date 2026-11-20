@@ -513,14 +513,22 @@ async function sendEventAlerts(dryRun = false, ids: string[] | null = null) {
   }
 
   // 같은 행사(또는 이 글 자체)로 이미 알림을 받은 사람은 건너뛴다. 중간에 실패해 다시 돌아도 중복이 없다.
+  // 조회가 실패하거나 잘리면(PostgREST 1000행 한도) 이미 받은 사람에게 또 보내게 되므로, 끝까지 페이지를
+  // 넘겨 읽고 실패하면 이번 실행은 보내지도 '알림 완료' 표시도 하지 않는다(다음 실행이 다시 한다).
+  // overlaps 필터는 URL 에 실리므로 uuid 80개(약 3KB)씩.
   const covered = new Map<string, Set<string>>();
   const known = [...new Set(rows.flatMap((r) => [r.notice_id, ...r.similar_ids]))];
-  for (const part of chunk(known, 100)) {
-    const { data: prev } = await supabase.from("notifications").select("user_id,notice_ids").eq("type", "event").overlaps("notice_ids", part);
-    for (const n of (prev ?? []) as { user_id: string; notice_ids: string[] }[]) {
-      let set = covered.get(n.user_id);
-      if (!set) covered.set(n.user_id, set = new Set());
-      for (const id of n.notice_ids ?? []) set.add(id);
+  for (const part of chunk(known, 80)) {
+    for (let from = 0; ; from += 1000) {
+      const { data: prev, error: prevErr } = await supabase.from("notifications").select("id,user_id,notice_ids")
+        .eq("type", "event").overlaps("notice_ids", part).order("id").range(from, from + 999);
+      if (prevErr) return { ...res, error: `already-alerted lookup: ${prevErr.message}` };
+      for (const n of (prev ?? []) as { user_id: string; notice_ids: string[] }[]) {
+        let set = covered.get(n.user_id);
+        if (!set) covered.set(n.user_id, set = new Set());
+        for (const id of n.notice_ids ?? []) set.add(id);
+      }
+      if ((prev ?? []).length < 1000) break;
     }
   }
 
@@ -546,8 +554,10 @@ async function sendEventAlerts(dryRun = false, ids: string[] | null = null) {
     const userIds = [...perUser.keys()];
     const pushOff = new Set(profiles.filter((p) => p.notifications_enabled === false).map((p) => p.user_id));
     const tokens = new Map<string, string[]>();
-    for (const part of chunk(userIds.filter((u) => !pushOff.has(u)), 200)) {
-      const { data: toks } = await supabase.from("push_tokens").select("user_id,token").in("user_id", part).eq("is_active", true);
+    for (const part of chunk(userIds.filter((u) => !pushOff.has(u)), 100)) { // in() 은 URL 에 실림 → uuid 100개(약 4KB)
+      const { data: toks, error: tokErr } = await supabase.from("push_tokens").select("user_id,token").in("user_id", part).eq("is_active", true);
+      // 토큰을 못 읽은 채 진행하면 알림함만 남고 푸시가 빠진 채 '완료'로 표시된다 → 이번 실행은 멈추고 다음에 다시.
+      if (tokErr) return { ...res, error: `push_tokens lookup: ${tokErr.message}` };
       for (const t of (toks ?? []) as { user_id: string; token: string }[]) {
         const list = tokens.get(t.user_id);
         if (list) list.push(t.token); else tokens.set(t.user_id, [t.token]);

@@ -118,11 +118,22 @@ Deno.serve(async (req) => {
   const tab = Deno.env.get("SHEETS_TAB") ?? "가입자";
 
   // ---- 데이터 조회 ----
-  const { data, error } = await supabase.rpc("signups_export");
-  if (error) {
-    return new Response(JSON.stringify({ error: error.message }), { status: 500 });
+  // PostgREST 는 한 응답을 1000행으로 자른다 → 끝까지 페이지를 넘겨 받는다(가입자 1000명 넘으면 잘리던 문제).
+  // 페이지 사이 순서가 흔들리지 않게 가입일시·user_id 로 정렬을 고정한다.
+  const PAGE = 1000;
+  const rows: Row[] = [];
+  for (let from = 0; ; from += PAGE) {
+    const { data, error } = await supabase.rpc("signups_export")
+      .order("joined_at", { ascending: false })
+      .order("user_id", { ascending: true })
+      .range(from, from + PAGE - 1);
+    if (error) {
+      return new Response(JSON.stringify({ error: error.message }), { status: 500 });
+    }
+    const page = (data ?? []) as Row[];
+    rows.push(...page);
+    if (page.length < PAGE) break;
   }
-  const rows = (data ?? []) as Row[];
 
   // ---- 시트 값 구성 ----
   const header = [

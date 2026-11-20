@@ -177,6 +177,15 @@ Deno.serve(async (req) => {
           const { data: existing } = await supabase
             .from("notices").select("id,body_text,body_image_urls").eq("content_hash", contentHash).maybeSingle();
           if (existing && !reprocess) { stats.skippedDup++; continue; }
+          if (!existing) {
+            // 제목·날짜가 수정된 글은 content_hash 가 바뀌어 위에서 못 찾지만, 같은 주소(post_key)의 글이 이미 있으면
+            // 어차피 insert 가 notices_reject_dup_post_key 에 막힌다. 그 전에 상세를 받으면 붙여 넣은 포스터
+            // (수 MB)를 크롤마다 Storage 에 다시 올리게 되므로 여기서 건너뛴다.
+            const { data: samePost, error: sameErr } = await supabase
+              .from("notices").select("id").eq("source_url", url).limit(1);
+            if (sameErr) throw sameErr;
+            if ((samePost ?? []).length > 0) { stats.skippedDup++; continue; }
+          }
 
           const detail = await fetchDetail(it.num);
 
@@ -221,14 +230,23 @@ Deno.serve(async (req) => {
       if (page < pages) await sleep(800);
     }
 
-    await supabase.from("crawler_health").upsert({
-      source_id: sourceId,
-      last_success_at: new Date().toISOString(),
-      last_attempt_at: new Date().toISOString(),
-      failure_count: 0,
-      last_error: null,
-      is_healthy: true,
-    });
+    // 새 글을 받으려다 전부 실패했으면(상세 주소가 바뀌는 등 사이트 개편) 성공으로 기록하지 않는다.
+    // 성공으로 남기면 crawler_watch 가 몇 주 뒤 'quiet' 로나 알아챈다. 글 하나만 깨진 경우(1건)는 넘어간다.
+    const allNewFailed = stats.fetchFailed >= 2 && stats.insertedNotices === 0;
+    await supabase.from("crawler_health").upsert(allNewFailed
+      ? {
+        source_id: sourceId,
+        last_attempt_at: new Date().toISOString(),
+        last_error: `새 글 ${stats.fetchFailed}건 모두 수집 실패(사이트 구조 변경 의심)`,
+      }
+      : {
+        source_id: sourceId,
+        last_success_at: new Date().toISOString(),
+        last_attempt_at: new Date().toISOString(),
+        failure_count: 0,
+        last_error: null,
+        is_healthy: true,
+      });
   } catch (e) {
     await supabase.from("crawler_health").upsert({
       source_id: sourceId,

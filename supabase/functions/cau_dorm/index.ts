@@ -216,14 +216,23 @@ async function crawlBoard(b: Board, pages: number, reprocess: boolean, uids: str
       if (page < pages) await sleep(3000);
     }
 
-    await supabase.from("crawler_health").upsert({
-      source_id: sourceId,
-      last_success_at: new Date().toISOString(),
-      last_attempt_at: new Date().toISOString(),
-      failure_count: 0,
-      last_error: null,
-      is_healthy: true,
-    });
+    // 새 글을 받으려다 전부 실패했으면(상세 주소가 바뀌는 등 사이트 개편) 성공으로 기록하지 않는다.
+    // 성공으로 남기면 crawler_watch 가 몇 주 뒤 'quiet' 로나 알아챈다. 글 하나만 깨진 경우(1건)는 넘어간다.
+    const allNewFailed = stat.fetchFailed >= 2 && stat.insertedNotices === 0;
+    await supabase.from("crawler_health").upsert(allNewFailed
+      ? {
+        source_id: sourceId,
+        last_attempt_at: new Date().toISOString(),
+        last_error: `새 글 ${stat.fetchFailed}건 모두 수집 실패(사이트 구조 변경 의심)`,
+      }
+      : {
+        source_id: sourceId,
+        last_success_at: new Date().toISOString(),
+        last_attempt_at: new Date().toISOString(),
+        failure_count: 0,
+        last_error: null,
+        is_healthy: true,
+      });
   } catch (e) {
     stat.error = String(e).slice(0, 300);
     await supabase.from("crawler_health").upsert({

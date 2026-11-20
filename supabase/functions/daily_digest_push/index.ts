@@ -5,10 +5,13 @@
 // 인증: verify_jwt=false 로 배포 + Authorization: Bearer <CRON_SECRET> 자체 검증.
 //
 // 어떤 글을 세나(2026-11-18 개편)
-//   - 수집 시각(crawled_at)이 [실행 24시간 10분 전, 실행 10분 전) + 게시일 48시간 이내.
+//   - 분류가 끝난 시각(notice_meta.llm_processed_at)이 [실행 24시간 10분 전, 실행 10분 전) + 게시일 48시간 이내.
 //     예전엔 게시일 기준 '지난 24시간'만 셌는데, 날짜만 있는 글은 00시로 저장되므로 18시 이후에 수집된
 //     오늘 글은 오늘 브리핑엔 늦고 내일 브리핑 창엔 이미 지나서 어느 브리핑에도 안 들어갔다(게시판 글의 13%).
-//     수집 시각으로 하루씩 이어 붙이면 빠지는 글이 없다. 10분은 막 들어와 아직 분류 전인 글을 다음 날로 넘기는 여유.
+//     하루씩 이어 붙인 창이라 빠지는 글이 없다.
+//   - 2026-11-21: 창 기준을 수집 시각(crawled_at) → 분류 완료 시각으로. 수집 시각 기준일 땐 18시에 아직 분류
+//     안 된 글(분류 대기열이 밀린 날, 약 11%가 10분 넘게 걸림)이 대상 정보(notice_meta) 없이 들어가 학년·학과·
+//     캠퍼스 조건을 건너뛰고 모든 사람 브리핑에 실렸다. 이제 분류가 끝난 글만, 끝난 날의 브리핑에 들어간다.
 //   - 대상 판정은 _shared/audience.ts(앱 lib/matching.ts 포팅). 마감이 지난 신청형 공지는 뺀다.
 //   - 본문 첫 글: 3일 안에 마감되는 신청형 공지 → 내 학과·단과대 글 → 최신 글 순으로 고른다.
 //
@@ -30,7 +33,7 @@ const supabase = createClient(
 
 const MIN_MS = 60 * 1000;
 const DAY_MS = 24 * 60 * MIN_MS;
-const LAG_MS = 10 * MIN_MS; // 막 수집돼 아직 분류 전인 글은 다음 브리핑으로
+const LAG_MS = 10 * MIN_MS; // 창 끝을 실행 10분 전으로(예전 창과 이어지게 유지)
 const POST_GATE_MS = 2 * DAY_MS; // 백필(과거 글 일괄 수집) 제외
 const SOON_DAYS = 3; // 본문 첫 글로 올릴 마감 임박 기준
 
@@ -118,11 +121,11 @@ Deno.serve(async (req) => {
 
     const { data: noticeData, error: noticesErr } = await supabase
       .from("notices")
-      .select(`id, title, posted_at, notice_meta(${META_COLS}), sources(campus,owner_unit,parser_key)`)
+      .select(`id, title, posted_at, notice_meta!inner(${META_COLS}), sources(campus,owner_unit,parser_key)`)
       .is("duplicate_of", null) // 교차출처 중복은 대표 1건만
       .eq("channel", "board") // 인스타 공지는 브리핑 대상 아님
-      .gte("crawled_at", new Date(windowStart).toISOString())
-      .lt("crawled_at", new Date(windowEnd).toISOString())
+      .gte("notice_meta.llm_processed_at", new Date(windowStart).toISOString())
+      .lt("notice_meta.llm_processed_at", new Date(windowEnd).toISOString())
       .gte("posted_at", new Date(now - POST_GATE_MS).toISOString())
       .order("posted_at", { ascending: false })
       .limit(1000);
