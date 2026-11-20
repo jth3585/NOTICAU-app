@@ -43,22 +43,41 @@ const EMPTY: HomeFeedData = {
 };
 
 // 마지막으로 계산한 홈 데이터. 다음 실행 때 네트워크를 기다리지 않고 먼저 보여 주고 곧바로 새로 받는다.
-// 세 목록이 모두 24시간 창이라 너무 오래된 캐시는 버린다. 탈퇴 시 AsyncStorage.clear()로 함께 지워진다.
+// 세 목록이 모두 24시간 창이라 너무 오래된 캐시는 버리고, 읽을 때 지금 시각으로 다시 거른다.
+// 어느 계정의 것인지(uid)도 같이 저장해 다른 계정 데이터가 남지 않게 한다. 탈퇴 시 AsyncStorage.clear()로 지워진다.
 const HOME_CACHE_KEY = 'noticau:home_feed_cache';
 const HOME_CACHE_MAX_AGE_MS = 12 * 60 * 60 * 1000;
+type HomeCache = { uid: string; data: HomeFeedData };
 
-async function readHomeCache(): Promise<HomeFeedData | null> {
+// 캐시된 목록을 '지금' 기준으로 다시 거른다(오프라인으로 오래 열어도 지난 마감·24h 지난 글이 남지 않게).
+function refilterForNow(d: HomeFeedData, now = Date.now()): HomeFeedData {
+  const within24h = (n: Notice) => !!n.posted_at && (now - Date.parse(n.posted_at)) <= NEW_WINDOW_MS;
+  const newList = d.newList.filter(within24h);
+  const keywordList = d.keywordList.filter(within24h);
+  const deadlineList = d.deadlineList.filter((n) => {
+    const dl = metaOf(n)?.deadline_at ?? null;
+    const ms = dl && !isNaN(Date.parse(dl)) ? Date.parse(dl) - now : null;
+    return ms !== null && ms >= 0 && ms <= DEADLINE_WINDOW_MS;
+  });
+  return { ...d, newList, keywordList, deadlineList, newCount: newList.length, deadlineSoonCount: deadlineList.length };
+}
+
+async function readHomeCache(): Promise<HomeCache | null> {
   try {
     const raw = await AsyncStorage.getItem(HOME_CACHE_KEY);
     if (!raw) return null;
-    const { savedAt, data } = JSON.parse(raw);
-    if (typeof savedAt !== 'number' || Date.now() - savedAt > HOME_CACHE_MAX_AGE_MS) return null;
-    return data as HomeFeedData;
+    const { savedAt, uid, data } = JSON.parse(raw);
+    if (typeof savedAt !== 'number' || typeof uid !== 'string' || Date.now() - savedAt > HOME_CACHE_MAX_AGE_MS) return null;
+    return { uid, data: refilterForNow(data as HomeFeedData) };
   } catch { return null; }
 }
 
-function writeHomeCache(data: HomeFeedData): void {
-  AsyncStorage.setItem(HOME_CACHE_KEY, JSON.stringify({ savedAt: Date.now(), data })).catch(() => {});
+// 본문(body_text)은 키워드 #태그 표시에 필요한 키워드매치 목록에만 남기고 나머지는 빼서 저장한다.
+function writeHomeCache(uid: string, data: HomeFeedData): void {
+  const keep = new Set(data.keywordList.map((n) => n.id));
+  const strip = (n: Notice): Notice => (keep.has(n.id) || n.body_text == null ? n : { ...n, body_text: null } as Notice);
+  const slim: HomeFeedData = { ...data, newList: data.newList.map(strip), deadlineList: data.deadlineList.map(strip) };
+  AsyncStorage.setItem(HOME_CACHE_KEY, JSON.stringify({ savedAt: Date.now(), uid, data: slim })).catch(() => {});
 }
 
 export function useHomeFeed() {
@@ -66,6 +85,8 @@ export function useHomeFeed() {
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const loadedOnce = useRef(false);
+  const shownCacheUid = useRef<string | null>(null); // 화면에 캐시를 띄웠다면 그 캐시의 계정
+  const sessionUid = useRef<string | null>(null); // load()가 확인한 현재 계정
 
   const load = useCallback(async () => {
     // 어떤 단계가 throw해도 스켈레톤에 영구히 갇히지 않도록 finally에서 로딩 해제 보장.
@@ -73,7 +94,13 @@ export function useHomeFeed() {
     const { data: { session } } = await supabase.auth.getSession();
     if (!session) { setData(EMPTY); return; }
     const uid = session.user.id;
+    sessionUid.current = uid;
     const now = Date.now();
+    // 다른 계정(세션이 바뀐 경우)의 캐시가 떠 있으면 바로 지운다 — 아래 조회가 실패해도 남지 않게.
+    if (shownCacheUid.current && shownCacheUid.current !== uid) {
+      shownCacheUid.current = null;
+      setData(EMPTY);
+    }
 
     // 한 번의 왕복으로 모두 받는다(예전엔 학과 설정·본문 조회가 앞 단계 뒤에 줄줄이 붙어 왕복이 3번).
     // 키워드 매칭은 본문(body_text)까지 훑어야 정확한데, 목록은 경량 select(본문 제외)로 받는다.
@@ -152,7 +179,7 @@ export function useHomeFeed() {
     };
     loadedOnce.current = true;
     setData(next);
-    writeHomeCache(next);
+    writeHomeCache(uid, next);
     } catch (e) {
       // 실패 시 기존 데이터는 유지(빈 화면 깜빡임 방지) — 스피너만 내린다.
       console.error('[homeFeed] load failed', e);
@@ -164,7 +191,11 @@ export function useHomeFeed() {
   useEffect(() => {
     // 캐시를 먼저 그리고(있으면 스켈레톤 생략), 새 데이터는 load()가 받아 덮어쓴다.
     readHomeCache().then((cached) => {
-      if (cached && !loadedOnce.current) { setData(cached); setLoading(false); }
+      if (cached && !loadedOnce.current && (!sessionUid.current || sessionUid.current === cached.uid)) {
+        shownCacheUid.current = cached.uid;
+        setData(cached.data);
+        setLoading(false);
+      }
     });
     load();
   }, [load]);

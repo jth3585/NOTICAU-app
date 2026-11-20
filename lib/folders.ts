@@ -75,14 +75,16 @@ export function useFolders() {
   const [folders, setFolders] = useState<Folder[]>([]);
   const [counts, setCounts] = useState<Map<string, number>>(new Map());
   const [loading, setLoading] = useState(true);
-  const [loadedOnce, setLoadedOnce] = useState(false);
+  // ref 로 둔다: state 면 첫 로드가 끝나며 refresh 가 새로 만들어져 마운트·포커스 효과가 한 번 더 돈다.
+  const loadedOnce = useRef(false);
   const mountedRef = useRef(true);
 
   const refresh = useCallback(async () => {
-    if (!loadedOnce) setLoading(true);
+    if (!loadedOnce.current) setLoading(true);
     const { data: { session } } = await supabase.auth.getSession();
     if (!session) {
-      if (mountedRef.current) { setFolders([]); setCounts(new Map()); setLoading(false); setLoadedOnce(true); }
+      loadedOnce.current = true;
+      if (mountedRef.current) { setFolders([]); setCounts(new Map()); setLoading(false); }
       return;
     }
     const [foldersRes, rowsRes] = await Promise.all([
@@ -96,13 +98,14 @@ export function useFolders() {
     ((rowsRes.data ?? []) as { bookmark_folder_id: string | null }[]).forEach((r) => {
       if (r.bookmark_folder_id) countMap.set(r.bookmark_folder_id, (countMap.get(r.bookmark_folder_id) ?? 0) + 1);
     });
+    loadedOnce.current = true;
     if (mountedRef.current) {
-      setFolders((foldersRes.data as Folder[]) ?? []);
-      setCounts(countMap);
+      // 조회 실패 시엔 보이던 폴더를 지우지 않는다.
+      if (!foldersRes.error) setFolders((foldersRes.data as Folder[]) ?? []);
+      if (!rowsRes.error) setCounts(countMap);
       setLoading(false);
-      setLoadedOnce(true);
     }
-  }, [loadedOnce]);
+  }, []);
 
   useEffect(() => {
     mountedRef.current = true;

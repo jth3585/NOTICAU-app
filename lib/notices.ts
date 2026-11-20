@@ -12,9 +12,19 @@ export const NOTICE_CARD_SELECT =
 
 // 공지탭 '내 학과' 칩: 내 학과·복수전공·단과대 게시판 + 같은 소속 학생회 인스타 글(최신순).
 // 인스타 공지는 RLS 에 막혀 있어 my_units_feed RPC(security definer)로 받는다.
-// before = 이전 페이지 마지막 글의 posted_at(커서). 타게팅(학년·캠퍼스 등)은 호출부가 isMismatch 로 거른다.
-export async function fetchMyUnitsFeed(units: string[], before: string | null, limit: number): Promise<Notice[]> {
-  const { data, error } = await supabase.rpc('my_units_feed', { p_units: units, p_before: before, p_limit: limit });
+// before = 이전 페이지 마지막 글(posted_at, id) 커서. 날짜만 있는 글은 같은 시각이 많아 id 까지 써야
+// 페이지 경계의 글이 빠지지 않는다. 타게팅(학년·캠퍼스 등)은 호출부가 isMismatch 로 거른다.
+export async function fetchMyUnitsFeed(
+  units: string[],
+  before: { postedAt: string | null; id: string } | null,
+  limit: number,
+): Promise<Notice[]> {
+  const { data, error } = await supabase.rpc('my_units_feed', {
+    p_units: units,
+    p_before: before?.postedAt ?? null,
+    p_before_id: before ? before.id : null,
+    p_limit: limit,
+  });
   if (error) throw error;
   return (data ?? []) as Notice[];
 }

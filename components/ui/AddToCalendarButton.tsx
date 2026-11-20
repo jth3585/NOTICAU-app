@@ -111,7 +111,7 @@ export function AddToCalendarButton({ notice, deadlineAt }: { notice: Notice; de
           {added ? (
             <Text style={[styles.text, styles.textAdded, styles.labelOverlay]} numberOfLines={1}>캘린더에 추가됨</Text>
           ) : (
-            <Animated.Text style={[styles.text, styles.labelOverlay, { color: textColor }]} numberOfLines={1}>
+            <Animated.Text style={[styles.text, styles.labelOverlay, { color: textColor, fontFamily: 'Pretendard' /* RN Animated.Text 는 전역 기본 글꼴 밖 */ }]} numberOfLines={1} maxFontSizeMultiplier={1.6}>
               {removedFlash ? '삭제됨' : '캘린더에 추가'}
             </Animated.Text>
           )}

@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import * as Notifications from 'expo-notifications';
 import { supabase } from './supabase';
+import { kstDayKey } from './format';
 import { NOTICE_CARD_SELECT } from './notices';
 import type { Notice } from './types';
 
@@ -117,11 +118,6 @@ export function formatNotifTime(iso: string, now = new Date()): string {
   if (kstDayKey(t) === kstDayKey(yesterday)) return '어제';
   const k = new Date(t.getTime() + 9 * 3600000);
   return `${k.getUTCMonth() + 1}월 ${k.getUTCDate()}일`;
-}
-
-// KST 기준 날짜 키(YYYY-MM-DD)
-export function kstDayKey(d: Date): string {
-  return new Date(d.getTime() + 9 * 3600000).toISOString().slice(0, 10);
 }
 
 // 알림함 그룹: 오늘 / 어제 / 이번 주(7일 이내) / 이전

@@ -54,7 +54,9 @@ export function useSaveOnboardingProfile() {
   return useCallback(async (nickname: string | null): Promise<string | null> => {
     const { data: { session } } = await supabase.auth.getSession();
     if (!session) return '문제가 생겼어요. 앱을 다시 시작해 주세요.';
-    const { error } = await supabase.from('profiles').insert({
+    // upsert: 이미 프로필이 있는데(네트워크 오류로 온보딩에 들어왔거나, 저장은 됐는데 응답만 끊긴 재시도)
+    // insert 하면 중복 키로 계속 실패해 온보딩에 갇힌다 → 있으면 이번 입력으로 덮어쓴다.
+    const { error } = await supabase.from('profiles').upsert({
       user_id: session.user.id,
       grade,
       campus,
@@ -66,7 +68,7 @@ export function useSaveOnboardingProfile() {
       nickname,
       onboarded_at: new Date().toISOString(),
       event_alerts_enabled: true, // 내 학과 행사 알림: 새 가입자는 처음부터 켠다
-    });
+    }, { onConflict: 'user_id' });
     if (error) return '저장하지 못했어요. 잠시 후 다시 시도해 주세요.';
     setKnownProfile(true);
     return null;

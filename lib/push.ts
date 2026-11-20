@@ -55,7 +55,19 @@ export function openDeviceNotificationSettings(): void {
   Linking.openSettings().catch(() => {});
 }
 
+// 마지막으로 받은 기기 토큰(APNs/FCM). 토큰 변경 이벤트가 같은 토큰으로 오면 무시하는 데 쓴다.
+let lastDeviceToken: string | null = null;
+// 진행 중인 setup 수. expo-notifications 는 기기 토큰을 '받는' 것만으로도 토큰 변경 이벤트를 쏜다
+// (iOS: 등록할 때마다 didRegister, Android: getDevicePushTokenAsync 끝에 onNewToken). 그래서 우리가
+// 토큰을 받는 중에 온 이벤트에 다시 setup 으로 반응하면 끝없이 돈다 → 진행 중이면 이벤트를 무시한다.
+let setupsInFlight = 0;
+
+function deviceTokenString(t: Notifications.DevicePushToken): string {
+  return typeof t.data === 'string' ? t.data : JSON.stringify(t.data);
+}
+
 // Expo Push token 발급. 오프라인 등으로 실패할 수 있어 한 번 더 시도한다.
+// 기기 토큰을 먼저 받아 기억해 두고, Expo 토큰 발급에 그대로 넘긴다(기기 토큰을 두 번 받지 않게).
 async function fetchExpoPushToken(): Promise<string | null> {
   const projectId =
     Constants?.expoConfig?.extra?.eas?.projectId ??
@@ -66,13 +78,22 @@ async function fetchExpoPushToken(): Promise<string | null> {
   }
   for (let attempt = 0; attempt < 2; attempt++) {
     try {
-      return (await Notifications.getExpoPushTokenAsync({ projectId })).data;
+      const devicePushToken = await Notifications.getDevicePushTokenAsync();
+      lastDeviceToken = deviceTokenString(devicePushToken);
+      return (await Notifications.getExpoPushTokenAsync({ projectId, devicePushToken })).data;
     } catch (e) {
       if (attempt === 1) console.warn('[push] 토큰 발급 실패', e);
       else await new Promise((r) => setTimeout(r, 2000));
     }
   }
   return null;
+}
+
+// 기기 토큰 변경 이벤트(addPushTokenListener) 처리. OS 가 실제로 토큰을 바꿨을 때만 다시 저장한다.
+export function handleDevicePushTokenChange(token: Notifications.DevicePushToken): void {
+  if (setupsInFlight > 0) return; // 우리가 토큰을 받는 중에 생긴 이벤트
+  if (lastDeviceToken !== null && deviceTokenString(token) === lastDeviceToken) return;
+  setupPushNotifications();
 }
 
 // push_tokens 테이블에 upsert (PK: token).
@@ -98,7 +119,17 @@ export async function savePushToken(token: string): Promise<void> {
 // ask=true 면 아직 한 번도 묻지 않은 사람에게 권한 창을 띄운다(온보딩을 이미 마친 사람용).
 // 새 사용자는 온보딩 마지막 화면(Screen8Notify)에서 이유를 먼저 보여 주고 묻는다.
 // 반환: 토큰을 저장했는지.
-export async function setupPushNotifications({ ask = false }: { ask?: boolean } = {}): Promise<boolean> {
+// 여러 곳(앱 시작·온보딩·알림 설정)에서 동시에 불려도 한 번에 하나씩 차례로 돈다.
+let setupQueue: Promise<unknown> = Promise.resolve();
+
+export function setupPushNotifications(opts: { ask?: boolean } = {}): Promise<boolean> {
+  setupsInFlight++;
+  const run = setupQueue.then(() => doSetupPushNotifications(opts)).finally(() => { setupsInFlight--; });
+  setupQueue = run.catch(() => {});
+  return run;
+}
+
+async function doSetupPushNotifications({ ask = false }: { ask?: boolean }): Promise<boolean> {
   try {
     if (!Device.isDevice) return false; // 시뮬레이터는 토큰 발급 불가
     await ensureAndroidChannels();

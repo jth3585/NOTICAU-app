@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import {
   ActivityIndicator, AppState, Keyboard, RefreshControl, SectionList, StyleSheet, Text, TextInput,
   TouchableOpacity, View,
@@ -53,6 +53,8 @@ export default function InboxScreen() {
   const [notices, setNotices] = useState<Notice[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  // 첫 로드가 실패한 상태에서 탭에 다시 들어오면 자동으로 다시 시도하기 위한 ref(포커스 효과가 아래 함수보다 먼저 정의됨).
+  const retryAfterErrorRef = useRef<(() => void) | null>(null);
   const [selected, setSelected] = useState<string>('전체');
   const [sortMode, setSortMode] = useState<SortMode>('deadline');
 
@@ -116,6 +118,7 @@ export default function InboxScreen() {
   }, [profile?.campus]);
 
   useFocusEffect(useCallback(() => {
+    retryAfterErrorRef.current?.();
     refreshRead();
     refreshBookmarks();
     loadProfile(); // 프로필 최신화(학과/캠퍼스 변경 반영)
@@ -168,6 +171,7 @@ export default function InboxScreen() {
   const loadNotices = useCallback(async () => {
     const { data, error } = await fetchPage(0, PAGE_INITIAL);
     if (error) { setError(error.message); return; }
+    setError(null);
     const rows = (data ?? []) as Notice[];
     setNotices(rows);
     setHasMore(rows.length === PAGE_INITIAL);
@@ -196,6 +200,15 @@ export default function InboxScreen() {
     (async () => { await loadNotices(); setLoading(false); })();
   }, [loadNotices]);
 
+  // 오류 화면에서 '다시 시도' / 탭 재진입 시 재시도.
+  const [retrying, setRetrying] = useState(false);
+  const retryLoad = useCallback(async () => {
+    setRetrying(true);
+    await loadNotices();
+    setRetrying(false);
+  }, [loadNotices]);
+  retryAfterErrorRef.current = error && !retrying ? retryLoad : null;
+
   // ---- '내 학과' 칩: 내 학과·복수전공·단과대 게시판 + 학생회 인스타 (별도 풀, posted_at 커서 페이징) ----
   const myUnitsKey = [profile?.dept, profile?.dept_secondary, profile?.college].filter(Boolean).join(',');
   const [myNotices, setMyNotices] = useState<Notice[]>([]);
@@ -222,8 +235,8 @@ export default function InboxScreen() {
     myLoadingRef.current = true;
     setLoadingMore(true);
     try {
-      const before = myNotices[myNotices.length - 1].posted_at;
-      const rows = await fetchMyUnitsFeed(myUnitsKey.split(','), before, MY_PAGE);
+      const last = myNotices[myNotices.length - 1];
+      const rows = await fetchMyUnitsFeed(myUnitsKey.split(','), { postedAt: last.posted_at, id: last.id }, MY_PAGE);
       setMyNotices((prev) => {
         const seen = new Set(prev.map((n) => n.id));
         return [...prev, ...rows.filter((n) => !seen.has(n.id))];
@@ -266,11 +279,15 @@ export default function InboxScreen() {
     listRef.current?.getScrollResponder()?.scrollTo({ y: 0, animated: true });
   }, []);
 
+  // 검색 요청 순번. 늦게 도착한 이전 검색어의 응답이 최신 결과를 덮어쓰지 않게 최신 요청만 반영한다.
+  const searchSeq = useRef(0);
   useEffect(() => {
     if (debounceRef.current) clearTimeout(debounceRef.current);
+    const seq = ++searchSeq.current;
     if (!query.trim()) { setSearchResults([]); setSearching(false); return; }
     setSearching(true);
     debounceRef.current = setTimeout(async () => {
+      let results: Notice[] = [];
       try {
         const { data: ids, error: rpcErr } = await supabase
           .rpc('search_notices', { q: query.trim() });
@@ -281,10 +298,8 @@ export default function InboxScreen() {
             .in('id', (ids as { id: string }[]).map((r) => r.id))
             .is('duplicate_of', null)
             .order('posted_at', { ascending: false });
-          setSearchResults((data ?? []) as Notice[]);
-        } else if (!rpcErr) {
-          setSearchResults([]);
-        } else {
+          results = (data ?? []) as Notice[];
+        } else if (rpcErr) {
           const { data } = await supabase
             .from('notices')
             .select(NOTICE_CARD_SELECT)
@@ -292,11 +307,13 @@ export default function InboxScreen() {
             .is('duplicate_of', null)
             .order('posted_at', { ascending: false })
             .limit(50);
-          setSearchResults((data ?? []) as Notice[]);
+          results = (data ?? []) as Notice[];
         }
       } catch {
-        setSearchResults([]);
+        results = [];
       }
+      if (seq !== searchSeq.current) return; // 그 사이 검색어가 바뀜
+      setSearchResults(results);
       setSearching(false);
     }, 300);
     return () => { if (debounceRef.current) clearTimeout(debounceRef.current); };
@@ -345,7 +362,17 @@ export default function InboxScreen() {
       <NoticeListSkeleton />
     </SafeAreaView>
   );
-  if (error) return <Centered>공지를 불러오지 못했어요. 잠시 후 다시 시도해 주세요.</Centered>;
+  if (error) return (
+    <SafeAreaView style={[styles.container, styles.centered]} edges={['top']}>
+      <EmptyState
+        icon={<ClipboardListIcon size={30} color={COLORS.textTertiary} />}
+        title="공지를 불러오지 못했어요"
+        subtitle="인터넷 연결을 확인하고 다시 시도해 주세요"
+        actionLabel={retrying ? '불러오는 중…' : '다시 시도'}
+        onAction={retrying ? undefined : retryLoad}
+      />
+    </SafeAreaView>
+  );
 
   return (
     <SafeAreaView style={styles.container} edges={['top']}>
@@ -527,14 +554,6 @@ export default function InboxScreen() {
         </Animated.View>
       ) : null}
 
-    </SafeAreaView>
-  );
-}
-
-function Centered({ children }: { children: ReactNode }) {
-  return (
-    <SafeAreaView style={[styles.container, styles.centered]}>
-      <Text style={{ color: COLORS.textSecondary }}>{children}</Text>
     </SafeAreaView>
   );
 }

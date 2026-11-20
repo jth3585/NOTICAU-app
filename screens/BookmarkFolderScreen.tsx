@@ -4,7 +4,7 @@ import { FlashList } from '@shopify/flash-list';
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useFocusEffect, useNavigation } from '@react-navigation/native';
 import type { NativeStackNavigationProp, NativeStackScreenProps } from '@react-navigation/native-stack';
-import { useBookmarkNotices, useUserKeywords, removeBookmark, type BookmarkNotice } from '../lib/bookmarks';
+import { useBookmarkNotices, useUserKeywords, useWithKeywordBodies, removeBookmark, type BookmarkNotice } from '../lib/bookmarks';
 import { useFolders, createFolder, setBookmarkFolder } from '../lib/folders';
 import { useReadSet } from '../lib/read';
 import { useLastSeenAt } from '../lib/new-badge';
@@ -35,10 +35,12 @@ export default function BookmarkFolderScreen({ route }: Props) {
   const navigation = useNavigation<NativeStackNavigationProp<RootStackParamList>>();
   // edges=['top']이라 하단은 내비바 뒤로 흐름 → 리스트 끝 여백에 insets.bottom 반영
   const insets = useSafeAreaInsets();
-  const { notices, loading, refresh } = useBookmarkNotices();
+  const { notices: rawNotices, loading, refresh } = useBookmarkNotices();
   const { isRead, refresh: refreshRead } = useReadSet();
   const { lastSeenAt } = useLastSeenAt();
   const keywords = useUserKeywords();
+  // 키워드매치 폴더: '제목+본문' 키워드가 본문에만 있는 북마크도 잡히도록 필요한 것만 본문을 붙인다.
+  const notices = useWithKeywordBodies(rawNotices, folder === 'keyword' ? keywords : []);
   const { folders, refresh: refreshFolders } = useFolders();
   const [selectedKeyword, setSelectedKeyword] = useState<string | null>(null);
   const [pickerNotice, setPickerNotice] = useState<BookmarkNotice | null>(null);
@@ -101,7 +103,8 @@ export default function BookmarkFolderScreen({ route }: Props) {
     // keyword 폴더
     const matched = keywords.length ? avail.filter((n) => keywordMatches(n, keywords)) : [];
     if (!selectedKeyword) return matched;
-    const kw = [{ id: '', user_id: '', keyword: selectedKeyword, notify: false }];
+    // 고른 키워드의 '제목만' 설정도 그대로 따른다.
+    const kw = keywords.filter((k) => k.keyword === selectedKeyword);
     return matched.filter((n) => keywordMatches(n, kw));
   }, [folder, params, notices, removedIds, isRead, keywords, selectedKeyword]);
 

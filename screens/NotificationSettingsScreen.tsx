@@ -9,6 +9,7 @@ import {
 } from '../lib/push';
 import { COLORS, FONT, RADIUS, SPACING, WEIGHT } from '../lib/theme';
 import { BackButton } from '../components/ui/BackButton';
+import { toast } from '../lib/toast';
 
 type Kw = { id: string; keyword: string; notify: boolean };
 
@@ -71,27 +72,36 @@ export default function NotificationSettingsScreen() {
     })();
   }, []);
 
+  // 저장에 실패하면 스위치를 되돌리고 알린다(저장 안 됐는데 꺼진 것처럼 보이면 푸시가 계속 온다).
+  const SAVE_FAIL = '설정을 저장하지 못했어요. 다시 시도해 주세요.';
+
   const toggle = async () => {
     if (!userId) return;
     const next = !enabled;
     setEnabled(next);
-    await supabase.from('profiles')
+    const { error } = await supabase.from('profiles')
       .update({ notifications_enabled: next, updated_at: new Date().toISOString() })
       .eq('user_id', userId);
+    if (error) { setEnabled(!next); toast(SAVE_FAIL, 'error'); }
   };
 
   const toggleEventAlerts = async () => {
     if (!userId) return;
     const next = !eventAlerts;
     setEventAlerts(next);
-    await supabase.from('profiles')
+    const { error } = await supabase.from('profiles')
       .update({ event_alerts_enabled: next, updated_at: new Date().toISOString() })
       .eq('user_id', userId);
+    if (error) { setEventAlerts(!next); toast(SAVE_FAIL, 'error'); }
   };
 
   const toggleKeyword = async (id: string, next: boolean) => {
     setKeywords(prev => prev.map(k => (k.id === id ? { ...k, notify: next } : k)));
-    await supabase.from('user_keywords').update({ notify: next }).eq('id', id);
+    const { error } = await supabase.from('user_keywords').update({ notify: next }).eq('id', id);
+    if (error) {
+      setKeywords(prev => prev.map(k => (k.id === id ? { ...k, notify: !next } : k)));
+      toast(SAVE_FAIL, 'error');
+    }
   };
 
   return (

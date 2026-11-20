@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState, cloneElement } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import * as SplashScreen from 'expo-splash-screen';
 import { useFonts } from 'expo-font';
 import { NavigationContainer, createNavigationContainerRef } from '@react-navigation/native';
@@ -8,13 +8,13 @@ import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import { StatusBar } from 'expo-status-bar';
-import { Text, View } from 'react-native';
+import { View } from 'react-native';
 import type { RootStackParamList, TabParamList } from './lib/types';
 import { COLORS } from './lib/theme';
 import { AppTabBar } from './components/ui/AppTabBar';
 import { ensureAnonSession } from './lib/auth';
 import { migrateLocalToDB } from './lib/migrate';
-import { setupPushNotifications } from './lib/push';
+import { handleDevicePushTokenChange, setupPushNotifications } from './lib/push';
 import { fetchNoticeById } from './lib/notices';
 import { enableEventAlertsByDefault, fetchNotification, markNotificationRead } from './lib/notifications';
 import { loadSourceLabels } from './lib/sources';
@@ -48,27 +48,7 @@ import NotificationNoticesScreen from './screens/NotificationNoticesScreen';
 SplashScreen.preventAutoHideAsync().catch(() => {});
 const MIN_SPLASH_MS = 1500; // 콜드 스타트 스플래시 최소 표시 시간
 
-// 전역 기본 글꼴: Pretendard. 컴포넌트가 지정한 style(fontWeight·색 등)은 그대로 우선한다.
-// variable 폰트라 기존 fontWeight 값이 그대로 굵기를 선택. Text.render를 한 번만 패치해
-// 모든 <Text>에 base fontFamily를 주입(개별 style이 덮어쓰지 않도록 배열 앞에 병합).
-const TextAny = Text as any;
-if (!TextAny.__fontPatched && typeof TextAny.render === 'function') {
-  const origRender = TextAny.render;
-  TextAny.render = function (...args: any[]) {
-    const el = origRender.apply(this, args);
-    // 예외 시 원본 그대로 반환 → 글꼴 패치가 어떤 경우에도 크래시를 내지 않게 보호.
-    try {
-      return cloneElement(el, {
-        style: [{ fontFamily: 'Pretendard' }, el?.props?.style],
-        // Dynamic Type 지원하되 과도한 확대로 레이아웃이 깨지지 않게 상한(1.6배).
-        maxFontSizeMultiplier: el?.props?.maxFontSizeMultiplier ?? 1.6,
-      });
-    } catch {
-      return el;
-    }
-  };
-  TextAny.__fontPatched = true;
-}
+// 전역 기본 글꼴(Pretendard)·큰 글씨 상한은 lib/defaultFont.ts 가 index.ts 에서 먼저 적용한다.
 
 const Stack = createNativeStackNavigator<RootStackParamList>();
 const Tab = createBottomTabNavigator<TabParamList>();
@@ -137,9 +117,42 @@ function Tabs() {
   );
 }
 
+// 서버에 이 계정의 프로필이 있는지. 조회 자체가 실패하면(오프라인 등) 'unknown'.
+async function checkProfile(userId: string): Promise<'yes' | 'no' | 'unknown'> {
+  const { data, error } = await supabase
+    .from('profiles')
+    .select('user_id')
+    .eq('user_id', userId)
+    .maybeSingle();
+  if (error) return 'unknown';
+  return data ? 'yes' : 'no';
+}
+
+function resetToOnboarding(): void {
+  waitUntilNavReady().then((ok) => {
+    if (ok) navigationRef.reset({ index: 0, routes: [{ name: 'Onboarding' }] });
+  });
+}
+
+// 프로필 확인이 네트워크 문제로 실패했을 때 뒤에서 몇 번 더 확인한다.
+// 정말 프로필이 없으면 그때 온보딩으로 보내고, 있으면 로컬 표시를 남긴다.
+async function recheckProfileLater(userId: string): Promise<void> {
+  for (const delayMs of [3000, 10000, 30000, 60000]) {
+    await new Promise((r) => setTimeout(r, delayMs));
+    const status = await checkProfile(userId).catch(() => 'unknown' as const);
+    if (status === 'unknown') continue;
+    setKnownProfile(status === 'yes');
+    if (status === 'no') resetToOnboarding();
+    else enableEventAlertsByDefault(userId).catch(() => {});
+    return;
+  }
+}
+
 export default function App() {
   const [ready, setReady] = useState(false);
-  const [fontsLoaded] = useFonts({ Pretendard: require('./assets/fonts/PretendardVariable.ttf') });
+  const [fontsLoaded, fontError] = useFonts({ Pretendard: require('./assets/fonts/PretendardVariable.ttf') });
+  // 글꼴 로드가 실패해도 시스템 글꼴로 계속 간다(스플래시에 갇히지 않게).
+  const fontsSettled = fontsLoaded || !!fontError;
   const [hasProfile, setHasProfile] = useState(false);
   const initStartTime = useRef(Date.now()).current;
   // 스플래시 최소 표시 보장(min). 준비가 더 빨랐으면 남은 시간만 기다렸다가 ready.
@@ -162,29 +175,28 @@ export default function App() {
       try {
         const session = await ensureAnonSession();
         if (session) {
+          const uid = session.user.id;
           await migrateLocalToDB();
           // 출처 표시 이름 캐시 예열(parser_key→name). 첫 피드 렌더 전에 채워 cau_ 깜빡임 방지.
           loadSourceLabels();
           // 단과대/학과 이름 캐시 예열(마이페이지 표시용).
           loadOrgNames();
-          const { data, error } = await supabase
-            .from('profiles')
-            .select('user_id')
-            .eq('user_id', session.user.id)
-            .maybeSingle();
-          // 조회 실패(오프라인 등)는 판단 근거가 없으니 로컬 표시를 건드리지 않는다.
-          if (!error) setKnownProfile(!!data);
+          const status = await checkProfile(uid);
+          if (status !== 'unknown') setKnownProfile(status === 'yes');
           if (!knownProfile) {
-            setHasProfile(!!data);
-          } else if (!error && !data) {
+            // 조회 실패(unknown)를 '프로필 없음'으로 보면 기존 사용자가 온보딩에 갇힌다 →
+            // 세션이 있으니 일단 탭 화면으로 보내고, 뒤에서 다시 확인해 정말 없으면 그때 온보딩으로.
+            setHasProfile(status !== 'no');
+          } else if (status === 'no') {
             // 로컬엔 온보딩 완료로 남았는데 서버엔 프로필이 없다(세션 유실 등) → 온보딩으로 보낸다.
-            if (await waitUntilNavReady()) navigationRef.reset({ index: 0, routes: [{ name: 'Onboarding' }] });
+            resetToOnboarding();
           }
+          if (status === 'unknown') recheckProfileLater(uid);
           // 푸시 등록은 UI 블록하지 않도록 fire-and-forget. 채널 생성 + 권한이 있으면 토큰 저장.
           // 권한을 묻는 건 온보딩을 마친 사람만(아직 안 물은 경우). 새 사용자는 온보딩 마지막 단계에서 이유와 함께 묻는다.
-          setupPushNotifications({ ask: !!data });
+          setupPushNotifications({ ask: status === 'yes' });
           // 행사 알림은 이 버전부터 생긴 기능 → 값이 없는 사람만 한 번 켠다(끈 사람은 그대로).
-          if (data) enableEventAlertsByDefault(session.user.id).catch(() => {});
+          if (status === 'yes') enableEventAlertsByDefault(uid).catch(() => {});
         }
       } catch (e) {
         console.error('[App] init failed', e);
@@ -196,23 +208,28 @@ export default function App() {
 
   // 초기화 + 폰트 로드가 모두 끝나면 스플래시 해제 (글꼴 깜빡임 방지)
   useEffect(() => {
-    if (ready && fontsLoaded) SplashScreen.hideAsync().catch(() => {});
-  }, [ready, fontsLoaded]);
+    if (ready && fontsSettled) SplashScreen.hideAsync().catch(() => {});
+  }, [ready, fontsSettled]);
 
   // 알림 탭 라우팅: 앱 실행 중(워밍) 리스너 + 콜드 스타트(앱이 알림으로 열림) 처리
   useEffect(() => {
-    const sub = Notifications.addNotificationResponseReceivedListener((resp) => {
+    // 처리한 응답은 지운다. 안 지우면 Android 에서 프로세스가 살아 있는 채 앱 화면만 다시 만들어질 때
+    // getLastNotificationResponse 가 옛 응답을 또 돌려줘 같은 공지로 다시 이동한다.
+    const handleResponse = (resp: Notifications.NotificationResponse) => {
+      try { Notifications.clearLastNotificationResponse(); } catch {}
       routeFromNotificationData(resp.notification.request.content.data);
-    });
+    };
+    const sub = Notifications.addNotificationResponseReceivedListener(handleResponse);
     // 콜드 스타트: 앱을 띄운 마지막 알림 응답이 있으면 라우팅
     const last = Notifications.getLastNotificationResponse();
-    if (last) routeFromNotificationData(last.notification.request.content.data);
-    // 기기 푸시 토큰이 바뀌면(드물게 OS 가 교체) Expo 토큰을 다시 받아 저장한다.
-    const tokenSub = Notifications.addPushTokenListener(() => { setupPushNotifications(); });
+    if (last) handleResponse(last);
+    // 기기 푸시 토큰이 실제로 바뀌면(드물게 OS 가 교체) Expo 토큰을 다시 받아 저장한다.
+    // (토큰을 받는 것만으로도 이 이벤트가 오므로 같은 토큰·진행 중 이벤트는 push.ts 에서 거른다.)
+    const tokenSub = Notifications.addPushTokenListener(handleDevicePushTokenChange);
     return () => { sub.remove(); tokenSub.remove(); };
   }, []);
 
-  if (!ready || !fontsLoaded) {
+  if (!ready || !fontsSettled) {
     return (
       <SafeAreaProvider>
         <View style={{ flex: 1, backgroundColor: COLORS.bg }} />

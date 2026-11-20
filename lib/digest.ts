@@ -2,7 +2,7 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { supabase } from './supabase';
 import type { Notice, NoticeMeta, Profile, UserKeyword } from './types';
-import { metaOf, sourceOf } from './format';
+import { kstDayKey, metaOf, sourceOf } from './format';
 import { isMismatch, calculateMatchScore } from './matching';
 import { fetchReadIds } from './read';
 import { NOTICE_CARD_SELECT } from './notices';
@@ -25,7 +25,7 @@ async function loadCache(): Promise<DigestCache | null> {
 }
 
 async function saveCache(ids: string[]): Promise<void> {
-  const date = new Date().toISOString().slice(0, 10);
+  const date = kstDayKey(new Date());
   await AsyncStorage.setItem(CACHE_KEY, JSON.stringify({ date, notice_ids: ids }));
 }
 
@@ -33,26 +33,29 @@ async function appendCache(newIds: string[]): Promise<void> {
   const cached = await loadCache();
   const existing = cached?.notice_ids ?? [];
   const merged = [...existing, ...newIds.filter(id => !existing.includes(id))];
-  const date = new Date().toISOString().slice(0, 10);
+  const date = kstDayKey(new Date());
   await AsyncStorage.setItem(CACHE_KEY, JSON.stringify({ date, notice_ids: merged }));
 }
 
-// 매칭 점수 기반 notice ID 목록 계산 (excludeIds 제외)
-async function computeDigestIds(excludeIds: string[], limit: number): Promise<string[]> {
+// 매칭 점수 기반 notice ID 목록 계산 (excludeIds 제외).
+// 계산할 수 없으면(세션·프로필 없음, 조회 실패) null — 호출부가 빈 결과를 '오늘 추천'으로 저장하지 않게.
+async function computeDigestIds(excludeIds: string[], limit: number): Promise<string[] | null> {
   const { data: { session } } = await supabase.auth.getSession();
-  if (!session) return [];
+  if (!session) return null;
 
   const [profileRes, keywordsRes, prefsRes, readRes, noticesRes, disabledSources] = await Promise.all([
     supabase.from('profiles').select('*').eq('user_id', session.user.id).maybeSingle(),
     supabase.from('user_keywords').select('keyword, title_only').eq('user_id', session.user.id),
     supabase.from('user_category_prefs').select('topic,is_enabled').eq('user_id', session.user.id),
     supabase.from('user_feed_state').select('notice_id').eq('user_id', session.user.id).not('read_at', 'is', null),
-    supabase.from('notices').select(NOTICE_CARD_SELECT).order('posted_at', { ascending: false }).limit(300),
+    // 교차출처 중복은 대표 1건만(홈·공지 탭과 같게) — 같은 공지가 추천에 두 번 뜨지 않게.
+    supabase.from('notices').select(NOTICE_CARD_SELECT).is('duplicate_of', null).order('posted_at', { ascending: false }).limit(300),
     fetchDisabledSources(session.user.id),
   ]);
 
+  if (profileRes.error || readRes.error || noticesRes.error) return null;
   const profile = profileRes.data as Profile | null;
-  if (!profile) return [];
+  if (!profile) return null;
 
   const keywords = (keywordsRes.data ?? []) as UserKeyword[];
   const disabledTopics = new Set<string>(
@@ -138,8 +141,9 @@ export function useDigest() {
       fetchDisabledSources(session.user.id),
     ]);
     if (!mounted.current) return;
-    setProfile((profRes.data as Profile) ?? null);
-    setDisabledTopics(new Set(((prefRes.data ?? []) as any[]).filter((p) => !p.is_enabled).map((p) => p.topic)));
+    // 조회 실패 시엔 기존 필터를 유지한다(프로필이 null 이 되면 필터 없이 다 보여 버린다).
+    if (!profRes.error) setProfile((profRes.data as Profile) ?? null);
+    if (!prefRes.error) setDisabledTopics(new Set(((prefRes.data ?? []) as any[]).filter((p) => !p.is_enabled).map((p) => p.topic)));
     setDisabledSources(ds);
   }, []);
 
@@ -158,15 +162,17 @@ export function useDigest() {
     setLoading(true);
     // 네트워크/스토리지 단계가 throw해도 홈이 스켈레톤에 갇히지 않도록 finally에서 해제.
     try {
-      const today = new Date().toISOString().slice(0, 10);
+      const today = kstDayKey(new Date());
       const cached = await loadCache();
 
       let ids: string[];
       if (cached && cached.date === today) {
         ids = cached.notice_ids;
       } else {
-        ids = await computeDigestIds([], 4);
-        await saveCache(ids);
+        // 계산에 실패하면 저장하지 않는다 → 다음 진입·당겨서 새로고침 때 다시 계산.
+        const computed = await computeDigestIds([], 4);
+        ids = computed ?? [];
+        if (computed) await saveCache(computed);
       }
 
       const [notices, readSet] = await Promise.all([
@@ -187,16 +193,17 @@ export function useDigest() {
     }
   }, [loadFilters]);
 
-  // pull-to-refresh: 읽음 상태만 재동기
+  // pull-to-refresh: 읽음 상태만 재동기. 추천이 비어 있으면(계산 실패 등) 새로 계산한다.
   const refresh = useCallback(async () => {
-    await syncReadIds();
-  }, [syncReadIds]);
+    if (cacheIds.length === 0) await initialize();
+    else await syncReadIds();
+  }, [cacheIds.length, initialize, syncReadIds]);
 
   // 추천 더보기: 기존 캐시 제외 + 5개 추가
   const loadMore = useCallback(async () => {
     if (loadingMore) return;
     setLoadingMore(true);
-    const newIds = await computeDigestIds(cacheIds, 5);
+    const newIds = (await computeDigestIds(cacheIds, 5)) ?? [];
     if (newIds.length > 0) {
       await appendCache(newIds);
       const newNotices = await fetchNoticesByIds(newIds);

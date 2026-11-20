@@ -9,6 +9,7 @@ import { supabase } from '../lib/supabase';
 import { COLORS, FONT, RADIUS, SPACING, WEIGHT } from '../lib/theme';
 import { CloseIcon } from '../components/ui/icons';
 import { BackButton } from '../components/ui/BackButton';
+import { toast } from '../lib/toast';
 
 type Keyword = { id: string; keyword: string; notify: boolean; title_only: boolean };
 
@@ -44,24 +45,36 @@ export default function KeywordManageScreen() {
     });
   }, []);
 
-  const addKeyword = async (text: string) => {
-    if (!text || adding) return;
-    if (keywords.some(k => k.keyword === text)) return;
+  // 결과: added(추가됨) / duplicate(이미 있음) / busy(다른 추가가 진행 중) / failed(저장 실패)
+  const addKeyword = async (text: string): Promise<'added' | 'duplicate' | 'busy' | 'failed'> => {
+    if (!text) return 'failed';
+    if (adding) return 'busy';
+    if (keywords.some(k => k.keyword === text)) return 'duplicate';
     setAdding(true);
-    const { data: { session } } = await supabase.auth.getSession();
-    if (!session) { setAdding(false); return; }
-    const { data } = await supabase.from('user_keywords')
-      .insert({ user_id: session.user.id, keyword: text, notify: true })
-      .select('id,keyword,notify,title_only').single();
-    if (data) setKeywords(prev => [data as Keyword, ...prev]);
-    setAdding(false);
+    try {
+      const { data: { session } } = await supabase.auth.getSession();
+      if (!session) return 'failed';
+      const { data, error } = await supabase.from('user_keywords')
+        .insert({ user_id: session.user.id, keyword: text, notify: true })
+        .select('id,keyword,notify,title_only').single();
+      if (error || !data) {
+        toast('키워드를 추가하지 못했어요. 다시 시도해 주세요.', 'error');
+        return 'failed';
+      }
+      setKeywords(prev => [data as Keyword, ...prev]);
+      return 'added';
+    } finally {
+      setAdding(false);
+    }
   };
 
+  // 입력칸은 실제로 추가됐을(또는 이미 있을) 때만 비운다 — 실패·진행 중이면 입력을 남겨 다시 누를 수 있게.
   const handleAdd = async () => {
     const text = input.trim();
     if (!text) return;
-    setInput('');
-    await addKeyword(text);
+    const result = await addKeyword(text);
+    if (result === 'added' || result === 'duplicate') setInput('');
+    if (result === 'duplicate') toast('이미 등록한 키워드예요');
   };
 
   // 인기 키워드 우선 + 큐레이션으로 채움 → 중복/이미등록 제거 → 최대 8개(두 줄).
@@ -71,14 +84,19 @@ export default function KeywordManageScreen() {
     .slice(0, MAX_RECO);
 
   const handleDelete = async (id: string) => {
-    await supabase.from('user_keywords').delete().eq('id', id);
+    const { error } = await supabase.from('user_keywords').delete().eq('id', id);
+    if (error) { toast('키워드를 삭제하지 못했어요. 다시 시도해 주세요.', 'error'); return; }
     setKeywords(prev => prev.filter(k => k.id !== id));
   };
 
-  // 매칭 범위 토글: 제목만 ↔ 제목+본문
+  // 매칭 범위 토글: 제목만 ↔ 제목+본문. 저장 실패 시 되돌린다.
   const handleToggleScope = async (id: string, titleOnly: boolean) => {
     setKeywords(prev => prev.map(k => k.id === id ? { ...k, title_only: titleOnly } : k));
-    await supabase.from('user_keywords').update({ title_only: titleOnly }).eq('id', id);
+    const { error } = await supabase.from('user_keywords').update({ title_only: titleOnly }).eq('id', id);
+    if (error) {
+      setKeywords(prev => prev.map(k => k.id === id ? { ...k, title_only: !titleOnly } : k));
+      toast('설정을 저장하지 못했어요. 다시 시도해 주세요.', 'error');
+    }
   };
 
   return (

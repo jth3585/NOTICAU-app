@@ -1,8 +1,9 @@
-import { useCallback, useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { supabase } from './supabase';
 import type { Notice, UserKeyword } from './types';
 import { NOTICE_CARD_SELECT } from './notices';
 import { logEvent } from './events';
+import { matchKeywordRow } from './matching';
 
 async function fetchBookmarkIds(): Promise<string[]> {
   const { data: { session } } = await supabase.auth.getSession();
@@ -119,11 +120,12 @@ export type BookmarkNotice = Notice & {
 export function useBookmarkNotices() {
   const [notices, setNotices] = useState<BookmarkNotice[]>([]);
   const [loading, setLoading] = useState(true);
-  const [loadedOnce, setLoadedOnce] = useState(false);
+  // ref 로 둔다: state 면 첫 로드가 끝나며 refresh 가 새로 만들어져 마운트 효과·포커스 효과가 한 번 더 돈다.
+  const loadedOnce = useRef(false);
   const mountedRef = useRef(true);
 
   const refresh = useCallback(async () => {
-    if (!loadedOnce) setLoading(true);
+    if (!loadedOnce.current) setLoading(true);
     // throw 시에도 스켈레톤에 갇히지 않도록 finally에서 로딩/loadedOnce 해제.
     try {
       const rows = await fetchBookmarkRows();
@@ -160,9 +162,10 @@ export function useBookmarkNotices() {
     } catch (e) {
       console.error('[bookmarks] refresh failed', e);
     } finally {
-      if (mountedRef.current) { setLoading(false); setLoadedOnce(true); }
+      loadedOnce.current = true;
+      if (mountedRef.current) setLoading(false);
     }
-  }, [loadedOnce]);
+  }, []);
 
   useEffect(() => {
     mountedRef.current = true;
@@ -183,11 +186,52 @@ export function useUserKeywords() {
     (async () => {
       const { data: { session } } = await supabase.auth.getSession();
       if (!session) return;
-      const { data } = await supabase.from('user_keywords').select('keyword, title_only').eq('user_id', session.user.id);
+      const { data } = await supabase.from('user_keywords').select('id, keyword, title_only').eq('user_id', session.user.id);
       if (mountedRef.current) setKeywords((data as UserKeyword[]) ?? []);
     })();
     return () => { mountedRef.current = false; };
   }, []);
 
   return keywords;
+}
+
+// 키워드매치 폴더용. 북마크 목록은 경량 select(본문 제외)라 '제목+본문' 키워드가 본문에만 있는 글을 놓친다.
+// → 본문까지 보는 키워드가 있을 때만, 제목으로는 안 걸린 북마크의 본문을 받아 붙여 돌려준다.
+export function useWithKeywordBodies<T extends Notice>(notices: T[], keywords: UserKeyword[]): T[] {
+  const [bodies, setBodies] = useState<Map<string, string | null>>(new Map());
+  const needsBody = keywords.some((k) => !k.title_only);
+  const missingKey = useMemo(() => {
+    if (!needsBody) return '';
+    return notices
+      .filter((n) => n.body_text == null && !bodies.has(n.id)
+        && !keywords.some((k) => matchKeywordRow(n.title ?? '', '', k)))
+      .map((n) => n.id)
+      .join(',');
+  }, [needsBody, notices, keywords, bodies]);
+
+  useEffect(() => {
+    if (!missingKey) return;
+    let alive = true;
+    (async () => {
+      const ids = missingKey.split(',');
+      const got = new Map<string, string | null>();
+      // .in() 필터는 URL 에 실리므로 100개씩 나눠 받는다.
+      for (let i = 0; i < ids.length; i += 100) {
+        const chunk = ids.slice(i, i + 100);
+        const { data, error } = await supabase.from('notices').select('id, body_text').in('id', chunk);
+        if (error) return; // 다음 렌더/진입에서 다시 시도
+        const rows = (data ?? []) as { id: string; body_text: string | null }[];
+        rows.forEach((r) => got.set(r.id, r.body_text));
+        // 테이블 조회에 안 잡힌 것(인스타 공지 등)은 본문 없음으로 기록해 다시 요청하지 않는다.
+        chunk.forEach((id) => { if (!got.has(id)) got.set(id, null); });
+      }
+      if (alive) setBodies((prev) => new Map([...prev, ...got]));
+    })();
+    return () => { alive = false; };
+  }, [missingKey]);
+
+  return useMemo(() => (bodies.size === 0 ? notices : notices.map((n) => {
+    const b = bodies.get(n.id);
+    return b != null && n.body_text == null ? { ...n, body_text: b } : n;
+  })), [notices, bodies]);
 }

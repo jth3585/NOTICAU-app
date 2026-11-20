@@ -5,7 +5,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { useFocusEffect, useNavigation, useScrollToTop } from '@react-navigation/native';
 import { useTabReselect } from '../lib/useTabReselect';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
-import { useBookmarkNotices, useUserKeywords, removeBookmark, type BookmarkNotice } from '../lib/bookmarks';
+import { useBookmarkNotices, useUserKeywords, useWithKeywordBodies, removeBookmark, type BookmarkNotice } from '../lib/bookmarks';
 import { useFolders, createFolder, renameFolder, deleteFolder, setBookmarkFolder, type Folder } from '../lib/folders';
 import { useReadSet } from '../lib/read';
 import { useLastSeenAt } from '../lib/new-badge';
@@ -30,6 +30,8 @@ export default function BookmarkScreen() {
   const { isRead, refresh: refreshRead } = useReadSet();
   const { lastSeenAt } = useLastSeenAt();
   const keywords = useUserKeywords();
+  // '제목+본문' 키워드 매칭용으로 필요한 북마크만 본문을 붙인 목록(키워드매치 폴더 개수).
+  const keywordNotices = useWithKeywordBodies(notices, keywords);
 
   // 폴더 생성/이름변경 모달 상태
   const [modal, setModal] = useState<{ mode: 'create' } | { mode: 'rename'; folder: Folder } | null>(null);
@@ -59,7 +61,7 @@ export default function BookmarkScreen() {
 
   const visibleNotices = notices.filter((n) => !removedIds.has(n.id));
   const unreadCount = notices.filter((n) => !isRead(n.id)).length;
-  const keywordCount = keywords.length ? notices.filter((n) => keywordMatches(n, keywords)).length : 0;
+  const keywordCount = keywords.length ? keywordNotices.filter((n) => keywordMatches(n, keywords)).length : 0;
 
   const submitModal = useCallback(async (name: string) => {
     const current = modal;

@@ -32,28 +32,46 @@ export function getCachedProfile(): Profile | null {
   return cached;
 }
 
-export async function loadProfile(): Promise<Profile | null> {
+// 서버에서 다시 읽어 캐시를 갱신한다. 조회가 실패하면(오프라인 등) false — 캐시는 그대로 둔다.
+// (실패를 '프로필 없음'으로 보고 null 을 퍼뜨리면 공지·행사 탭이 통째로 비어 버린다.)
+async function refreshCache(): Promise<boolean> {
   const { data: { session } } = await supabase.auth.getSession();
-  if (!session) { cached = null; emit(); return null; }
-  const { data } = await supabase
+  if (!session) { cached = null; emit(); return true; }
+  const { data, error } = await supabase
     .from('profiles').select('*').eq('user_id', session.user.id).maybeSingle();
+  if (error) return false;
   cached = (data as Profile) ?? null;
   emit();
+  return true;
+}
+
+export async function loadProfile(): Promise<Profile | null> {
+  await refreshCache();
   return cached;
 }
 
 // 낙관적 갱신: 캐시를 즉시 패치+브로드캐스트한 뒤 DB에 기록.
 // 매 호출마다 세션을 직접 얻으므로(마운트 시점 ref에 의존하지 않음) 화면 진입 직후 빠른
 // 변경에도 쓰기가 누락되지 않는다. 실패 시 서버에서 재동기화(다른 in-flight 변경을 덮지 않게
-// 스냅샷 롤백 대신 loadProfile로 정합성 회복).
+// 스냅샷 롤백 대신 loadProfile로 정합성 회복). 재동기화도 실패하면(오프라인) 이번에 바꾼
+// 필드만, 그 사이 다른 변경이 없었던 경우에 한해 되돌린다.
 export async function updateProfile(patch: Partial<Profile>): Promise<{ error: string | null }> {
   const { data: { session } } = await supabase.auth.getSession();
   if (!session) return { error: '로그인이 필요해요' };
+  const before = cached;
   if (cached) { cached = { ...cached, ...patch }; emit(); }
   const { error } = await supabase
     .from('profiles').update(patch as any).eq('user_id', session.user.id);
   if (error) {
-    await loadProfile().catch(() => {}); // 서버 최신값으로 재동기화
+    const synced = await refreshCache().catch(() => false);
+    if (!synced && cached && before) {
+      const reverted: any = { ...cached };
+      for (const k of Object.keys(patch) as (keyof Profile)[]) {
+        if (reverted[k] === patch[k]) reverted[k] = before[k];
+      }
+      cached = reverted as Profile;
+      emit();
+    }
     return { error: error.message };
   }
   return { error: null };

@@ -1,5 +1,11 @@
 import type { Notice, NoticeMeta, Source } from './types';
 
+// 한국 시간 기준 날짜 키(YYYY-MM-DD). 'new Date().toISOString().slice(0,10)' 은 UTC 날짜라
+// 한국에선 오전 9시에야 날짜가 바뀐다.
+export function kstDayKey(d: Date): string {
+  return new Date(d.getTime() + 9 * 3600000).toISOString().slice(0, 10);
+}
+
 // PostgREST 임베드가 객체/배열 어느 쪽으로 와도 단일 값으로 정규화.
 export function one<T>(v: T | T[] | null | undefined): T | null {
   if (Array.isArray(v)) return v[0] ?? null;
