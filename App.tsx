@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState, cloneElement } from 'react';
+import { useEffect, useState, cloneElement } from 'react';
 import * as SplashScreen from 'expo-splash-screen';
 import { useFonts } from 'expo-font';
 import { NavigationContainer, createNavigationContainerRef } from '@react-navigation/native';
@@ -19,6 +19,7 @@ import { fetchNoticeById } from './lib/notices';
 import { enableEventAlertsByDefault, fetchNotification, markNotificationRead } from './lib/notifications';
 import { loadSourceLabels } from './lib/sources';
 import { loadOrgNames } from './lib/org';
+import { hasKnownProfile, setKnownProfile } from './lib/profile';
 import { ToastHost } from './components/ui/ToastHost';
 import { OfflineBanner } from './components/ui/OfflineBanner';
 import { supabase } from './lib/supabase';
@@ -43,9 +44,8 @@ import NoticeDetailScreen from './screens/NoticeDetailScreen';
 import NotificationsScreen from './screens/NotificationsScreen';
 import NotificationNoticesScreen from './screens/NotificationNoticesScreen';
 
-// 콜드 스타트 시 네이티브 스플래시를 수동 제어 (init 완료 + 최소 표시시간 후 hide).
+// 콜드 스타트 시 네이티브 스플래시를 수동 제어 (첫 화면을 정할 수 있게 되면 바로 hide).
 SplashScreen.preventAutoHideAsync().catch(() => {});
-const MIN_SPLASH_MS = 1500; // 콜드 스타트 스플래시 최소 표시 시간
 
 // 전역 기본 글꼴: Pretendard. 컴포넌트가 지정한 style(fontWeight·색 등)은 그대로 우선한다.
 // variable 폰트라 기존 fontWeight 값이 그대로 굵기를 선택. Text.render를 한 번만 패치해
@@ -140,10 +140,16 @@ export default function App() {
   const [ready, setReady] = useState(false);
   const [fontsLoaded] = useFonts({ Pretendard: require('./assets/fonts/PretendardVariable.ttf') });
   const [hasProfile, setHasProfile] = useState(false);
-  const initStartTime = useRef(Date.now()).current;
 
   useEffect(() => {
     (async () => {
+      // 온보딩을 마친 기기면(로컬 표시) 세션 갱신·프로필 조회를 기다리지 않고 바로 탭 화면을 띄운다.
+      // 아래 초기화는 그 뒤에서 계속 돈다. 처음 쓰는 사람만 네트워크 확인을 기다린다.
+      const knownProfile = await hasKnownProfile();
+      if (knownProfile) {
+        setHasProfile(true);
+        setReady(true);
+      }
       // 어떤 init이 실패해도 흰 화면에 갇히지 않도록 finally에서 ready 보장.
       try {
         const session = await ensureAnonSession();
@@ -153,12 +159,19 @@ export default function App() {
           loadSourceLabels();
           // 단과대/학과 이름 캐시 예열(마이페이지 표시용).
           loadOrgNames();
-          const { data } = await supabase
+          const { data, error } = await supabase
             .from('profiles')
             .select('user_id')
             .eq('user_id', session.user.id)
             .maybeSingle();
-          setHasProfile(!!data);
+          // 조회 실패(오프라인 등)는 판단 근거가 없으니 로컬 표시를 건드리지 않는다.
+          if (!error) setKnownProfile(!!data);
+          if (!knownProfile) {
+            setHasProfile(!!data);
+          } else if (!error && !data) {
+            // 로컬엔 온보딩 완료로 남았는데 서버엔 프로필이 없다(세션 유실 등) → 온보딩으로 보낸다.
+            if (await waitUntilNavReady()) navigationRef.reset({ index: 0, routes: [{ name: 'Onboarding' }] });
+          }
           // 푸시 등록은 UI 블록하지 않도록 fire-and-forget. 채널 생성 + 권한이 있으면 토큰 저장.
           // 권한을 묻는 건 온보딩을 마친 사람만(아직 안 물은 경우). 새 사용자는 온보딩 마지막 단계에서 이유와 함께 묻는다.
           setupPushNotifications({ ask: !!data });
@@ -168,9 +181,6 @@ export default function App() {
       } catch (e) {
         console.error('[App] init failed', e);
       } finally {
-        // 스플래시 최소 표시 보장(min). init이 더 빨랐으면 남은 시간만 대기.
-        const remaining = MIN_SPLASH_MS - (Date.now() - initStartTime);
-        if (remaining > 0) await new Promise((r) => setTimeout(r, remaining));
         setReady(true);
       }
     })();

@@ -1,5 +1,6 @@
 import { createContext, useCallback, useContext, useState, type ReactNode } from 'react';
 import { supabase } from '../lib/supabase';
+import { setKnownProfile } from '../lib/profile';
 
 export type OnboardingData = {
   grade: number | null;
@@ -66,6 +67,8 @@ export function useSaveOnboardingProfile() {
       onboarded_at: new Date().toISOString(),
       event_alerts_enabled: true, // 내 학과 행사 알림: 새 가입자는 처음부터 켠다
     });
-    return error ? '저장하지 못했어요. 잠시 후 다시 시도해 주세요.' : null;
+    if (error) return '저장하지 못했어요. 잠시 후 다시 시도해 주세요.';
+    setKnownProfile(true);
+    return null;
   }, [grade, campus, college, dept, dept_secondary, enrollment_status, is_dormitory]);
 }

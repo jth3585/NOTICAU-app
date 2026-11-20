@@ -1,6 +1,19 @@
 import { useEffect, useState } from 'react';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import { supabase } from './supabase';
 import type { Profile } from './types';
+
+// "이 기기에서 온보딩을 마쳤다"는 로컬 표시. 앱을 켤 때 이 값이 있으면 프로필 조회(네트워크)를
+// 기다리지 않고 바로 탭 화면을 띄운다. 탈퇴 시 AsyncStorage.clear()로 함께 지워진다.
+const PROFILE_FLAG = 'noticau:has_profile';
+
+export async function hasKnownProfile(): Promise<boolean> {
+  try { return (await AsyncStorage.getItem(PROFILE_FLAG)) === '1'; } catch { return false; }
+}
+
+export function setKnownProfile(has: boolean): void {
+  (has ? AsyncStorage.setItem(PROFILE_FLAG, '1') : AsyncStorage.removeItem(PROFILE_FLAG)).catch(() => {});
+}
 
 // 앱 전역 단일 프로필 캐시 + 구독. 프로필 수정이 모든 화면에 즉시 반영되도록
 // (DB 라운드트립을 기다리지 않는 낙관적 브로드캐스트) 하기 위한 작은 스토어.

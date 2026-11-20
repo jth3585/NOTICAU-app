@@ -42,12 +42,13 @@ async function computeDigestIds(excludeIds: string[], limit: number): Promise<st
   const { data: { session } } = await supabase.auth.getSession();
   if (!session) return [];
 
-  const [profileRes, keywordsRes, prefsRes, readRes, noticesRes] = await Promise.all([
+  const [profileRes, keywordsRes, prefsRes, readRes, noticesRes, disabledSources] = await Promise.all([
     supabase.from('profiles').select('*').eq('user_id', session.user.id).maybeSingle(),
     supabase.from('user_keywords').select('keyword, title_only').eq('user_id', session.user.id),
     supabase.from('user_category_prefs').select('topic,is_enabled').eq('user_id', session.user.id),
     supabase.from('user_feed_state').select('notice_id').eq('user_id', session.user.id).not('read_at', 'is', null),
     supabase.from('notices').select(NOTICE_CARD_SELECT).order('posted_at', { ascending: false }).limit(300),
+    fetchDisabledSources(session.user.id),
   ]);
 
   const profile = profileRes.data as Profile | null;
@@ -58,25 +59,24 @@ async function computeDigestIds(excludeIds: string[], limit: number): Promise<st
     ((prefsRes.data ?? []) as any[]).filter(p => !p.is_enabled).map(p => p.topic),
   );
   const readIds = new Set<string>(((readRes.data ?? []) as any[]).map((r: any) => r.notice_id));
-  const disabledSources = await fetchDisabledSources(session.user.id);
   const notices = (noticesRes.data ?? []) as Notice[];
   const excludeSet = new Set(excludeIds);
 
-  // 스코어링의 키워드 항목만 body_text가 필요 → 키워드가 있을 때만 본문을 별도 로드해 채운다.
-  // (키워드 미등록 사용자는 목록 경량 select 그대로 → 본문 페이로드 0.)
-  if (keywords.length > 0) {
-    const ids = notices.map((n) => n.id);
-    if (ids.length > 0) {
-      const { data: bodies } = await supabase.from('notices').select('id, body_text').in('id', ids);
-      const bmap = new Map(((bodies ?? []) as any[]).map((b) => [b.id, b.body_text]));
-      notices.forEach((n) => { if (bmap.has(n.id)) (n as any).body_text = bmap.get(n.id); });
-    }
-  }
-
-  const scored = notices
+  // 점수를 매길 후보(내 조건에 맞고, 안 읽었고, 마감 안 지난 것)만 남긴다. 본문이 필요 없는 단계.
+  const candidates = notices
     .filter(n => !excludeSet.has(n.id))
     .filter(n => !isMismatch(n, metaOf(n), profile, disabledTopics, readIds, disabledSources))
-    .filter(n => !isExpiredActionable(metaOf(n)))
+    .filter(n => !isExpiredActionable(metaOf(n)));
+
+  // 스코어링의 키워드 항목만 body_text가 필요 → 키워드가 있을 때만, 후보에 한해 본문을 받는다.
+  // (예전엔 300행 전부의 본문을 받았는데, 걸러질 공지 본문은 점수에 쓰이지 않는다.)
+  if (keywords.length > 0 && candidates.length > 0) {
+    const { data: bodies } = await supabase.from('notices').select('id, body_text').in('id', candidates.map((n) => n.id));
+    const bmap = new Map(((bodies ?? []) as any[]).map((b) => [b.id, b.body_text]));
+    candidates.forEach((n) => { if (bmap.has(n.id)) (n as any).body_text = bmap.get(n.id); });
+  }
+
+  const scored = candidates
     .map(n => ({
       id: n.id,
       topic: metaOf(n)?.topic ?? null,

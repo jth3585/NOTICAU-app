@@ -40,7 +40,11 @@ export default function HomeScreen() {
   // 탭 포커스 시 읽음 상태 재동기 + 피드 전체 재조회.
   // (호칭만 갱신하면 캠퍼스·학과·재학상태·타학과보기 등 프로필 변경이 피드 필터에 반영되지
   //  않아 stale 됐었음. load()는 로딩 스피너를 토글하지 않아 조용히 갱신된다.)
+  // 첫 포커스(화면이 막 생겼을 때)는 건너뛴다: 피드·디지스트 훅이 마운트하면서 이미 같은 조회를
+  // 하므로, 여기서 또 부르면 홈 진입 때 같은 요청이 두 벌씩 나가 첫 화면이 늦어진다.
+  const firstFocus = useRef(true);
   useFocusEffect(useCallback(() => {
+    if (firstFocus.current) { firstFocus.current = false; return; }
     syncReadIds(); feed.reload(); refreshUnread();
   }, [syncReadIds, feed.reload, refreshUnread]));
 
